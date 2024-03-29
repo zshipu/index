@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Go1.13 defer 的性能是如何提高的 | 知识铺的博客</title>
+    <meta property="og:title" content="Go1.13 defer 的性能是如何提高的 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-09-07T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-09-07T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Go1.13 defer 的性能是如何提高的">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/talk/2019-09-07-go1.13-defer/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一测试">一、测试</a>
+      <ul>
+        <li><a href="#go112">Go1.12</a></li>
+        <li><a href="#go113">Go1.13</a></li>
+      </ul>
+    </li>
+    <li><a href="#二看一下">二、看一下</a>
+      <ul>
+        <li><a href="#之前go112">之前（Go1.12）</a></li>
+        <li><a href="#现在go113">现在（Go1.13）</a></li>
+      </ul>
+    </li>
+    <li><a href="#三观察源码">三、观察源码</a>
+      <ul>
+        <li><a href="#_defer">_defer</a></li>
+        <li><a href="#deferprocstack">deferprocStack</a></li>
+        <li><a href="#deferproc">deferproc</a></li>
+        <li><a href="#小结">小结</a></li>
+      </ul>
+    </li>
+    <li><a href="#四编译器如何选择">四、编译器如何选择</a>
+      <ul>
+        <li><a href="#esc">esc</a></li>
+        <li><a href="#ssa">ssa</a></li>
+        <li><a href="#小结-1">小结</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go1.13 defer 的性能是如何提高的</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年9月7日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>最近 Go1.13 终于发布了，其中一个值得关注的特性就是 <strong>defer 在大部分的场景下性能提升了30%</strong>，但是官方并没有具体写是怎么提升的，这让大家非常的疑惑。而我因为之前写过<a href="https://book.zshipu.com/golang/defer/defer.html">《深入理解 Go defer》</a> 和 <a href="https://book.zshipu.com/golang/talk/defer-loss.html">《Go defer 会有性能损耗，尽量不要用？》</a> 这类文章，因此我挺感兴趣它是做了什么改变才能得到这样子的结果，所以今天和大家一起探索其中奥妙。</p>
+<h2 id="一测试">一、测试</h2>
+<h3 id="go112">Go1.12</h3>
+<pre tabindex="0"><code>$ go test -bench=. -benchmem -run=none
+goos: darwin
+goarch: amd64
+pkg: github.com/zshipu/awesomeDefer
+BenchmarkDoDefer-4      	20000000	        91.4 ns/op	      48 B/op	       1 allocs/op
+BenchmarkDoNotDefer-4   	30000000	        41.6 ns/op	      48 B/op	       1 allocs/op
+PASS
+ok  	github.com/zshipu/awesomeDefer	3.234s
+</code></pre><h3 id="go113">Go1.13</h3>
+<pre tabindex="0"><code>$ go test -bench=. -benchmem -run=none
+goos: darwin
+goarch: amd64
+pkg: github.com/zshipu/awesomeDefer
+BenchmarkDoDefer-4      	15986062	        74.7 ns/op	      48 B/op	       1 allocs/op
+BenchmarkDoNotDefer-4   	29231842	        40.3 ns/op	      48 B/op	       1 allocs/op
+PASS
+ok  	github.com/zshipu/awesomeDefer	3.444s
+</code></pre><p>在开场，我先以不标准的测试基准验证了先前的测试用例，确确实实在这两个版本中，<code>defer</code> 的性能得到了提高，但是看上去似乎不是百分百提高 30 %。</p>
+<h2 id="二看一下">二、看一下</h2>
+<h3 id="之前go112">之前（Go1.12）</h3>
+<pre tabindex="0"><code>    0x0070 00112 (main.go:6)    CALL    runtime.deferproc(SB)
+    0x0075 00117 (main.go:6)    TESTL    AX, AX
+    0x0077 00119 (main.go:6)    JNE    137
+    0x0079 00121 (main.go:7)    XCHGL    AX, AX
+    0x007a 00122 (main.go:7)    CALL    runtime.deferreturn(SB)
+    0x007f 00127 (main.go:7)    MOVQ    56(SP), BP
+</code></pre><h3 id="现在go113">现在（Go1.13）</h3>
+<pre tabindex="0"><code>	0x006e 00110 (main.go:4)	MOVQ	AX, (SP)
+	0x0072 00114 (main.go:4)	CALL	runtime.deferprocStack(SB)
+	0x0077 00119 (main.go:4)	TESTL	AX, AX
+	0x0079 00121 (main.go:4)	JNE	139
+	0x007b 00123 (main.go:7)	XCHGL	AX, AX
+	0x007c 00124 (main.go:7)	CALL	runtime.deferreturn(SB)
+	0x0081 00129 (main.go:7)	MOVQ	112(SP), BP
+</code></pre><p>从汇编的角度来看，像是 <code>runtime.deferproc</code> 改成了 <code>runtime.deferprocStack</code> 调用，难道是做了什么优化，我们<strong>抱着疑问</strong>继续看下去。</p>
+<h2 id="三观察源码">三、观察源码</h2>
+<h3 id="_defer">_defer</h3>
+<pre tabindex="0"><code>type _defer struct {
+	siz     int32
+	siz     int32 // includes both arguments and results
+	started bool
+	heap    bool
+	sp      uintptr // sp at time of defer
+	pc      uintptr
+	fn      *funcval
+	...
+</code></pre><p>相较于以前的版本，最小单元的 <code>_defer</code> 结构体主要是新增了 <code>heap</code> 字段，用于标识这个 <code>_defer</code> 是在堆上，还是在栈上进行分配，其余字段并没有明确变更，那我们可以把聚焦点放在 <code>defer</code> 的堆栈分配上了，看看是做了什么事。</p>
+<h3 id="deferprocstack">deferprocStack</h3>
+<pre tabindex="0"><code>func deferprocStack(d *_defer) {
+	gp := getg()
+	if gp.m.curg != gp {
+		throw(&#34;defer on system stack&#34;)
+	}
+	
+	d.started = false
+	d.heap = false
+	d.sp = getcallersp()
+	d.pc = getcallerpc()
+
+	*(*uintptr)(unsafe.Pointer(&amp;d._panic)) = 0
+	*(*uintptr)(unsafe.Pointer(&amp;d.link)) = uintptr(unsafe.Pointer(gp._defer))
+	*(*uintptr)(unsafe.Pointer(&amp;gp._defer)) = uintptr(unsafe.Pointer(d))
+
+	return0()
+}
+</code></pre><p>这一块代码挺常规的，主要是获取调用 <code>defer</code> 函数的函数栈指针、传入函数的参数具体地址以及PC（程序计数器），这块在前文 <a href="https://book.zshipu.com/golang/defer/defer.html">《深入理解 Go defer》</a> 有详细介绍过，这里就不再赘述了。</p>
+<p>那这个 <code>deferprocStack</code> 特殊在哪呢，我们可以看到它把 <code>d.heap</code> 设置为了 <code>false</code>，也就是代表 <code>deferprocStack</code> 方法是针对将 <code>_defer</code> 分配在栈上的应用场景的。</p>
+<h3 id="deferproc">deferproc</h3>
+<p>那么问题来了，它又在哪里处理分配到堆上的应用场景呢？</p>
+<pre tabindex="0"><code>func newdefer(siz int32) *_defer {
+	...
+	d.heap = true
+	d.link = gp._defer
+	gp._defer = d
+	return d
+}
+</code></pre><p>那么 <code>newdefer</code> 是在哪里调用的呢，如下：</p>
+<pre tabindex="0"><code>func deferproc(siz int32, fn *funcval) { // arguments of fn follow fn
+	...
+	sp := getcallersp()
+	argp := uintptr(unsafe.Pointer(&amp;fn)) + unsafe.Sizeof(fn)
+	callerpc := getcallerpc()
+
+	d := newdefer(siz)
+	...
+}
+</code></pre><p>非常明确，先前的版本中调用的 <code>deferproc</code> 方法，现在被用于对应分配到堆上的场景了。</p>
+<h3 id="小结">小结</h3>
+<ul>
+<li>第一点：可以确定的是 <code>deferproc</code> 并没有被去掉，而是流程被优化了。</li>
+<li>第二点：编译器会根据应用场景去选择使用 <code>deferproc</code> 还是 <code>deferprocStack</code> 方法，他们分别是针对分配在堆上和栈上的使用场景。</li>
+</ul>
+<h2 id="四编译器如何选择">四、编译器如何选择</h2>
+<h3 id="esc">esc</h3>
+<pre tabindex="0"><code>// src/cmd/compile/internal/gc/esc.go
+case ODEFER:
+	if e.loopdepth == 1 { // top level
+		n.Esc = EscNever // force stack allocation of defer record (see ssa.go)
+		break
+	}
+</code></pre><h3 id="ssa">ssa</h3>
+<pre tabindex="0"><code>// src/cmd/compile/internal/gc/ssa.go
+case ODEFER:
+	d := callDefer
+	if n.Esc == EscNever {
+		d = callDeferStack
+	}
+    s.call(n.Left, d)
+</code></pre><h3 id="小结-1">小结</h3>
+<p>这块结合来看，核心就是当 <code>e.loopdepth == 1</code> 时，会将逃逸分析结果 <code>n.Esc</code> 设置为 <code>EscNever</code>，也就是将 <code>_defer</code> 分配到栈上，那这个 <code>e.loopdepth</code> 到底又是何方神圣呢，我们再详细看看代码，如下：</p>
+<pre tabindex="0"><code>// src/cmd/compile/internal/gc/esc.go
+type NodeEscState struct {
+	Curfn             *Node
+	Flowsrc           []EscStep 
+	Retval            Nodes    
+	Loopdepth         int32  
+	Level             Level
+	Walkgen           uint32
+	Maxextraloopdepth int32
+}
+</code></pre><p>这里重点查看 <code>Loopdepth</code> 字段，目前它共有三个值标识，分别是:</p>
+<ul>
+<li>-1：全局。</li>
+<li>0：返回变量。</li>
+<li>1：顶级函数，又或是内部函数的不断增长值。</li>
+</ul>
+<p>这个读起来有点绕，结合我们上述 <code>e.loopdepth == 1</code> 的表述来看，也就是当 <code>defer func</code> 是顶级函数时，将会分配到栈上。但是若在  <code>defer func</code> 外层出现显式的迭代循环，又或是出现隐式迭代，将会分配到堆上。其实深层表示的还是迭代深度的意思，我们可以来证实一下刚刚说的方向，显式迭代的代码如下：</p>
+<pre tabindex="0"><code>func main() {
+	for p := 0; p &lt; 10; p++ {
+		defer func() {
+			for i := 0; i &lt; 20; i++ {
+				log.Println(&#34;zshipu&#34;)
+			}
+		}()
+	}
+}
+</code></pre><p>查看汇编情况：</p>
+<pre tabindex="0"><code>$ go tool compile -S main.go
+&#34;&#34;.main STEXT size=122 args=0x0 locals=0x20
+	0x0000 00000 (main.go:15)	TEXT	&#34;&#34;.main(SB), ABIInternal, $32-0
+	...
+	0x0048 00072 (main.go:17)	CALL	runtime.deferproc(SB)
+	0x004d 00077 (main.go:17)	TESTL	AX, AX
+	0x004f 00079 (main.go:17)	JNE	83
+	0x0051 00081 (main.go:17)	JMP	33
+	0x0053 00083 (main.go:17)	XCHGL	AX, AX
+	0x0054 00084 (main.go:17)	CALL	runtime.deferreturn(SB)
+	...
+</code></pre><p>显然，最终 <code>defer</code> 调用的是 <code>runtime.deferproc</code> 方法，也就是分配到堆上了，没毛病。而隐式迭代的话，你可以借助 <code>goto</code> 语句去实现这个功能，再自己验证一遍，这里就不再赘述了。</p>
+<h2 id="总结">总结</h2>
+<p>从分析的结果上来看，官方说明的 Go1.13 defer 性能提高 30%，主要来源于其延迟对象的堆栈分配规则的改变，措施是由编译器通过对 <code>defer</code> 的 <code>for-loop</code> 迭代深度进行分析，如果 <code>loopdepth</code> 为 1，则设置逃逸分析的结果，将分配到栈上，否则分配到堆上。</p>
+<p>的确，我个人觉得对大部分的使用场景来讲，是优化了不少，也解决了一些人吐槽 <code>defer</code> 性能 “差” 的问题。另外，我想从 Go1.13 起，你也需要稍微了解一下它这块的机制，别随随便便就来个狂野版嵌套迭代 <code>defer</code>，可能没法效能最大化。</p>
+<p>如果你还想了解更多细节，可以看看 <code>defer</code> 这块的的<a href="https://github.com/golang/go/commit/fff4f599fe1c21e411a99de5c9b3777d06ce0ce6">提交内容</a>，官方的测试用例也包含在里面。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/talk/2019-09-07-go1.13-defer/">https://index.zshipu.com/go/posts/go/talk/2019-09-07-go1.13-defer/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/tools/2019-09-02-godebug-gc/">用 GODEBUG 看 GC</a></li>
+        
+        <li><a href="/go/posts/go/tools/2019-08-19-godebug-sched/">用 GODEBUG 看调度跟踪</a></li>
+        
+        <li><a href="/go/posts/go/tools/2019-07-12-go-tool-trace/">Go 大杀器之跟踪剖析 trace</a></li>
+        
+        <li><a href="/go/posts/go/talk/2019-06-29-talking-grpc/">从实践到原理，带你参透 gRPC</a></li>
+        
+        <li><a href="/go/posts/go/grpc-gateway/2019-06-22-grpc-gateway-tls/">「连载四」gRPC&#43;gRPC Gateway 能不能不用证书？</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

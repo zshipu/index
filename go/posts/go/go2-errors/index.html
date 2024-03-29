@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>先睹为快，Go2 Error 的挣扎之路 | 知识铺的博客</title>
+    <meta property="og:title" content="先睹为快，Go2 Error 的挣扎之路 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2020-12-03T20:56:47&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2020-12-03T20:56:47&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="先睹为快，Go2 Error 的挣扎之路">
+        
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/go2-errors/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#为什么要吐槽-go1">为什么要吐槽 Go1</a></li>
+    <li><a href="#go113-的挽尊">Go1.13 的挽尊</a>
+      <ul>
+        <li><a href="#errorsis">errors.Is</a></li>
+        <li><a href="#errorsas">errors.As</a></li>
+        <li><a href="#errorsunwarp">errors.Unwarp</a></li>
+      </ul>
+    </li>
+    <li><a href="#民间自救-pkgerrors">民间自救 pkg/errors</a></li>
+    <li><a href="#go2-error-要解决什么问题">Go2 error 要解决什么问题</a></li>
+    <li><a href="#go2-error-proposal">Go2 error proposal</a>
+      <ul>
+        <li><a href="#错误处理error-handling">错误处理（Error Handling）</a></li>
+        <li><a href="#错误值打印error-printing">错误值打印（Error Printing）</a></li>
+      </ul>
+    </li>
+    <li><a href="#try-catch-不香吗">try-catch 不香吗</a></li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">先睹为快，Go2 Error 的挣扎之路</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2020年12月3日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>大家好，我是知识铺。</p>
+<p>自从 Go 语言在国内火热以来，除去泛型，其次最具槽点的就是 Go 对错误的处理方式，一句经典的 <code>if err != nil</code>  暗号就能认出你是一个 Go 语言爱好者。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/381fcb5e85923479666f5be14de3782c.jpeg" />   
+    </p>
+<p>自然，大家对 Go error 的关注度更是高涨，Go team 也是，因此在 <a href="https://github.com/golang/proposal/blob/master/design/go2draft.md">Go 2 Draft Designs</a> 中正式提到了 error handling（错误处理）的相关草案，希望能够在未来正式的解决这个问题。</p>
+<p>在今天这篇文章中，我们将一同跟踪 Go2 error，看看他是怎么 “挣扎” 的，能不能破局？</p>
+<h2 id="为什么要吐槽-go1">为什么要吐槽 Go1</h2>
+<p>要吐槽 Go1 error，就得先知道为什么大家到底是在喷 Error 哪里处理的不好。在 Go 语言中，error 其实本质上只是个 Error 的 <code>interface</code>：</p>
+<pre tabindex="0"><code>type error interface {
+    Error() string
+}
+</code></pre><p>实际的应用场景如下：</p>
+<pre tabindex="0"><code>func main() {
+	x, err := foo()
+	if err != nil {
+		 // handle error
+	}
+}
+</code></pre><p>单纯的看这个例子似乎没什么问题，但工程大了后呢？显然 <code>if err != nil</code> 的逻辑是会堆积在工程代码中，Go 代码里的 <code>if err != nil</code> 甚至会达到工程代码量的 30% 以上：</p>
+<pre tabindex="0"><code>func main() {
+	x, err := foo()
+	if err != nil {
+		 // handle error
+	}
+	y, err := foo()
+	if err != nil {
+		 // handle error
+	}
+	z, err := foo()
+	if err != nil {
+		 // handle error
+	}
+	s, err := foo()
+	if err != nil {
+		 // handle error
+	}
+}
+</code></pre><p>暴力的对比一下，就发现四行函数调用，十二行错误，还要苦练且精通 IDE 的快速折叠功能，还是比较麻烦的。</p>
+<p>另外既然是错误处理，那肯定不单单是一个 <code>return err</code> 了。在工程实践中，项目代码都是层层嵌套的，如果直接写成：</p>
+<pre tabindex="0"><code>if err != nil {
+	return err
+}
+</code></pre><p>在实际工程中肯定是不行。你怎么知道具体是哪里抛出来的错误信息，实际出错时只能瞎猜。大家又想出了 PlanB，那就是加各种描述信息：</p>
+<pre tabindex="0"><code>if err != nil {
+	logger.Errorf(&#34;知识铺报错 err：%v&#34;, err)
+	return err
+}
+</code></pre><p>虽然看上去人模人样的，在实际出错时，也会遇到新的问题，因为你要去查这个错误是从哪里抛出来的，单纯几句错误描述是难以定位的。这时候就会发展成<strong>到处打错误日志</strong>：</p>
+<pre tabindex="0"><code>func main() {
+	err := bar()
+	if err != nil {
+		logger.Errorf(&#34;bar err：%v&#34;, err)
+	}
+	...
+}
+
+func bar() error {
+	_, err := foo()
+	if err != nil {
+		logger.Errorf(&#34;foo err：%v&#34;, err)
+		return err
+	}
+
+	return nil
+}
+
+func foo() ([]byte, error) {
+	s, err := json.Marshal(&#34;hello world.&#34;)
+	if err != nil {
+		logger.Errorf(&#34;json.Marshal err：%v&#34;, err)
+		return nil, err
+	}
+
+	return s, nil
+}
+</code></pre><p>虽然到处打了日志，就会变成错误日志非常多，一旦出问题，人肉可能短时间内识别不出来。且最常见的就是到 IDE 上 <code>ctrl + f</code> 搜索是在哪出错，同时在我们常常会自定义一些错误类型，而在 Go 则需要各种判断和处理：</p>
+<pre tabindex="0"><code>if err := dec.Decode(&amp;val); err != nil {
+    if serr, ok := err.(*json.SyntaxError); ok {
+       ...
+    }
+    return err
+}
+</code></pre><p>首先你得判断不等于 <code>nil</code>，还得对自定义的错误类型进行断言，整体来讲比较繁琐。</p>
+<p>汇总来讲，Go1 错误处理的问题至少有：</p>
+<ul>
+<li>
+<p>在工程实践中，<code>if err != nil</code> 写的烦，代码中一大堆错误处理的判断，占了相当的比例，不够优雅。</p>
+</li>
+<li>
+<p>在排查问题时，Go 的 <code>err</code> 并没有其他堆栈信息，只能自己增加描述信息，层层叠加，打一大堆日志，排查很麻烦。</p>
+</li>
+<li>
+<p>在验证和测试错误时，要自定义错误（各种判断和断言）或者被迫用字符串校验。</p>
+</li>
+</ul>
+<h2 id="go113-的挽尊">Go1.13 的挽尊</h2>
+<p>在 2019 年 09 月，Go1.13 正式发布。其中两个比较大的两个关注点分别是包依赖管理 Go modules 的转正，以及错误处理 errors 标准库的改进：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/51485fae58cbf9bd92aa19686caf5a27.jpg" />   
+    </p>
+<p>在本次改进中，errors 标准库引入了 Wrapping Error 的概念，并增加了 Is/As/Unwarp 三个方法，用于对所返回的错误进行二次处理和识别。同时也是将 Go2 error 预规划中没有破坏 Go1 兼容性的相关功能提前实现了。</p>
+<p>简单来讲，Go1.13 后 Go 的 error 就可以嵌套了，并提供了三个配套的方法。例子：</p>
+<pre tabindex="0"><code>func main() {
+	e := errors.New(&#34;脑子进知识铺了&#34;)
+	w := fmt.Errorf(&#34;快抓住：%w&#34;, e)
+	fmt.Println(w)
+	fmt.Println(errors.Unwrap(w))
+}
+</code></pre><p>输出结果：</p>
+<pre tabindex="0"><code>$ go run main.go
+快抓住：脑子进知识铺了
+脑子进知识铺了
+</code></pre><p>在上述代码中，变量 <code>w</code> 就是一个嵌套一层的 error。最外层是 “快抓住：”，此处调用 <code>%w</code> 意味着 Wrapping Error 的嵌套生成。因此最终输出了 “快抓住：脑子进知识铺了”。</p>
+<p>需要注意的是，Go 并没有提供 <code>Warp</code> 方法，而是直接扩展了 <code>fmt.Errorf</code> 方法。而下方的输出由于直接调用了 <code>errors.Unwarp</code> 方法，因此将 “取” 出一层嵌套，最终直接输出 “脑子进知识铺了”。</p>
+<p>对 Wrapping Error 有了基本理解后，我们简单介绍一下三个配套方法：</p>
+<pre tabindex="0"><code>func Is(err, target error) bool
+func As(err error, target interface{}) bool
+func Unwrap(err error) error
+</code></pre><h3 id="errorsis">errors.Is</h3>
+<p>方法签名：</p>
+<pre tabindex="0"><code>func Is(err, target error) bool
+</code></pre><p>方法例子：</p>
+<pre tabindex="0"><code>func main() {
+	if _, err := os.Open(&#34;non-existing&#34;); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			fmt.Println(&#34;file does not exist&#34;)
+		} else {
+			fmt.Println(err)
+		}
+	}
+
+}
+</code></pre><p><code>errors.Is</code> 方法的作用是判断所传入的 err 和 target 是否同一类型，如果是则返回 true。</p>
+<h3 id="errorsas">errors.As</h3>
+<p>方法签名：</p>
+<pre tabindex="0"><code>func As(err error, target interface{}) bool
+</code></pre><p>方法例子：</p>
+<pre tabindex="0"><code>func main() {
+	if _, err := os.Open(&#34;non-existing&#34;); err != nil {
+		var pathError *os.PathError
+		if errors.As(err, &amp;pathError) {
+			fmt.Println(&#34;Failed at path:&#34;, pathError.Path)
+		} else {
+			fmt.Println(err)
+		}
+	}
+
+}
+</code></pre><p><code>errors.As</code> 方法的作用是从 err 错误链中识别和 target 相同的类型，如果可以赋值，则返回 true。</p>
+<h3 id="errorsunwarp">errors.Unwarp</h3>
+<p>方法签名：</p>
+<pre tabindex="0"><code>func Unwrap(err error) error
+</code></pre><p>方法例子：</p>
+<pre tabindex="0"><code>func main() {
+	e := errors.New(&#34;脑子进知识铺了&#34;)
+	w := fmt.Errorf(&#34;快抓住：%w&#34;, e)
+	fmt.Println(w)
+	fmt.Println(errors.Unwrap(w))
+}
+</code></pre><p>该方法的作用是将嵌套的 error 解析出来，若存在多级嵌套则需要调用多次 Unwarp 方法。</p>
+<h2 id="民间自救-pkgerrors">民间自救 pkg/errors</h2>
+<p>Go1 的 error 处理固然存在许多问题，因此在 Go1.13 前，早已有 “民间” 发现没有上下文调试信息在实际工程应用中存在严重的体感问题。因此 <code>github.com/pkg/errors</code> 在 2016 年诞生了，目前该库也已经受到了极大的关注。</p>
+<p>官方例子如下：</p>
+<pre tabindex="0"><code>type stackTracer interface {
+    StackTrace() errors.StackTrace
+}
+
+err, ok := errors.Cause(fn()).(stackTracer)
+if !ok {
+    panic(&#34;oops, err does not implement stackTracer&#34;)
+}
+
+st := err.StackTrace()
+fmt.Printf(&#34;%+v&#34;, st[0:2]) // top two frames
+
+// Example output:
+// github.com/pkg/errors_test.fn
+//	/home/dfc/src/github.com/pkg/errors/example_test.go:47
+// github.com/pkg/errors_test.Example_stackTrace
+//	/home/dfc/src/github.com/pkg/errors/example_test.go:127
+</code></pre><p>简单来讲，就是对 Go1 error 的上下文处理进行了优化和处理，例如类型断言、调用堆栈等。若有兴趣的小伙伴可以自行到 <code>github.com/pkg/errors</code> 进行学习。</p>
+<p>另外你可能会发现 Go1.13 新增的 Wrapping Error 体系与 <code>pkg/errors</code> 有些相像。你并没有体会错，Go team 接纳了相关的意见，对 Go1 进行了调整，但调用堆栈这块因综合原因暂时没有纳入。</p>
+<h2 id="go2-error-要解决什么问题">Go2 error 要解决什么问题</h2>
+<p>在前面我们聊了 Go1 error 的许多问题，以及 Go1.13 和 <code>pkg/errors</code> 的自救和融合。你可能会疑惑，那&hellip;Go2 error 还有出场的机会吗？即使 Go1 做了这些事情，Go1 error 还有问题吗？</p>
+<p>并没有解决，<code>if err != nil</code> 依旧一把梭，目前社区声音依然认为 Go 语言的错误处理要改进。</p>
+<h2 id="go2-error-proposal">Go2 error proposal</h2>
+<p>在 2018 年 8 月，官方正式公布了 <a href="https://go.googlesource.com/proposal/+/master/design/go2draft.md">Go 2 Draft Designs</a>，其中包含泛型和错误处理机制改进的初步草案：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/48b07b14442b1832c09eb6e2bc35fb6b.jpg" />   
+    </p>
+<p>注：Go1.13 正式将一些不破坏 Go1 兼容性的 Error 特性加入到了 main branch，也就是前面提到的 Wrapping Error。</p>
+<h3 id="错误处理error-handling">错误处理（Error Handling）</h3>
+<p>第一个要解决的问题就是大量 <code>if err != nil</code> 的问题，针对此提出了 <a href="https://github.com/golang/proposal/blob/master/design/go2draft-error-handling-overview.md">Go2 error handling</a> 的草案设计。</p>
+<p>简单例子：</p>
+<pre tabindex="0"><code>if err != nil {
+	return err
+}
+</code></pre><p>优化后的方案如下：</p>
+<pre tabindex="0"><code>func CopyFile(src, dst string) error {
+	handle err {
+		return fmt.Errorf(&#34;copy %s %s: %v&#34;, src, dst, err)
+	}
+
+	r := check os.Open(src)
+	defer r.Close()
+
+	w := check os.Create(dst)
+	handle err {
+		w.Close()
+		os.Remove(dst) // (only if a check fails)
+	}
+
+	check io.Copy(w, r)
+	check w.Close()
+	return nil
+}
+</code></pre><p>主函数：</p>
+<pre tabindex="0"><code>func main() {
+	handle err {
+		log.Fatal(err)
+	}
+
+	hex := check ioutil.ReadAll(os.Stdin)
+	data := check parseHexdump(string(hex))
+	os.Stdout.Write(data)
+}
+</code></pre><p>该提案引入了两种新的语法形式，首先是 <code>check</code> 关键字，其可以选中一个表达式 <code>check f(x, y, z)</code> 或 <code>check err</code>，其将会标识这是一个显式的错误检查。</p>
+<p>其次引入了 <code>handle</code> 关键字，用于定义错误处理程序流转，逐级上抛，依此类推，直到处理程序执行 <code>return</code> 语句，才正式结束。</p>
+<h3 id="错误值打印error-printing">错误值打印（Error Printing）</h3>
+<p>第二个要解决的问题是错误值（Error Values）、错误检查（Error Inspection）的问题，其引申出错误值打印（Error Printing）的问题，也可以认为是错误格式化的不便利。</p>
+<p>官方针对此提出了提出了 <a href="https://github.com/golang/proposal/blob/master/design/go2draft-error-values-overview.md">Error Values</a> 和 <a href="https://github.com/golang/proposal/blob/master/design/go2draft-error-printing.md">Error Printing</a> 的草案设计。</p>
+<p>简单例子如下：</p>
+<pre tabindex="0"><code>if err != nil {
+	return fmt.Errorf(&#34;write users database: %v&#34;, err)
+}
+</code></pre><p>优化后的方案如下：</p>
+<pre tabindex="0"><code>package errors
+
+type Wrapper interface {
+	Unwrap() error
+}
+
+func Is(err, target error) bool
+func As(type E)(err error) (e E, ok bool)
+</code></pre><p>该提案增加了错误链的 Wrapping Error 概念，并同时增加 <code>errors.Is</code> 和 <code>errors.As</code> 的方法，与前面说到的 Go1.13 的改进一致，不再赘述。</p>
+<p>需要留意的是，Go1.13 并没有实现 <code>%+v</code> 输出调用堆栈的需求，因为此举会破坏 Go1 兼容性和产生一些性能问题，大概会在 Go2 加入。</p>
+<h2 id="try-catch-不香吗">try-catch 不香吗</h2>
+<p>社区中另外一股声音就是直指 Go 语言反人类不用 <code>try-catch</code> 的机制，在社区内也产生了大量的探讨，具体可以看看相关的提案 <a href="https://github.com/golang/go/issues/32437">Proposal: A built-in Go error check function, &ldquo;try&rdquo;</a>。</p>
+<p>目前该提案已被拒绝，具体可参见 <a href="https://github.com/golang/go/issues/32437#issuecomment-512035919">go/issues/32437#issuecomment-512035919</a> 和 <a href="https://golang.org/doc/faq#exceptions">Why does Go not have exceptions</a>。</p>
+<h2 id="总结">总结</h2>
+<p>在这篇文章中，我们介绍了目前 Go1 Error 的现状，概括了大家对 Go 语言错误处理的常见问题和意见。同时还介绍了在这几年间，Go team 针对 Go2、Go1.13 Error 的持续优化和探索。</p>
+<p>如果是你，你会怎么去优化目前 Go 语言的错误处理机制呢，现在 Go2 error proposal 你又是否认可？</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li>
+<p><a href="https://qcrao.com/2019/09/18/golang-error-break-through">Golang error 的突围</a></p>
+</li>
+<li>
+<p><a href="https://www.zhihu.com/question/330263279">为什么 Go 语言的 Error Handling 是一个败笔</a></p>
+</li>
+<li>
+<p><a href="https://www.flysnow.org/2019/09/06/go1.13-error-wrapping.html">Go语言(golang)新发布的1.13中的Error Wrapping深度分析</a></p>
+</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/go2-errors/">https://index.zshipu.com/go/posts/go/go2-errors/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/gophercon2020-errors/">重磅：Go errors 将不会有任何进一步的改进计划</a></li>
+        
+        <li><a href="/go/posts/go/go16-preview/">为什么 Go 的泛型一拖再拖？</a></li>
+        
+        <li><a href="/go/posts/go/go11/">Go 语言今年 11 岁，何去何从，现状到底如何？</a></li>
+        
+        <li><a href="/go/posts/go/reflect/">解密 Go 语言之反射 reflect</a></li>
+        
+        <li><a href="/go/posts/go/go-bootstrap/">Go 应用程序是怎么运行起来的？</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

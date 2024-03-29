@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>聊一聊，Go 的相对路径问题 | 知识铺的博客</title>
+    <meta property="og:title" content="聊一聊，Go 的相对路径问题 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-03-13T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-03-13T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="聊一聊，Go 的相对路径问题">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/talk/2018-03-13-golang-relatively-path/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前言">前言</a></li>
+    <li><a href="#问题">问题</a></li>
+    <li><a href="#思考">思考</a></li>
+    <li><a href="#实践">实践</a></li>
+    <li><a href="#剖析">剖析</a></li>
+    <li><a href="#解决方案">解决方案</a></li>
+    <li><a href="#拓展">拓展</a></li>
+    <li><a href="#小结">小结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">聊一聊，Go 的相对路径问题</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年3月13日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="前言">前言</h2>
+<p><code>Golang</code> 中存在各种运行方式，如何<strong>正确的引用文件路径</strong>成为一个值得商议的问题</p>
+<p>以 <a href="https://github.com/zshipu/go-gin-example">gin-blog</a> 为例，当我们在项目根目录下，执行 <code>go run main.go</code> 时能够正常运行（<code>go build</code>也是正常的）</p>
+<pre tabindex="0"><code>[$ gin-blog]# go run main.go
+[GIN-debug] [WARNING] Running in &#34;debug&#34; mode. Switch to &#34;release&#34; mode in production.
+ - using env:    export GIN_MODE=release
+ - using code:    gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /api/v1/tags              --&gt; gin-blog/routers/api/v1.GetTags (3 handlers)
+...
+</code></pre><p>那么在不同的目录层级下，不同的方式运行，又是怎么样的呢，带着我们的疑问去学习</p>
+<h2 id="问题">问题</h2>
+<p>1、 go run
+我们上移目录层级，到 <code>$GOPATH/src</code> 下，执行 <code>go run gin-blog/main.go</code></p>
+<pre tabindex="0"><code>[$ src]# go run gin-blog/main.go
+2018/03/12 16:06:13 Fail to parse &#39;conf/app.ini&#39;: open conf/app.ini: no such file or directory
+exit status 1
+</code></pre><p>2、 go build，执行 <code>./gin-blog/main</code></p>
+<pre tabindex="0"><code>[$ src]# ./gin-blog/main
+2018/03/12 16:49:35 Fail to parse &#39;conf/app.ini&#39;: open conf/app.ini: no such file or directory
+</code></pre><p>这时候你要打一个大大的问号，就是我的程序读取到什么地方去了</p>
+<hr>
+<p>我们通过分析得知，<strong><code>Golang</code>的相对路径是相对于执行命令时的目录</strong>；自然也就读取不到了</p>
+<h2 id="思考">思考</h2>
+<p>既然已经知道问题的所在点，我们就可以寻思做点什么 : )</p>
+<p>我们想到相对路径是相对执行命令的目录，那么我们获取可执行文件的地址，拼接起来不就好了吗？</p>
+<h2 id="实践">实践</h2>
+<p>我们编写<strong>获取当前可执行文件路径的方法</strong></p>
+<pre tabindex="0"><code>import (
+	&#34;path/filepath&#34;
+	&#34;os&#34;
+	&#34;os/exec&#34;
+	&#34;string&#34;
+)
+
+func GetAppPath() string {
+    file, _ := exec.LookPath(os.Args[0])
+    path, _ := filepath.Abs(file)
+    index := strings.LastIndex(path, string(os.PathSeparator))
+
+    return path[:index]
+}
+</code></pre><p>将其放到启动代码处查看路径</p>
+<pre tabindex="0"><code>log.Println(GetAppPath())
+</code></pre><p>我们分别执行以下两个命令，查看输出结果
+1、 go run</p>
+<pre tabindex="0"><code>$ go run main.go
+2018/03/12 18:45:40 /tmp/go-build962610262/b001/exe
+</code></pre><p>2、 go build</p>
+<pre tabindex="0"><code>$ ./main
+2018/03/12 18:49:44 $GOPATH/src/gin-blog
+</code></pre><h2 id="剖析">剖析</h2>
+<p>我们聚焦在 <code>go run</code> 的输出结果上，发现它是一个临时文件的地址，这是为什么呢？</p>
+<p>在<code>go help run</code>中，我们可以看到</p>
+<pre tabindex="0"><code>Run compiles and runs the main package comprising the named Go source files.
+A Go source file is defined to be a file ending in a literal &#34;.go&#34; suffix.
+</code></pre><p>也就是 <code>go run</code> 执行时会将文件放到 <code>/tmp/go-build...</code> 目录下，编译并运行</p>
+<p>因此<code>go run main.go</code>出现<code>/tmp/go-build962610262/b001/exe</code>结果也不奇怪了，因为它已经跑到临时目录下去执行可执行文件了</p>
+<hr>
+<p>这就已经很清楚了，那么我们想想，会出现哪些问题呢</p>
+<ul>
+<li>依赖相对路径的文件，出现路径出错的问题</li>
+<li><code>go run</code> 和 <code>go build</code> 不一样，一个到临时目录下执行，一个可手动在编译后的目录下执行，路径的处理方式会不同</li>
+<li>不断<code>go run</code>，不断产生新的临时文件</li>
+</ul>
+<p>这其实就是<strong>根本原因</strong>了，因为 <code>go run</code> 和 <code>go build</code> 的编译文件执行路径并不同，执行的层级也有可能不一样，自然而然就出现各种读取不到的奇怪问题了</p>
+<h2 id="解决方案">解决方案</h2>
+<p><strong>一、获取编译后的可执行文件路径</strong></p>
+<p>1、 将配置文件的相对路径与<code>GetAppPath()</code>的结果相拼接，可解决<code>go build main.go</code>的可执行文件跨目录执行的问题（如：<code>./src/gin-blog/main</code>）</p>
+<pre tabindex="0"><code>import (
+	&#34;path/filepath&#34;
+	&#34;os&#34;
+	&#34;os/exec&#34;
+	&#34;string&#34;
+)
+
+func GetAppPath() string {
+    file, _ := exec.LookPath(os.Args[0])
+    path, _ := filepath.Abs(file)
+    index := strings.LastIndex(path, string(os.PathSeparator))
+
+    return path[:index]
+}
+</code></pre><p>但是这种方式，对于<code>go run</code>依旧无效，这时候就需要2来补救</p>
+<p>2、 通过传递参数指定路径，可解决<code>go run</code>的问题</p>
+<pre tabindex="0"><code>package main
+
+import (
+    &#34;flag&#34;
+    &#34;fmt&#34;
+)
+
+func main() {
+    var appPath string
+    flag.StringVar(&amp;appPath, &#34;app-path&#34;, &#34;app-path&#34;)
+    flag.Parse()
+    fmt.Printf(&#34;App path: %s&#34;, appPath)
+}
+</code></pre><p>运行</p>
+<pre tabindex="0"><code>go run main.go --app-path &#34;Your project address&#34;
+</code></pre><p><strong>二、增加<code>os.Getwd()</code>进行多层判断</strong></p>
+<p>参见 <a href="https://github.com/astaxie/beego/blob/master/config.go#L133-L146">beego</a> 读取 <code>app.conf</code> 的代码</p>
+<p>该写法可兼容 <code>go build</code> 和在项目根目录执行 <code>go run</code> ，但是若跨目录执行 <code>go run</code> 就不行</p>
+<p><strong>三、配置全局系统变量</strong></p>
+<p>我们可以通过<code>os.Getenv</code>来获取系统全局变量，然后与相对路径进行拼接</p>
+<p>1、 设置项目工作区</p>
+<p>简单来说，就是设置项目（应用）的工作路径，然后与配置文件、日志文件等相对路径进行拼接，达到相对的绝对路径来保证路径一致</p>
+<p>参见 <a href="https://github.com/gogits/gogs/blob/master/pkg/setting/setting.go#L351">gogs</a> 读取<code>GOGS_WORK_DIR</code>进行拼接的代码</p>
+<p>2、 利用系统自带变量</p>
+<p>简单来说就是通过系统自带的全局变量，例如<code>$HOME</code>等，将配置文件存放在<code>$HOME/conf</code>或<code>/etc/conf</code>下</p>
+<p>这样子就能更加固定的存放配置文件，<strong>不需要额外去设置一个环境变量</strong></p>
+<p>（这点今早与一位SFer讨论了一波，感谢）</p>
+<h2 id="拓展">拓展</h2>
+<p><code>go test</code> 在一些场景下也会遇到路径问题，因为<code>go test</code>只能够在当前目录执行，所以在执行测试用例的时候，你的执行目录已经是测试目录了</p>
+<p>需要注意的是，如果采用获取外部参数的办法，用 <code>os.args</code> 时，<code>go test -args</code> 和 <code>go run</code>、<code>go build</code> 会有命令行参数位置的不一致问题</p>
+<h2 id="小结">小结</h2>
+<p>这三种解决方案，在目前可见的开源项目或介绍中都能找到这些的身影</p>
+<p>优缺点也是显而易见的，我认为应在<strong>不同项目选定合适的解决方案</strong>即可</p>
+<p>建议大家不要强依赖读取配置文件的模块，应当将其“堆积木”化，<strong>需要什么配置才去注册什么配置变量</strong>，可以解决一部分的问题</p>
+<p>大家又有什么想法呢，一起讨论一波？</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/talk/2018-03-13-golang-relatively-path/">https://index.zshipu.com/go/posts/go/talk/2018-03-13-golang-relatively-path/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/grpc-gateway/2018-03-04-swagger/">「连载三」Swagger了解一下</a></li>
+        
+        <li><a href="/go/posts/go/grpc-gateway/2018-02-27-hello-world/">「连载二」Hello World</a></li>
+        
+        <li><a href="/go/posts/go/grpc-gateway/2018-02-23-install/">「连载一」gRPC介绍与环境安装</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-15-log/">「连载六」编写一个简单的文件日志</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-14-jwt/">「连载五」使用 JWT 进行身份校验</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

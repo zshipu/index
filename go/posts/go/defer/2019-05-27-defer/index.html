@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>深入理解 Go defer | 知识铺的博客</title>
+    <meta property="og:title" content="深入理解 Go defer - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-05-27T12:30:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-05-27T12:30:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="深入理解 Go defer">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/defer/2019-05-27-defer/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#特性">特性</a>
+      <ul>
+        <li><a href="#一延迟调用">一、延迟调用</a></li>
+        <li><a href="#二后进先出">二、后进先出</a></li>
+        <li><a href="#三运行时间点">三、运行时间点</a></li>
+        <li><a href="#四异常处理">四、异常处理</a></li>
+      </ul>
+    </li>
+    <li><a href="#源码剖析">源码剖析</a>
+      <ul>
+        <li><a href="#数据结构">数据结构</a></li>
+        <li><a href="#deferproc">deferproc</a></li>
+        <li><a href="#newdefer">newdefer</a></li>
+        <li><a href="#deferreturn">deferreturn</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#关联">关联</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">深入理解 Go defer</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年5月27日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>在上一章节 《深入理解 Go panic and recover》中，我们发现了 <code>defer</code> 与其关联性极大，还是觉得非常有必要深入一下。希望通过本章节大家可以对 <code>defer</code> 关键字有一个深刻的理解，那么我们开始吧。你先等等，请排好队，我们这儿采取后进先出 LIFO 的出站方式&hellip;</p>
+<h2 id="特性">特性</h2>
+<p>我们简单的过一下 <code>defer</code> 关键字的基础使用，让大家先有一个基础的认知</p>
+<h3 id="一延迟调用">一、延迟调用</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">defer</span> log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;zshipu.&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;end.&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出结果：</p>
+<pre tabindex="0"><code>$ go run main.go
+2019/05/19 21:15:02 end.
+2019/05/19 21:15:02 zshipu.
+</code></pre><h3 id="二后进先出">二、后进先出</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">for</span> i <span style="color:#000;font-weight:bold">:=</span> <span style="color:#099">0</span>; i &lt; <span style="color:#099">6</span>; i<span style="color:#000;font-weight:bold">++</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">defer</span> log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;zshipu&#34;</span> <span style="color:#000;font-weight:bold">+</span> strconv.<span style="color:#900;font-weight:bold">Itoa</span>(i) <span style="color:#000;font-weight:bold">+</span> <span style="color:#d14">&#34;.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;end.&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出结果：</p>
+<pre tabindex="0"><code>$ go run main.go
+2019/05/19 21:19:17 end.
+2019/05/19 21:19:17 zshipu5.
+2019/05/19 21:19:17 zshipu4.
+2019/05/19 21:19:17 zshipu3.
+2019/05/19 21:19:17 zshipu2.
+2019/05/19 21:19:17 zshipu1.
+2019/05/19 21:19:17 zshipu0.
+</code></pre><h3 id="三运行时间点">三、运行时间点</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">func</span>() {
+</span></span><span style="display:flex;"><span>		 <span style="color:#000;font-weight:bold">defer</span> log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;defer.zshipu.&#34;</span>)
+</span></span><span style="display:flex;"><span>	}()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;main.zshipu.&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出结果：</p>
+<pre tabindex="0"><code>$ go run main.go
+2019/05/22 23:30:27 defer.zshipu.
+2019/05/22 23:30:27 main.zshipu.
+</code></pre><h3 id="四异常处理">四、异常处理</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">defer</span> <span style="color:#000;font-weight:bold">func</span>() {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">if</span> e <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">recover</span>(); e <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>			log.<span style="color:#900;font-weight:bold">Println</span>(<span style="color:#d14">&#34;zshipu.&#34;</span>)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>	}()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#0086b3">panic</span>(<span style="color:#d14">&#34;end.&#34;</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>输出结果：</p>
+<pre tabindex="0"><code>$ go run main.go
+2019/05/20 22:22:57 zshipu.
+</code></pre><h2 id="源码剖析">源码剖析</h2>
+<pre tabindex="0"><code>$ go tool compile -S main.go
+&#34;&#34;.main STEXT size=163 args=0x0 locals=0x40
+	...
+	0x0059 00089 (main.go:6)	MOVQ	AX, 16(SP)
+	0x005e 00094 (main.go:6)	MOVQ	$1, 24(SP)
+	0x0067 00103 (main.go:6)	MOVQ	$1, 32(SP)
+	0x0070 00112 (main.go:6)	CALL	runtime.deferproc(SB)
+	0x0075 00117 (main.go:6)	TESTL	AX, AX
+	0x0077 00119 (main.go:6)	JNE	137
+	0x0079 00121 (main.go:7)	XCHGL	AX, AX
+	0x007a 00122 (main.go:7)	CALL	runtime.deferreturn(SB)
+	0x007f 00127 (main.go:7)	MOVQ	56(SP), BP
+	0x0084 00132 (main.go:7)	ADDQ	$64, SP
+	0x0088 00136 (main.go:7)	RET
+	0x0089 00137 (main.go:6)	XCHGL	AX, AX
+	0x008a 00138 (main.go:6)	CALL	runtime.deferreturn(SB)
+	0x008f 00143 (main.go:6)	MOVQ	56(SP), BP
+	0x0094 00148 (main.go:6)	ADDQ	$64, SP
+	0x0098 00152 (main.go:6)	RET
+	...
+</code></pre><p>首先我们需要找到它，找到它实际对应什么执行代码。通过汇编代码，可得知涉及如下方法：</p>
+<ul>
+<li>runtime.deferproc</li>
+<li>runtime.deferreturn</li>
+</ul>
+<p>很显然是运行时的方法，是对的人。我们继续往下走看看都分别承担了什么行为</p>
+<h3 id="数据结构">数据结构</h3>
+<p>在开始前我们需要先介绍一下 <code>defer</code> 的基础单元 <code>_defer</code> 结构体，如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> _defer <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>	siz     <span style="color:#458;font-weight:bold">int32</span>
+</span></span><span style="display:flex;"><span>	started <span style="color:#458;font-weight:bold">bool</span>
+</span></span><span style="display:flex;"><span>	sp      <span style="color:#458;font-weight:bold">uintptr</span> <span style="color:#998;font-style:italic">// sp at time of defer
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	pc      <span style="color:#458;font-weight:bold">uintptr</span>
+</span></span><span style="display:flex;"><span>	fn      <span style="color:#000;font-weight:bold">*</span>funcval
+</span></span><span style="display:flex;"><span>	_panic  <span style="color:#000;font-weight:bold">*</span>_panic <span style="color:#998;font-style:italic">// panic that is running defer
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	link    <span style="color:#000;font-weight:bold">*</span>_defer
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> funcval <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>	fn <span style="color:#458;font-weight:bold">uintptr</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#998;font-style:italic">// variable-size, fn-specific data here
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>siz：所有传入参数的总大小</li>
+<li>started：该 <code>defer</code> 是否已经执行过</li>
+<li>sp：函数栈指针寄存器，一般指向当前函数栈的栈顶</li>
+<li>pc：程序计数器，有时称为指令指针(IP)，线程利用它来跟踪下一个要执行的指令。在大多数处理器中，PC 指向的是下一条指令，而不是当前指令</li>
+<li>fn：指向传入的函数地址和参数</li>
+<li>_panic：指向 <code>_panic</code> 链表</li>
+<li>link：指向 <code>_defer</code> 链表</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="image" src="https://s2.ax1x.com/2020/02/27/3dLNjJ.png" />   
+    </p>
+<h3 id="deferproc">deferproc</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">deferproc</span>(siz <span style="color:#458;font-weight:bold">int32</span>, fn <span style="color:#000;font-weight:bold">*</span>funcval) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>	sp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getcallersp</span>()
+</span></span><span style="display:flex;"><span>	argp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">uintptr</span>(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(<span style="color:#000;font-weight:bold">&amp;</span>fn)) <span style="color:#000;font-weight:bold">+</span> unsafe.<span style="color:#900;font-weight:bold">Sizeof</span>(fn)
+</span></span><span style="display:flex;"><span>	callerpc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getcallerpc</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	d <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">newdefer</span>(siz)
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>	d.fn = fn
+</span></span><span style="display:flex;"><span>	d.pc = callerpc
+</span></span><span style="display:flex;"><span>	d.sp = sp
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">switch</span> siz {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">case</span> <span style="color:#099">0</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#998;font-style:italic">// Do nothing.
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	<span style="color:#000;font-weight:bold">case</span> sys.PtrSize:
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">*</span>(<span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">uintptr</span>)(<span style="color:#900;font-weight:bold">deferArgs</span>(d)) = <span style="color:#000;font-weight:bold">*</span>(<span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">uintptr</span>)(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(argp))
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">default</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#900;font-weight:bold">memmove</span>(<span style="color:#900;font-weight:bold">deferArgs</span>(d), unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(argp), <span style="color:#0086b3">uintptr</span>(siz))
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#900;font-weight:bold">return0</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>获取调用 <code>defer</code> 函数的函数栈指针、传入函数的参数具体地址以及 PC （程序计数器），也就是下一个要执行的指令。这些相当于是预备参数，便于后续的流转控制</li>
+<li>创建一个新的 <code>defer</code> 最小单元 <code>_defer</code>，填入先前准备的参数</li>
+<li>调用 <code>memmove</code> 将传入的参数存储到新 <code>_defer</code> （当前使用）中去，便于后续的使用</li>
+<li>最后调用 <code>return0</code> 进行返回，这个函数非常重要。能够避免在 <code>deferproc</code> 中又因为返回 <code>return</code>，而诱发 <code>deferreturn</code> 方法的调用。其根本原因是一个停止 <code>panic</code> 的延迟方法会使 <code>deferproc</code> 返回 1，但在机制中如果 <code>deferproc</code> 返回不等于 0，将会总是检查返回值并跳转到函数的末尾。而 <code>return0</code> 返回的就是 0，因此可以防止重复调用</li>
+</ul>
+<h4 id="小结">小结</h4>
+<p>在<strong>这个函数中会为新的 <code>_defer</code> 设置一些基础属性，并将调用函数的参数集传入。最后通过特殊的返回方法结束函数调用</strong>。另外这一块与先前 <a href="https://segmentfault.com/a/1190000019251478#articleHeader9">《深入理解 Go panic and recover》</a> 的处理逻辑有一定关联性，其实就是 <code>gp.sched.ret</code> 返回 0 还是 1 会分流至不同处理方式</p>
+<h3 id="newdefer">newdefer</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">newdefer</span>(siz <span style="color:#458;font-weight:bold">int32</span>) <span style="color:#000;font-weight:bold">*</span>_defer {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">var</span> d <span style="color:#000;font-weight:bold">*</span>_defer
+</span></span><span style="display:flex;"><span>	sc <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">deferclass</span>(<span style="color:#0086b3">uintptr</span>(siz))
+</span></span><span style="display:flex;"><span>	gp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getg</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> sc &lt; <span style="color:#0086b3">uintptr</span>(<span style="color:#0086b3">len</span>(p{}.deferpool)) {
+</span></span><span style="display:flex;"><span>		pp <span style="color:#000;font-weight:bold">:=</span> gp.m.p.<span style="color:#900;font-weight:bold">ptr</span>()
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">if</span> <span style="color:#0086b3">len</span>(pp.deferpool[sc]) <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span> <span style="color:#000;font-weight:bold">&amp;&amp;</span> sched.deferpool[sc] <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>			<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>			<span style="color:#900;font-weight:bold">lock</span>(<span style="color:#000;font-weight:bold">&amp;</span>sched.deferlock)
+</span></span><span style="display:flex;"><span>			d <span style="color:#000;font-weight:bold">:=</span> sched.deferpool[sc]
+</span></span><span style="display:flex;"><span>			<span style="color:#900;font-weight:bold">unlock</span>(<span style="color:#000;font-weight:bold">&amp;</span>sched.deferlock)
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> d <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#900;font-weight:bold">systemstack</span>(<span style="color:#000;font-weight:bold">func</span>() {
+</span></span><span style="display:flex;"><span>			total <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">roundupsize</span>(<span style="color:#900;font-weight:bold">totaldefersize</span>(<span style="color:#0086b3">uintptr</span>(siz)))
+</span></span><span style="display:flex;"><span>			d = (<span style="color:#000;font-weight:bold">*</span>_defer)(<span style="color:#900;font-weight:bold">mallocgc</span>(total, deferType, <span style="color:#000;font-weight:bold">true</span>))
+</span></span><span style="display:flex;"><span>		})
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	d.siz = siz
+</span></span><span style="display:flex;"><span>	d.link = gp._defer
+</span></span><span style="display:flex;"><span>	gp._defer = d
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> d
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>从池中获取可以使用的 <code>_defer</code>，则复用作为新的基础单元</li>
+<li>若在池中没有获取到可用的，则调用 <code>mallocgc</code> 重新申请一个新的</li>
+<li>设置 <code>defer</code> 的基础属性，最后修改当前 <code>Goroutine</code> 的 <code>_defer</code> 指向</li>
+</ul>
+<p>通过这个方法我们可以注意到两点，如下：</p>
+<ul>
+<li><code>defer</code> 与 <code>Goroutine(g)</code> 有直接关系，所以讨论 <code>defer</code> 时基本离不开 <code>g</code> 的关联</li>
+<li>新的 <code>defer</code> 总是会在现有的链表中的最前面，也就是 <code>defer</code> 的特性后进先出</li>
+</ul>
+<h4 id="小结-1">小结</h4>
+<p>这个函数主要承担了获取新的 <code>_defer</code> 的作用，它有可能是从 <code>deferpool</code> 中获取的，也有可能是重新申请的</p>
+<h3 id="deferreturn">deferreturn</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">deferreturn</span>(arg0 <span style="color:#458;font-weight:bold">uintptr</span>) {
+</span></span><span style="display:flex;"><span>	gp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getg</span>()
+</span></span><span style="display:flex;"><span>	d <span style="color:#000;font-weight:bold">:=</span> gp._defer
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> d <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	sp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getcallersp</span>()
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> d.sp <span style="color:#000;font-weight:bold">!=</span> sp {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">switch</span> d.siz {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">case</span> <span style="color:#099">0</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#998;font-style:italic">// Do nothing.
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	<span style="color:#000;font-weight:bold">case</span> sys.PtrSize:
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">*</span>(<span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">uintptr</span>)(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(<span style="color:#000;font-weight:bold">&amp;</span>arg0)) = <span style="color:#000;font-weight:bold">*</span>(<span style="color:#000;font-weight:bold">*</span><span style="color:#458;font-weight:bold">uintptr</span>)(<span style="color:#900;font-weight:bold">deferArgs</span>(d))
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">default</span>:
+</span></span><span style="display:flex;"><span>		<span style="color:#900;font-weight:bold">memmove</span>(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(<span style="color:#000;font-weight:bold">&amp;</span>arg0), <span style="color:#900;font-weight:bold">deferArgs</span>(d), <span style="color:#0086b3">uintptr</span>(d.siz))
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	fn <span style="color:#000;font-weight:bold">:=</span> d.fn
+</span></span><span style="display:flex;"><span>	d.fn = <span style="color:#000;font-weight:bold">nil</span>
+</span></span><span style="display:flex;"><span>	gp._defer = d.link
+</span></span><span style="display:flex;"><span>	<span style="color:#900;font-weight:bold">freedefer</span>(d)
+</span></span><span style="display:flex;"><span>	<span style="color:#900;font-weight:bold">jmpdefer</span>(fn, <span style="color:#0086b3">uintptr</span>(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(<span style="color:#000;font-weight:bold">&amp;</span>arg0)))
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>如果在一个方法中调用过 <code>defer</code> 关键字，那么编译器将会在结尾处插入 <code>deferreturn</code> 方法的调用。而该方法中主要做了如下事项：</p>
+<ul>
+<li>清空当前节点 <code>_defer</code> 被调用的函数调用信息</li>
+<li>释放当前节点的 <code>_defer</code> 的存储信息并放回池中（便于复用）</li>
+<li>跳转到调用 <code>defer</code> 关键字的调用函数处</li>
+</ul>
+<p>在这段代码中，跳转方法 <code>jmpdefer</code> 格外重要。因为它显式的控制了流转，代码如下：</p>
+<pre tabindex="0"><code>// asm_amd64.s
+TEXT runtime·jmpdefer(SB), NOSPLIT, $0-16
+	MOVQ	fv+0(FP), DX	// fn
+	MOVQ	argp+8(FP), BX	// caller sp
+	LEAQ	-8(BX), SP	// caller sp after CALL
+	MOVQ	-8(SP), BP	// restore BP as if deferreturn returned (harmless if framepointers not in use)
+	SUBQ	$5, (SP)	// return to CALL again
+	MOVQ	0(DX), BX
+	JMP	BX	// but first run the deferred function
+</code></pre><p>通过源码的分析，我们发现它做了两个很 “奇怪” 又很重要的事，如下：</p>
+<ul>
+<li>MOVQ -8(SP), BP：<code>-8(BX)</code> 这个位置保存的是 <code>deferreturn</code> 执行完毕后的地址</li>
+<li>SUBQ $5, (SP)：<code>SP</code> 的地址减 5 ，其减掉的长度就恰好是 <code>runtime.deferreturn</code> 的长度</li>
+</ul>
+<p>你可能会问，为什么是 5？好吧。翻了半天最后看了一下汇编代码&hellip;嗯，相减的确是 5 没毛病，如下：</p>
+<pre tabindex="0"><code>	0x007a 00122 (main.go:7)	CALL	runtime.deferreturn(SB)
+	0x007f 00127 (main.go:7)	MOVQ	56(SP), BP
+</code></pre><p>我们整理一下思绪，照上述逻辑的话，那 <code>deferreturn</code> 就是一个 “递归” 了哦。每次都会重新回到 <code>deferreturn</code> 函数，那它在什么时候才会结束呢，如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">deferreturn</span>(arg0 <span style="color:#458;font-weight:bold">uintptr</span>) {
+</span></span><span style="display:flex;"><span>	gp <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">getg</span>()
+</span></span><span style="display:flex;"><span>	d <span style="color:#000;font-weight:bold">:=</span> gp._defer
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> d <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>也就是会不断地进入 <code>deferreturn</code> 函数，判断链表中是否还存着 <code>_defer</code>。若已经不存在了，则返回，结束掉它。简单来讲，就是处理完全部 <code>defer</code> 才允许你真的离开它。果真如此吗？我们再看看上面的汇编代码，如下：</p>
+<pre tabindex="0"><code>    。..
+	0x0070 00112 (main.go:6)	CALL	runtime.deferproc(SB)
+	0x0075 00117 (main.go:6)	TESTL	AX, AX
+	0x0077 00119 (main.go:6)	JNE	137
+	0x0079 00121 (main.go:7)	XCHGL	AX, AX
+	0x007a 00122 (main.go:7)	CALL	runtime.deferreturn(SB)
+	0x007f 00127 (main.go:7)	MOVQ	56(SP), BP
+	0x0084 00132 (main.go:7)	ADDQ	$64, SP
+	0x0088 00136 (main.go:7)	RET
+	0x0089 00137 (main.go:6)	XCHGL	AX, AX
+	0x008a 00138 (main.go:6)	CALL	runtime.deferreturn(SB)
+	...
+</code></pre><p>的确如上述流程所分析一致，验证完毕</p>
+<h4 id="小结-2">小结</h4>
+<p>这个函数主要承担了清空已使用的 <code>defer</code> 和跳转到调用 <code>defer</code> 关键字的函数处，非常重要</p>
+<h2 id="总结">总结</h2>
+<p>我们有提到 <code>defer</code> 关键字涉及两个核心的函数，分别是 <code>deferproc</code> 和 <code>deferreturn</code> 函数。而 <code>deferreturn</code> 函数比较特殊，是当应用函数调用 <code>defer</code> 关键字时，编译器会在其结尾处插入 <code>deferreturn</code> 的调用，它们俩一般都是成对出现的</p>
+<p>但是当一个 <code>Goroutine</code> 上存在着多次 <code>defer</code> 行为（也就是多个 <code>_defer</code>）时，编译器会进行利用一些小技巧， 重新回到 <code>deferreturn</code> 函数去消耗 <code>_defer</code> 链表，直到一个不剩才允许真正的结束</p>
+<p>而新增的基础单元 <code>_defer</code>，有可能是被复用的，也有可能是全新申请的。它最后都会被追加到 <code>_defer</code> 链表的表头，从而设定了后进先出的调用特性</p>
+<h2 id="关联">关联</h2>
+<ul>
+<li><a href="https://github.com/zshipu/blog/blob/master/golang/pkg/2019-05-18-%E6%B7%B1%E5%85%A5%E7%90%86%E8%A7%A3Go-panic-and-recover.md">深入理解 Go panic and recover</a></li>
+</ul>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://www.ardanlabs.com/blog/2018/08/scheduling-in-go-part1.html">Scheduling In Go</a></li>
+<li><a href="http://hustcat.github.io/dive-into-stack-defer-panic-recover-in-go/">Dive into stack and defer/panic/recover in go</a></li>
+<li><a href="https://github.com/cch123/golang-notes/blob/master/defer.md">golang-notes</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/defer/2019-05-27-defer/">https://index.zshipu.com/go/posts/go/defer/2019-05-27-defer/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/panic/2019-05-21-panic-and-recover/">深入理解 Go panic and recover</a></li>
+        
+        <li><a href="/go/posts/go/map/2019-04-07-why-map-no-order/">为什么遍历 Go map 是无序的</a></li>
+        
+        <li><a href="/go/posts/go/map/2019-03-24-map-assign/">深入理解 Go map：赋值和扩容迁移</a></li>
+        
+        <li><a href="/go/posts/go/map/2019-03-05-map-access/">深入理解 Go map：初始化和访问元素</a></li>
+        
+        <li><a href="/go/posts/go/slice/2019-01-06-why-slice-max/">Go Slice 最大容量大小是怎么来的</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90'>源码分析</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

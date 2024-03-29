@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>想要4个9？本文告诉你监控告警如何做 | 知识铺的博客</title>
+    <meta property="og:title" content="想要4个9？本文告诉你监控告警如何做 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2020-09-13T18:42:17&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2020-09-13T18:42:17&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="想要4个9？本文告诉你监控告警如何做">
+        
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/microservice/monitor-alarm/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前言">前言</a></li>
+    <li><a href="#问题">问题</a></li>
+    <li><a href="#监控定义">监控定义</a></li>
+    <li><a href="#监控目标">监控目标</a></li>
+    <li><a href="#4-个黄金指标">4 个黄金指标</a></li>
+    <li><a href="#实践案例">实践案例</a>
+      <ul>
+        <li><a href="#平台搭建">平台搭建</a></li>
+        <li><a href="#监控指标">监控指标</a></li>
+        <li><a href="#指标落地">指标落地</a></li>
+        <li><a href="#告警体系">告警体系</a></li>
+        <li><a href="#规范建立">规范建立</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">想要4个9？本文告诉你监控告警如何做</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2020年9月13日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>“你说说，没有仪表盘的车，你敢开吗？”</p>
+<p>“没有仪表盘的车开在路上，你怎么知道现在是什么情况？”</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/6e2774d84ddcdb2d73918e06575a07b7.jpeg" />   
+    </p>
+<p>“客户说你这车又崩了，咋知道什么时候好的？​啥时候出的问题？”</p>
+<h2 id="前言">前言</h2>
+<p>将思考转换到现实的软件系统中，可想而知没有监控系统的情况下，也就是没有 ”仪表盘“ 的情况下实在是太可怕了。</p>
+<p>你的故障永远都是你的客户告诉你的，而&hellip;在什么时候发生的，你也无法确定，只能通过客户的反馈倒推时间节点，最后从错误日志中得到相对完整的日志信息。</p>
+<h2 id="问题">问题</h2>
+<p>更要命的是你无法掌握主动权，错误日志有可能会有人漏记录，平均修复时间（MTTR）更不用想了，需要从 0.1 开始定位，先看 APP 是哪个模块报错，再猜测是哪个服务导致，再打开链路追踪系统，或是日志平台等。</p>
+<p>稍微复杂些的，排查来来往往基本都是半小时、一小时以上，那 4 个 9 肯定是达不到的了，以此几次 P0 几小时怕不是业务绩效也凉凉，因为故障修复的速度实在是太慢了。</p>
+<p>那归根到底，想破局怎么办，核心第一步就是要把监控告警的整个生态圈给建设好。</p>
+<h2 id="监控定义">监控定义</h2>
+<p>常说监控监控，监控的定义就是监测和控制，检测某些事物的变化，以便于进行控制。在常见的软件系统中，大多分为三大观察类别：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/b567a71921b7e54d703d9e47f491d6c0.jpg" />   
+    </p>
+<ul>
+<li>
+<p>业务逻辑：项目所对应的服务其承担的业务逻辑，通常需要对其进行度量。例如：每秒的下单数等。</p>
+</li>
+<li>
+<p>应用程序：应用程序。例如：统一的基础框架。</p>
+</li>
+<li>
+<p>硬件资源：服务器资源情况等。例如：Kubernetes 中的 Cadvisor 组件便会提供大量的资源指标。</p>
+</li>
+</ul>
+<p>从软件系统来讲，监控的定义就是收集、处理、汇总，显示关于某个系统的实时量化数据，例如：请求的数量和类型，错误的数量和类型，以及各类调用/处理的耗时，应用服务的存活时间等。</p>
+<h2 id="监控目标">监控目标</h2>
+<p>知道了监控的定义，了解了监控的作用和具体的实施指标后。我们需要明确的知道，做监控的目标是什么：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/bab6275c4b7c73deec2d9f9919f967c7.jpg" />   
+    </p>
+<p>从现实层面出发，做监控的初衷，就是希望能够及时的发现线上环境的各种各样奇奇怪怪的问题，为业务的正常运转保驾护航。因此整体分为上图四项：</p>
+<ul>
+<li>
+<p>预测故障：故障还没出现，但存在异常。监控系统根据流量模型、数据分析、度量趋势来推算应用程序的异常趋势，推算可能出现故障的问题点。</p>
+</li>
+<li>
+<p>发现故障：故障已经出现，客户还没反馈到一线人员。监控系统根据真实的度量趋势来计算既有的告警规则，发现已经出现故障的问题点。</p>
+</li>
+<li>
+<p>定位故障：故障已经出现，需要监控系统协助快速定位问题，也就是根因定位（root cause）。此时是需要协调公司内生态圈的多个组件的，例如：链路追踪系统、日志平台、监控系统、治理平台（限流熔断等），根据监控系统所告警出来的问题作为起始锚点，对其进行有特定方向的分析，再形成 ”线索“ 报告，就可以大力的协助开发人员快速的定位问题，发现故障点。</p>
+</li>
+<li>
+<p>故障恢复：故障已经出现，但自动恢复了，又或是通过自动化自愈了。这种情况大多出现在告警规则的阈值配置的不够妥当，又或是第三方依赖恰好恢复了的场景。</p>
+</li>
+</ul>
+<p>而更值得探讨的的是监控告警的后半段闭环，故障自愈，通过上述三点 “预测故障、发现故障、定位故障”，已经定位到故障了，就可以配合内部组件，实现自动化的 ”自愈“，减少人工介入，提高 MTTR。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/437e9d859ee86916f5d2d0bc409ab9f5.jpg" />   
+    </p>
+<p>因此做监控系统的目标很明确，就是发现问题，解决问题，最好自愈，达到愉快休假，业务安心的目的。</p>
+<h2 id="4-个黄金指标">4 个黄金指标</h2>
+<p>有定义，有目标，那指导呢。实际上 “业务逻辑、应用程序、硬件资源” 已经成为了一个监控系统所要监控构建的首要目标，绝大部分的监控场景都可以归类进来。且针对这三大项，《Google SRE 运维解密》 也总结出了 4 个黄金指标，在业界广为流传和借鉴：</p>
+<ul>
+<li>
+<p>延迟：服务处理某个请求所需要的时间。</p>
+<ul>
+<li>区分成功和失败请求很重要，例如：某个由于数据库连接丢失或者其他后端问题造成的 HTTP 500 错误可能延迟很低。因此在计算整体延迟时，如果将 500 回复的延迟也计算在内，可能会产生误导性的结果。</li>
+<li>“慢” 错误要比 “快” 错误更糟糕。</li>
+</ul>
+</li>
+<li>
+<p>流量：使用系统中的某个高层次的指标针对系统负载需求所进行的度量。</p>
+<ul>
+<li>对 Web 服务器来讲，该指标通常是每秒 HTTP 请求数量，同时可能按请求类型分类（静态请求与动态请求）。</li>
+<li>针对音频流媒体系统来说，指标可能是网络 I/O 速率，或者并发会话数量。</li>
+<li>针对键值对存储系统来说，指标可能是每秒交易数量，或每秒的读者操作数量。</li>
+</ul>
+</li>
+<li>
+<p>错误：请求失败的速率。</p>
+<ul>
+<li>显式失败（例如：HTTP 500）。</li>
+<li>隐式失败（例如：HTTP 200 回复中包含了错误内容）。</li>
+<li>策略原因导致的失败（例如：如果要求回复在 1s 内发出，任何超过 1s 的请求就都是失败请求）。</li>
+</ul>
+</li>
+<li>
+<p>饱和度：服务容量有多 “满”，通常是系统中目前最为受限的某种资源的某个具体指标的度量，例如：在内存受限的系统中，即为内存；在 I/O 受限的系统中，即为 I/O。</p>
+<ul>
+<li>很多系统在达到 100% 利用率之前性能会严重下降，因此可以考虑增加一个利用率目标。</li>
+<li>延迟增加是饱和度的前导现象，99% 的请求延迟（在某一个小的时间范围内，例如一分钟）可以作为一个饱和度早期预警的指标。</li>
+<li>饱和度需要进行预测，例如 “看起来数据库会在 4 小时内填满硬盘”。</li>
+</ul>
+</li>
+</ul>
+<p>如果已经成功度量了这四个黄金指标，且在某个指标出现故障时能够发出告警（或者快要发生故障），那么在服务的监控层面来讲，基本也就满足了初步的监控诉求。</p>
+<p>也就是可以做到知道了是什么出问题，问题出在哪里，单这一步就已经提高了不少定位问题的时间效率，是一个从 0 到 1 的起步阶段。</p>
+<h2 id="实践案例">实践案例</h2>
+<p>知道是什么（定义），为什么要做（目标），做的时候需要什么（4 个黄金指标）后，还缺乏的是一个承载这些基础应用、业务思考的平台，让架构+运维+业务共同在上面施展拳脚。</p>
+<p>公司内部至少需要有一个监控告警管理平台。</p>
+<h3 id="平台搭建">平台搭建</h3>
+<p>在目前云原生火热的情况下，Kubernetes 生态中大多惯用 Prometheus，因此 Prometheus+Grafana+AlertManger 成为了一大首选，业内占比也越来越高，其基本架构如下：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/d6c347759dbe7eb9c14c544b6bbab468.jpg" />   
+    </p>
+<ul>
+<li>Prometheus Server：用于收集指标和存储时间序列数据，并提供一系列的查询和设置接口。</li>
+<li>Grafana：用于展示各类趋势图，通过 PromQL 从 Prometheus 服务端查询并构建图表。</li>
+<li>Alertmanager：用于处理告警事件，从 Prometheus 服务端接收到 alerts 后，会进行去重，分组，然后路由到对应的Receiver，发出报警。</li>
+</ul>
+<p>这块具体的基本知识学习和搭建可详见我写的 <a href="https://zshipu.com/prometheus-categories/">Prometheus 系列</a>，本文不再赘述。</p>
+<h3 id="监控指标">监控指标</h3>
+<p>在平台搭建完毕后，常要做的第一步，那就是规划你整个系统的度量指标，结合 Google SRE 的 4 个黄金指标，可以初步划分出如下几种常用类型：</p>
+<ul>
+<li>
+<p>系统层面：Kubernetes Node、Container 等指标，这块大多 Cadvisor 已采集上报，也可以安装 kube-state-metrics 加强，这样子就能够对 Kubernetes 和应用程序的运行情况有一个较好的观察和告警。</p>
+</li>
+<li>
+<p>系统层面：针对全链路上的所有基础组件（例如：MySQL、Redis 等）安装 exporter，进行采集，对相关基础组件进行监控和告警。</p>
+</li>
+<li>
+<p>业务服务：RPC 方法等的 QPS 记录。可以保证对业务服务的流量情况把控，且后续可以做预测/预警的一系列动作，面对突发性流量的自动化扩缩容有一定的参考意义。</p>
+</li>
+<li>
+<p>业务服务：RPC 方法等的错误情况。能够发现应用程序、业务的常见异常情况，但需要在状态/错误码规划合理的情况下，能够起到较大的作用，有一定困难，要在一开始就做对，否则后面很难扭转。</p>
+</li>
+<li>
+<p>应用程序：各类远程调用（例如：RPC、SQL、HTTP、Redis）的调用开销记录。最万金油的度量指标之一，能够在很多方面提供精确的定位和分析，Web 应用程序标配。常见于使用 P99/95/90。</p>
+</li>
+<li>
+<p>语言级别：内部分析记录，例如：Goroutines 数量、Panic 情况等，常常能发现一些意想不到的泄露情况和空指针调用。没有这类监控的话，很有可能一直都不会被发现。</p>
+</li>
+</ul>
+<h3 id="指标落地">指标落地</h3>
+<p>第一步完成了整个系统的度量指标规划后，第二步就是需要确确实实的把指标落地了。</p>
+<p>无论是统一基础框架的打点，系统组件的 exporter，大多涉及了公司级的跨多部门协作，这时候需要更多的耐心和长期主义和不断地对方向纠错，才能尝到体系建设后的果实。</p>
+<h3 id="告警体系">告警体系</h3>
+<p>在完成监控指标和体系的建设后，告警如何做，成为了一大难题，再好的监控体系，闭环做不好，就无法发挥出很大的作用。因此我们给告警定义一些准则：</p>
+<ol>
+<li>
+<p>告警不要太多，否则会导致“狼来了”。</p>
+</li>
+<li>
+<p>告警出现时，应当要具体操作某些事情，是亟待解决的。</p>
+</li>
+<li>
+<p>告警出现时，应当要进行某些智力分析，不应该是机械行为。</p>
+</li>
+<li>
+<p>不需要人工响应/处理的告警规则，应当直接删除。</p>
+</li>
+<li>
+<p>告警出现时，你下意识要再观察观察的告警，要直接进行调整。</p>
+</li>
+<li>
+<p>告警应当足够的简单，直观，不需要猜。</p>
+</li>
+</ol>
+<p>简单来讲就是告警要少，事件需要解决，处理要人工介入。否则右拐自动化自愈恢复可能更香。</p>
+<h4 id="告警给谁">告警给谁？</h4>
+<p>另外一个难题就是：
+谁诱发处理的告警，要通知给谁？</p>
+<p>这是一个很需要斟酌的问题，在告警的规范上，尽可能遵循最小原则，再逐级上报。也就是先告警给 on-call 人，若超出 X 分钟，再逐级上报到全业务组，再及其负责人，一级级跟踪，实现渐进式告警。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/6745789c92ca3f7bc0fd86909046ce45.jpg" />   
+    </p>
+<p>逐级上报，响应即跟踪，明确问题点的责任人。而逐级上报的数据来源，可通过员工管理系统来获取，在员工管理系统中有完整的上下级关系（类似 OA 审批上看到的流程节点），但如果该系统没有开放 API 之类的，那可能你只能通过其他方式来获取了。</p>
+<p>例如像是通过企业微信获取部门关系和人员列表，再手动设置上下级关联关系，也可以达到目的，且在现实世界中，有可能存在定制化的诉求。</p>
+<h3 id="规范建立">规范建立</h3>
+<p>即使所以监控体系、指标落地、告警体系都建立起来了，也不能掉以轻心。实际上在成为事实标准后，你仍然需要尽快为告警后奔跑，将整个闭环搭建起来，也就是故障管理。</p>
+<p>与公司内部的流程管理的同学或 QA，一起设立研发底线的规范，进行细致的告警分级识别，告警后的汇总运营分析，形成一个真正意义上的故障管理规范。</p>
+<p>否则最后可能会疲于奔命，人的时间精力总是有限的，而面对整个公司的监控告警的搭建，体系上与业务组的共建，督促告警响应，极有可能最后会疲于奔命，即使真的有一定用处，在杂乱无人收敛的告警中最后流于形式。</p>
+<h2 id="总结">总结</h2>
+<p>监控告警的体系生态做来有意义吗？</p>
+<p>这是必然的，成熟且规范的监控告警的体系生态是具有极大意义，可以提前发现问题，定位问题，解决问题。甚至这个问题的说不定还不需要你自己处理，做多组件的闭环后，直接实施自动化的服务自愈就可以了，安心又快快乐乐的过国庆节，是很香的。</p>
+<p>而故障管理的闭环实施后，就可以分析业务服务的告警情况，结合 CI/CD 系统等基础平台，每季度自动化分析实施运营报表，帮助业务发现更多的问题，提供其特有的价值。</p>
+<p>但，想真正做到上述所说的成熟且规范，业务共建，有难度，需要多方面认同和公司规范支撑才能最佳实现。因此共同认可，求同存异，多做用户反馈分析也非常重要。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/microservice/monitor-alarm/">https://index.zshipu.com/go/posts/microservice/monitor-alarm/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/microservice/tracing/">微服务的战争：选型？分布式链路追踪</a></li>
+        
+        <li><a href="/go/posts/microservice/linkage/">微服务的战争：级联故障和雪崩</a></li>
+        
+        <li><a href="/go/posts/microservice/standardization/">微服务的战争：统一且标准化</a></li>
+        
+        <li><a href="/go/posts/microservice/dismantle/">微服务的战争：按什么维度拆分服务</a></li>
+        
+        <li><a href="/go/posts/reading/documentary-of-go/">Go: A Documentary 发布！</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1'>微服务</a></li>
+                
+                <li><a href='/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86'>服务治理</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

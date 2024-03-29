@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Go 的 fake-useragent 了解一下 | 知识铺的博客</title>
+    <meta property="og:title" content="Go 的 fake-useragent 了解一下 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-05-21T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-05-21T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Go 的 fake-useragent 了解一下">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/talk/2018-05-21-go-fake-useragent/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#支持">支持</a></li>
+    <li><a href="#安装">安装</a></li>
+    <li><a href="#用法">用法</a>
+      <ul>
+        <li><a href="#定制">定制</a></li>
+      </ul>
+    </li>
+    <li><a href="#输出">输出</a></li>
+    <li><a href="#注意">注意</a></li>
+    <li><a href="#最后">最后</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go 的 fake-useragent 了解一下</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年5月21日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>有的网站会根据 User-Agent 的不同，跳转到不同（PC、M）的站点，也有根据版本的不同给出不一样的提示等等，而 User-Agent 的变化更是爬虫里的基础姿势</p>
+<p>使用 Go 编写网络爬虫或需要模拟浏览器头（User-Agent）的时候，你是否会觉得很麻烦，获取请求头（Request Headers）的 User-Agent 还得找来找去，挺繁琐。先前我也遇到了这个问题，因此有了这个项目 <a href="https://github.com/zshipu/fake-useragent">fake-useragent</a>，用来解决你我的痛点</p>
+<p>项目地址：https://github.com/zshipu/fake-useragent</p>
+<h2 id="支持">支持</h2>
+<ul>
+<li>All User-Agent Random</li>
+<li>Chrome</li>
+<li>InternetExplorer (IE)</li>
+<li>Firefox</li>
+<li>Safari</li>
+<li>Android</li>
+<li>MacOSX</li>
+<li>IOS</li>
+<li>Linux</li>
+<li>IPhone</li>
+<li>IPad</li>
+<li>Computer</li>
+<li>Mobile</li>
+</ul>
+<h2 id="安装">安装</h2>
+<pre tabindex="0"><code>$ go get github.com/zshipu/fake-useragent
+</code></pre><h2 id="用法">用法</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;log&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;github.com/zshipu/fake-useragent&#34;</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	<span style="color:#998;font-style:italic">// 推荐使用
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	random <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Random</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Random: %s&#34;</span>, random)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	chrome <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Chrome</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Chrome: %s&#34;</span>, chrome)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	internetExplorer <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">InternetExplorer</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;IE: %s&#34;</span>, internetExplorer)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	firefox <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Firefox</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Firefox: %s&#34;</span>, firefox)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	safari <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Safari</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Safari: %s&#34;</span>, safari)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	android <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Android</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Android: %s&#34;</span>, android)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	macOSX <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">MacOSX</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;MacOSX: %s&#34;</span>, macOSX)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	ios <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">IOS</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;IOS: %s&#34;</span>, ios)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	linux <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Linux</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Linux: %s&#34;</span>, linux)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	iphone <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">IPhone</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;IPhone: %s&#34;</span>, iphone)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	ipad <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">IPad</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;IPad: %s&#34;</span>, ipad)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	computer <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Computer</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Computer: %s&#34;</span>, computer)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	mobile <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">Mobile</span>()
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;Mobile: %s&#34;</span>, mobile)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="定制">定制</h3>
+<p>你可以调整抓取数据源的最大页数、时间间隔以及最大超时时间。 如果不填写，则为默认值。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>client <span style="color:#000;font-weight:bold">:=</span> browser.Client{
+</span></span><span style="display:flex;"><span>	MaxPage: <span style="color:#099">3</span>,
+</span></span><span style="display:flex;"><span>	Delay: <span style="color:#099">200</span> <span style="color:#000;font-weight:bold">*</span> time.Millisecond,
+</span></span><span style="display:flex;"><span>	Timeout: <span style="color:#099">10</span> <span style="color:#000;font-weight:bold">*</span> time.Second,
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>cache <span style="color:#000;font-weight:bold">:=</span> browser.Cache{}
+</span></span><span style="display:flex;"><span>b <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">NewBrowser</span>(client, cache)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>random <span style="color:#000;font-weight:bold">:=</span> b.<span style="color:#900;font-weight:bold">Random</span>()
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>更新浏览器头的临时文件缓存</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>client <span style="color:#000;font-weight:bold">:=</span> browser.Client{}
+</span></span><span style="display:flex;"><span>cache <span style="color:#000;font-weight:bold">:=</span> browser.Cache{
+</span></span><span style="display:flex;"><span>	UpdateFile: <span style="color:#000;font-weight:bold">true</span>,
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>b <span style="color:#000;font-weight:bold">:=</span> browser.<span style="color:#900;font-weight:bold">NewBrowser</span>(client, cache)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>最后，建议常规用法就好，默认参数能够满足日常需求</strong></p>
+<h2 id="输出">输出</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>Random: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Macintosh; Intel Mac OS X 10_13_2<span style="color:#000;font-weight:bold">)</span> AppleWebKit/537.36 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Chrome/63.0.3239.132 Safari/537.36
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Chrome: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Windows NT 10.0; Win64; x64<span style="color:#000;font-weight:bold">)</span> AppleWebKit/537.36 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Chrome/60.0.3112.113 Safari/537.36
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IE: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0<span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Firefox: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Windows NT 6.3; WOW64; rv:41.0<span style="color:#000;font-weight:bold">)</span> Gecko/20100101 Firefox/41.0
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Safari: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>iPhone; CPU iPhone OS 11_2_5 like Mac OS X<span style="color:#000;font-weight:bold">)</span> AppleWebKit/604.5.6 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Version/11.0 Mobile/15D60 Safari/604.1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Android: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Linux; Android 6.0; MYA-L22 Build/HUAWEIMYA-L22<span style="color:#000;font-weight:bold">)</span> AppleWebKit/537.36 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Chrome/62.0.3202.84 Mobile Safari/537.36
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>MacOSX: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Macintosh; Intel Mac OS X 10_10_5<span style="color:#000;font-weight:bold">)</span> AppleWebKit/602.2.14 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Version/10.0.1 Safari/602.2.14
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IOS: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>iPhone; CPU iPhone OS 10_1 like Mac OS X<span style="color:#000;font-weight:bold">)</span> AppleWebKit/602.2.14 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Version/10.0 Mobile/14B72 Safari/602.1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Linux: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>X11; Linux x86_64; rv:42.0<span style="color:#000;font-weight:bold">)</span> Gecko/20100101 Firefox/42.0
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IPhone: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>iPhone; CPU iPhone OS 10_2 like Mac OS X<span style="color:#000;font-weight:bold">)</span> AppleWebKit/602.3.12 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Version/10.0 Mobile/14C92 Safari/602.1
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>IPad: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>iPad; CPU OS 5_0_1 like Mac OS X<span style="color:#000;font-weight:bold">)</span> AppleWebKit/534.46 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Version/5.1 Mobile/9A405 Safari/7534.48.3
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Computer: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Windows NT 10.0; WOW64; rv:54.0<span style="color:#000;font-weight:bold">)</span> Gecko/20100101 Firefox/54.0
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Mobile: Mozilla/5.0 <span style="color:#000;font-weight:bold">(</span>Linux; Android 7.0; Redmi Note <span style="color:#099">4</span> Build/NRD90M<span style="color:#000;font-weight:bold">)</span> AppleWebKit/537.36 <span style="color:#000;font-weight:bold">(</span>KHTML, like Gecko<span style="color:#000;font-weight:bold">)</span> Chrome/63.0.3239.111 Mobile Safari/537.36
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="注意">注意</h2>
+<p>如果第一次使用，<a href="https://github.com/zshipu/fake-useragent">fake-useragent</a> 将收集数据并在临时目录中创建一个文件作为文件缓存，请耐心等待几秒钟</p>
+<h2 id="最后">最后</h2>
+<p>如果在项目中发现了什么问题，欢迎提交 PR 或者 issue。希望你能够喜欢这个项目，根本目的还是为了解决痛点，欢迎 Star！😁</p>
+<hr>
+<p>项目地址：https://github.com/zshipu/fake-useragent</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/talk/2018-05-21-go-fake-useragent/">https://index.zshipu.com/go/posts/go/talk/2018-05-21-go-fake-useragent/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/gin/2018-04-29-cron/">「连载十一」Cron定时任务</a></li>
+        
+        <li><a href="/go/posts/go/crawler/2018-04-28-go2018/">了解一下Golang的市场行情</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-04-15-gorm-callback/">「连载十」定制 GORM Callbacks</a></li>
+        
+        <li><a href="/go/posts/go/crawler/2018-04-01-cars/">爬取汽车之家 二手车产品库</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-03-26-cgo/">「番外」Golang 交叉编译</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

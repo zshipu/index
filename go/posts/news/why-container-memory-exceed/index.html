@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>为什么容器内存占用居高不下，频频 OOM | 知识铺的博客</title>
+    <meta property="og:title" content="为什么容器内存占用居高不下，频频 OOM - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2020-06-07T14:52:19&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2020-06-07T14:52:19&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="为什么容器内存占用居高不下，频频 OOM">
+        
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/news/why-container-memory-exceed/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#现象">现象</a>
+      <ul>
+        <li><a href="#内存居高不下">内存居高不下</a></li>
+        <li><a href="#进入重启怪圈">进入重启怪圈</a></li>
+      </ul>
+    </li>
+    <li><a href="#排查">排查</a>
+      <ul>
+        <li><a href="#猜想一频繁申请重复对象">猜想一：频繁申请重复对象</a></li>
+        <li><a href="#猜想二不知名内存泄露">猜想二：不知名内存泄露</a></li>
+        <li><a href="#猜想三madvise-策略变更">猜想三：madvise 策略变更</a></li>
+        <li><a href="#猜想四监控判别条件有问题">猜想四：监控/判别条件有问题</a></li>
+        <li><a href="#猜想五容器环境的机制">猜想五：容器环境的机制</a></li>
+      </ul>
+    </li>
+    <li><a href="#原因">原因</a></li>
+    <li><a href="#解决方案">解决方案</a>
+      <ul>
+        <li><a href="#开发角度">开发角度</a></li>
+        <li><a href="#运维角度">运维角度</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#回顾">回顾</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">为什么容器内存占用居高不下，频频 OOM</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2020年6月7日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>最近我在回顾思考（写 PPT），整理了现状，发现了这个问题存在多时，经过一番波折，最终确定了元凶和相对可行的解决方案，因此也在这里分享一下排查历程。</p>
+<p>时间线：</p>
+<ul>
+<li>
+<p>在上 Kubernetes 的前半年，只是用 Kubernetes，开发没有权限，业务服务极少，忙着写新业务，风平浪静。</p>
+</li>
+<li>
+<p>在上 Kubernetes 的后半年，业务服务较少，偶尔会阶段性被运维唤醒，问之 “<strong>为什么你们的服务内存占用这么高，赶紧查</strong>”。此时大家还在为新业务冲刺，猜测也许是业务代码问题，但没有调整代码去尝试解决。</p>
+</li>
+<li>
+<p>在上 Kubernetes 的第二年，业务服务逐渐增多，普遍增加了容器限额 Limits，出现了好几个业务服务是内存小怪兽，因此如果不限制的话，服务过度占用会导致驱逐，因此反馈语也就变成了：“<strong>为什么你们的服务内存占用这么高，老被 OOM Kill，赶紧查</strong>”。据闻也有几个业务大佬有去排查（因为 OOM 反馈），似乎没得出最终解决方案。</p>
+</li>
+</ul>
+<p>不禁让我们思考，为什么个别 Go 业务服务，Memory 总是提示这么高，经常达到容器限额，以至于被动 OOM Kill，是不是有什么安全隐患？</p>
+<h2 id="现象">现象</h2>
+<h3 id="内存居高不下">内存居高不下</h3>
+<p>发现个别业务服务内存占用挺高，触发告警，且通过 Grafana 发现在凌晨（没有什么流量）的情况下，内存占用量依然拉平，没有打算下降的样子，高峰更是不得了，像是个内存炸弹：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/2e6c8c153836b29175dff7623ec67a0a.png" />   
+    </p>
+<p>并且我所观测的这个服务，早年还只是 100MB。现在随着业务迭代和上升，目前已经稳步 4GB，容器限额 Limits 纷纷给它开道，但我想总不能是无休止的增加资源吧，这是一个大问题。</p>
+<h3 id="进入重启怪圈">进入重启怪圈</h3>
+<p>有的业务服务，业务量小，自然也就没有调整容器限额，因此得不到内存资源，又超过额度，就会进入疯狂的重启怪圈：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/95644633a2d55cb2f2684a23d3f3f189.png" />   
+    </p>
+<p>重启将近 300 次，非常不正常了，更不用提所接受到的告警通知。</p>
+<h2 id="排查">排查</h2>
+<h3 id="猜想一频繁申请重复对象">猜想一：频繁申请重复对象</h3>
+<p>出现问题的个别业务服务都有几个特点，那就是基本为图片处理类的功能，例如：图片解压缩、批量生成二维码、PDF 生成等，因此就怀疑是否在量大时频繁申请重复对象，而 Go 本身又没有及时释放内存，因此导致持续占用。</p>
+<h4 id="syncpool">sync.Pool</h4>
+<p>基本上想解决 “频繁申请重复对象”，我们大多会采用多级内存池的方式，也可以用最常见的 sync.Pool，这里可参考全成所借述的《Go 夜读》上关于 sync.Pool 的分享，关于这类情况的场景：</p>
+<blockquote>
+<p>当多个 goroutine 都需要创建同⼀个对象的时候，如果 goroutine 数过多，导致对象的创建数⽬剧增，进⽽导致 GC 压⼒增大。形成 “并发⼤－占⽤内存⼤－GC 缓慢－处理并发能⼒降低－并发更⼤”这样的恶性循环。</p>
+</blockquote>
+<h4 id="验证场景">验证场景</h4>
+<p>在描述中关注到几个关键字，分别是并发大，Goroutine 数过多，GC 压力增大，GC 缓慢。也就是需要满足上述几个硬性条件，才可以认为是符合猜想的。</p>
+<p>通过拉取 PProf goroutine，可得知 Goroutine 数并不高：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/4adaadade78389230318c41d006de4ef.png" />   
+    </p>
+<p>另外在凌晨长达 6 小时，没有什么流量的情况下，也不符合并发大，Goroutine 数过多的情况，若要更进一步确认，可通过 Grafana 落实其量的高低。</p>
+<p>从结论上来讲，我认为与其没有特别直接的关系，但猜想其所对应的业务功能到导致的间接关系应当存在。</p>
+<h3 id="猜想二不知名内存泄露">猜想二：不知名内存泄露</h3>
+<p>内存居高不下，其中一个反应就是猜测是否存在泄露，而我们的容器中目前只跑着一个 Go 进程，因此首要看看该 Go 应用是否有问题。这时候可以借助 PProf heap（可以使用 base -diff）：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/877545ab97b21e68b580567ccf38e08b.png" />   
+    </p>
+<p>显然其提示的内存使用不高，那会不会是 PProf 出现了 BUG 呢。接下通过命令也可确定 Go 进程的 RSS 并不高，但 VSZ 却相对 “高” 的惊人，我在 19 年针对此写过一篇<a href="https://zshipu.com/posts/go/talk/2019-09-24-why-vsz-large">《Go 应用内存占用太多，让排查？（VSZ篇）》</a> ，这次 VSZ 过高也给我留下了一个念想。</p>
+<p>从结论上来讲，也不像 Go 进程内存泄露的问题，因此也将其排除。</p>
+<h3 id="猜想三madvise-策略变更">猜想三：madvise 策略变更</h3>
+<ul>
+<li>
+<p>在 Go1.12 以前，Go Runtime 在 Linux 上使用的是 <code>MADV_DONTNEED</code> 策略，可以让 RSS 下降的比较快，就是效率差点。</p>
+</li>
+<li>
+<p>在 Go1.12 及以后，Go Runtime 专门针对其进行了优化，使用了更为高效的 <code>MADV_FREE</code> 策略。但这样子所带来的副作用就是 RSS 不会立刻下降，要等到系统有内存压力了才会释放占用，RSS 才会下降。</p>
+</li>
+</ul>
+<p>查看容器的 Linux 内核版本：</p>
+<pre tabindex="0"><code>$ uname -a
+Linux xxx-xxx-99bd5776f-k9t8z 3.10.0-693.2.2.el7.x86_64 
+</code></pre><p>但 <code>MADV_FREE</code> 的策略改变，需要 Linux 内核在 4.5 及以上（详细可见 <a href="https://github.com/golang/go/issues/23687">go/issues/23687</a>），显然不符合，因此也将其从猜测中排除。</p>
+<h3 id="猜想四监控判别条件有问题">猜想四：监控/判别条件有问题</h3>
+<p>会不会是 Grafana 的图表错了，Kubernetes OOM Kill 的判别标准也错了呢，显然不大可能，毕竟我们拥抱云，阿里云 Kubernetes 也运行了好几年。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/ad7ca63b33af2b856a8efcf7ab36dbd4.jpg" />   
+    </p>
+<p>但在这次怀疑中，我了解到 OOM 的判断标准是 container_memory_working_set_bytes 指标，因此有了下一步猜想。</p>
+<h3 id="猜想五容器环境的机制">猜想五：容器环境的机制</h3>
+<p>既然不是业务代码影响，也不是 Go Runtime 的直接影响，那是否与环境本身有关呢，我们可以得知容器 OOM 的判别标准是 container_memory_working_set_bytes（当前工作集）。</p>
+<p>而 container_memory_working_set_bytes  是由 cadvisor 提供的，对应下述指标：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/288361fd15c915e6ff1bb6d21f943939.jpg" />   
+    </p>
+<p>从结论上来讲，Memory 换算过来是 4GB+，石锤。接下来的问题就是 Memory 是怎么计算出来的呢，显然和 RSS 不对标。</p>
+<h2 id="原因">原因</h2>
+<p>从 <a href="https://github.com/google/cadvisor/issues/638">cadvisor/issues/638</a> 可得知 container_memory_working_set_bytes 指标的组成实际上是 RSS + Cache。而 Cache 高的情况，常见于进程有大量文件 IO，占用 Cache 可能就会比较高，猜测也与 Go 版本、Linux 内核版本的 Cache 释放、回收方式有较大关系。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/36d4ccc1cf705be334d53766f4ea8dc2.jpg" />   
+    </p>
+<p>而各业务模块常见功能，如：</p>
+<ul>
+<li>批量图片解压缩。</li>
+<li>批量二维码生成。</li>
+<li>批量上传渲染后图片。</li>
+<li>批量 PDF 生成。</li>
+<li>&hellip;</li>
+</ul>
+<p>只要是涉及有大量文件 IO 的服务，基本上是这个问题的老常客了，写这类服务基本写一个中一个，因为这是一个混合问题，像其它单纯操作为主的业务服务就很 “正常”，不会出现内存居高不下。</p>
+<h2 id="解决方案">解决方案</h2>
+<p>在本场景中 cadvisor 所提供的判别标准 container_memory_working_set_bytes 是不可变更的，也就是无法把判别标准改为 RSS，因此我们只能考虑掌握主动权。</p>
+<h3 id="开发角度">开发角度</h3>
+<p>使用类 sync.Pool 做多级内存池管理，防止申请到 “不合适”的内存空间，常见的例子： ioutil.ReadAll：</p>
+<pre tabindex="0"><code>func (b *Buffer) ReadFrom(r io.Reader) (n int64, err error) {
+    …
+    for {
+        if free := cap(b.buf) - len(b.buf); free &lt; MinRead {
+            newBuf := b.buf
+            if b.off+free &lt; MinRead {
+                    newBuf = makeSlice(2*cap(b.buf) + MinRead)  // 扩充双倍空间
+                    copy(newBuf, b.buf[b.off:])
+            }
+        }
+    }
+}
+</code></pre><p>核心是做好做多级内存池管理，因为使用多级内存池，就会预先定义多个 Pool，比如大小 100，200，300的 Pool 池，当你要 150 的时候，分配200，就可以避免部分的内存碎片和内存碎块。</p>
+<p>但从另外一个角度来看这存在着一定的难度，因为你怎么知道什么时候在哪个集群上会突然出现这类型的服务，何况开发人员的预期情况参差不齐，写多级内存池写出 BUG 也是有可能的。</p>
+<p>让业务服务无限重启，也是不现实的，<strong>被动重启，没有控制，且告警，存在风险</strong>。</p>
+<h3 id="运维角度">运维角度</h3>
+<p>为了掌握主动权，我们可以在部署环境可以配合脚本做 “手动” HPA，当容器内存指标超过约定限制后，起一个新的容器替换，再将原先的容器给释放掉，就可以在预期内替换且业务稳定了。</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/2b449204373cd0d7c8e8501a326061a7.jpg" />   
+    </p>
+<h2 id="总结">总结</h2>
+<p>根据上述排查和分析结果，原因如下：</p>
+<ul>
+<li>应用程序行为：文件处理型服务，导致 Cache 占用高。</li>
+<li>Linux 内核版本：版本比较低（BUG?），不同 Cache 回收机制。</li>
+<li>内存分配机制：在达到 cgroup limits 前会尝试释放，但可能内存碎片化，也可能是一次性索要太多，无法分配到足够的连续内存，最终导致 cgroup oom。</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/391085a138e86866b78c960e4de516c7.jpg" />   
+    </p>
+<p>从根本上来讲，应用程序需要去优化其内存使用和分配策略，又或是将其抽离为独立的特殊服务去处理。并不能以目前这样简单未经多级内存池控制的方式去使用，否则会导致内存使用量越来越大。</p>
+<p>而从服务提供的角度来讲，我们并不知道这类服务会在什么地方出现又何时会成长起来，因此我们需要主动去控制容器的 OOM，让其实现优雅退出，保证业务稳定和可控。</p>
+<p>因此如果可以，升级 Linux 内核版本走 cgroup v2 极有可能可以解决问题。</p>
+<h2 id="回顾">回顾</h2>
+<p>虽然这问题时间跨度比较长，整体来讲都是阶段性排查，本质上可以说是对 Kubernetes 的不熟悉有关。但综合来讲这个问题涉及范围比较大，因为内存居高不下的可能性有很多种，要一个个排查，开发权限有限，费时费力。</p>
+<p>基本排查思路就是：</p>
+<ol>
+<li>怀疑业务代码（PProf）。</li>
+<li>怀疑其它代码（PProf）。</li>
+<li>怀疑 Go Runtime 。</li>
+<li>怀疑工具。</li>
+<li>怀疑环境。</li>
+</ol>
+<p>非常感谢在这大段时间内被我咨询的各位大佬们，感觉就是隔了一层纱，捅穿了就很快就定位到了，大家如果有其它解决方案也欢迎随时沟通。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/news/why-container-memory-exceed/">https://index.zshipu.com/go/posts/news/why-container-memory-exceed/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/go-moduels/2020-02-28-go-modules/">Go Modules 终极入门</a></li>
+        
+        <li><a href="/go/posts/go/go-moduels/2019-09-29-goproxy-cn/">干货满满的 Go Modules 和 goproxy.cn</a></li>
+        
+        <li><a href="/go/posts/go/talk/2019-09-24-why-vsz-large/">Go 应用内存占用太多，让排查？（VSZ篇）</a></li>
+        
+        <li><a href="/go/posts/go/talk/2019-09-07-go1.13-defer/">Go1.13 defer 的性能是如何提高的</a></li>
+        
+        <li><a href="/go/posts/go/tools/2019-09-02-godebug-gc/">用 GODEBUG 看 GC</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
