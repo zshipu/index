@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>「连载十」定制 GORM Callbacks | 知识铺的博客</title>
+    <meta property="og:title" content="「连载十」定制 GORM Callbacks - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-04-15T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-04-15T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="「连载十」定制 GORM Callbacks">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/gin/2018-04-15-gorm-callback/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#涉及知识点">涉及知识点</a></li>
+    <li><a href="#本文目标">本文目标</a></li>
+    <li><a href="#问题">问题</a>
+      <ul>
+        <li><a href="#解决">解决</a></li>
+        <li><a href="#实现-callbacks">实现 Callbacks</a></li>
+        <li><a href="#注册-callbacks">注册 Callbacks</a></li>
+        <li><a href="#验证">验证</a></li>
+      </ul>
+    </li>
+    <li><a href="#拓展">拓展</a>
+      <ul>
+        <li><a href="#实现-callbacks-1">实现 Callbacks</a></li>
+        <li><a href="#注册-callbacks-1">注册 Callbacks</a></li>
+        <li><a href="#验证-1">验证</a></li>
+      </ul>
+    </li>
+    <li><a href="#小结">小结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">「连载十」定制 GORM Callbacks</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年4月15日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="涉及知识点">涉及知识点</h2>
+<ul>
+<li>GORM</li>
+</ul>
+<h2 id="本文目标">本文目标</h2>
+<blockquote>
+<p>GORM itself is powered by Callbacks, so you could fully customize GORM as you want</p>
+</blockquote>
+<p>GORM 本身是由回调驱动的，所以我们可以根据需要完全定制 GORM，以此达到我们的目的，如下：</p>
+<ul>
+<li>注册一个新的回调</li>
+<li>删除现有的回调</li>
+<li>替换现有的回调</li>
+<li>注册回调的顺序</li>
+</ul>
+<p>在 GORM 中包含以上四类 Callbacks，我们结合项目选用 “替换现有的回调” 来解决一个小痛点。</p>
+<h2 id="问题">问题</h2>
+<p>在 models 目录下，我们包含 tag.go 和 article.go 两个文件，他们有一个问题，就是 BeforeCreate、BeforeUpdate 重复出现了，那难道 100 个文件，就要写一百次吗？</p>
+<p>1、tag.go</p>
+<p>
+        <img class="mx-auto" alt="image" src="https://i.loli.net/2018/04/14/5ad20efdba409.jpg" />   
+    </p>
+<p>2、article.go</p>
+<p>
+        <img class="mx-auto" alt="image" src="https://i.loli.net/2018/04/14/5ad20ebacc4c9.jpg" />   
+    </p>
+<p>显然这是不可能的，如果先前你已经意识到这个问题，那挺 OK，但没有的话，现在开始就要改</p>
+<h3 id="解决">解决</h3>
+<p>在这里我们通过 Callbacks 来实现功能，不需要一个个文件去编写</p>
+<h3 id="实现-callbacks">实现 Callbacks</h3>
+<p>打开 models 目录下的 models.go 文件，实现以下两个方法：</p>
+<p>1、updateTimeStampForCreateCallback</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#998;font-style:italic">// updateTimeStampForCreateCallback will set `CreatedOn`, `ModifiedOn` when creating
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">updateTimeStampForCreateCallback</span>(scope <span style="color:#000;font-weight:bold">*</span>gorm.Scope) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> !scope.<span style="color:#900;font-weight:bold">HasError</span>() {
+</span></span><span style="display:flex;"><span>        nowTime <span style="color:#000;font-weight:bold">:=</span> time.<span style="color:#900;font-weight:bold">Now</span>().<span style="color:#900;font-weight:bold">Unix</span>()
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">if</span> createTimeField, ok <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">FieldByName</span>(<span style="color:#d14">&#34;CreatedOn&#34;</span>); ok {
+</span></span><span style="display:flex;"><span>            <span style="color:#000;font-weight:bold">if</span> createTimeField.IsBlank {
+</span></span><span style="display:flex;"><span>                createTimeField.<span style="color:#900;font-weight:bold">Set</span>(nowTime)
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">if</span> modifyTimeField, ok <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">FieldByName</span>(<span style="color:#d14">&#34;ModifiedOn&#34;</span>); ok {
+</span></span><span style="display:flex;"><span>            <span style="color:#000;font-weight:bold">if</span> modifyTimeField.IsBlank {
+</span></span><span style="display:flex;"><span>                modifyTimeField.<span style="color:#900;font-weight:bold">Set</span>(nowTime)
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在这段方法中，会完成以下功能</p>
+<ul>
+<li>检查是否有含有错误（db.Error）</li>
+<li><code>scope.FieldByName</code> 通过 <code>scope.Fields()</code> 获取所有字段，判断当前是否包含所需字段</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">for</span> _, field <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> scope.<span style="color:#900;font-weight:bold">Fields</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> field.Name <span style="color:#000;font-weight:bold">==</span> name <span style="color:#000;font-weight:bold">||</span> field.DBName <span style="color:#000;font-weight:bold">==</span> name {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> field, <span style="color:#000;font-weight:bold">true</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> field.DBName <span style="color:#000;font-weight:bold">==</span> dbName {
+</span></span><span style="display:flex;"><span>        mostMatchedField = field
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>field.IsBlank</code> 可判断该字段的值是否为空</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">isBlank</span>(value reflect.Value) <span style="color:#458;font-weight:bold">bool</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">switch</span> value.<span style="color:#900;font-weight:bold">Kind</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.String:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> value.<span style="color:#900;font-weight:bold">Len</span>() <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.Bool:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> !value.<span style="color:#900;font-weight:bold">Bool</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> value.<span style="color:#900;font-weight:bold">Int</span>() <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> value.<span style="color:#900;font-weight:bold">Uint</span>() <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.Float32, reflect.Float64:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> value.<span style="color:#900;font-weight:bold">Float</span>() <span style="color:#000;font-weight:bold">==</span> <span style="color:#099">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">case</span> reflect.Interface, reflect.Ptr:
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> value.<span style="color:#900;font-weight:bold">IsNil</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">return</span> reflect.<span style="color:#900;font-weight:bold">DeepEqual</span>(value.<span style="color:#900;font-weight:bold">Interface</span>(), reflect.<span style="color:#900;font-weight:bold">Zero</span>(value.<span style="color:#900;font-weight:bold">Type</span>()).<span style="color:#900;font-weight:bold">Interface</span>())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>若为空则 <code>field.Set</code> 用于给该字段设置值，参数为 <code>interface{}</code></li>
+</ul>
+<p>2、updateTimeStampForUpdateCallback</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#998;font-style:italic">// updateTimeStampForUpdateCallback will set `ModifyTime` when updating
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">updateTimeStampForUpdateCallback</span>(scope <span style="color:#000;font-weight:bold">*</span>gorm.Scope) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> _, ok <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;gorm:update_column&#34;</span>); !ok {
+</span></span><span style="display:flex;"><span>        scope.<span style="color:#900;font-weight:bold">SetColumn</span>(<span style="color:#d14">&#34;ModifiedOn&#34;</span>, time.<span style="color:#900;font-weight:bold">Now</span>().<span style="color:#900;font-weight:bold">Unix</span>())
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>scope.Get(...)</code> 根据入参获取设置了字面值的参数，例如本文中是 <code>gorm:update_column</code> ，它会去查找含这个字面值的字段属性</li>
+<li><code>scope.SetColumn(...)</code> 假设没有指定 <code>update_column</code> 的字段，我们默认在更新回调设置 <code>ModifiedOn</code> 的值</li>
+</ul>
+<h3 id="注册-callbacks">注册 Callbacks</h3>
+<p>在上面小节我已经把回调方法编写好了，接下来需要将其注册进 GORM 的钩子里，但其本身自带 Create 和 Update 回调，因此调用替换即可</p>
+<p>在 models.go 的 init 函数中，增加以下语句</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>db.<span style="color:#900;font-weight:bold">Callback</span>().<span style="color:#900;font-weight:bold">Create</span>().<span style="color:#900;font-weight:bold">Replace</span>(<span style="color:#d14">&#34;gorm:update_time_stamp&#34;</span>, updateTimeStampForCreateCallback)
+</span></span><span style="display:flex;"><span>db.<span style="color:#900;font-weight:bold">Callback</span>().<span style="color:#900;font-weight:bold">Update</span>().<span style="color:#900;font-weight:bold">Replace</span>(<span style="color:#d14">&#34;gorm:update_time_stamp&#34;</span>, updateTimeStampForUpdateCallback)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="验证">验证</h3>
+<p>访问 AddTag 接口，成功后检查数据库，可发现 <code>created_on</code> 和 <code>modified_on</code> 字段都为当前执行时间</p>
+<p>访问 EditTag 接口，可发现 <code>modified_on</code> 为最后一次执行更新的时间</p>
+<h2 id="拓展">拓展</h2>
+<p>我们想到，在实际项目中硬删除是较少存在的，那么是否可以通过 Callbacks 来完成这个功能呢？</p>
+<p>答案是可以的，我们在先前 <code>Model struct</code> 增加 <code>DeletedOn</code> 变量</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> Model <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>    ID <span style="color:#458;font-weight:bold">int</span> <span style="color:#d14">`gorm:&#34;primary_key&#34; json:&#34;id&#34;`</span>
+</span></span><span style="display:flex;"><span>    CreatedOn <span style="color:#458;font-weight:bold">int</span> <span style="color:#d14">`json:&#34;created_on&#34;`</span>
+</span></span><span style="display:flex;"><span>    ModifiedOn <span style="color:#458;font-weight:bold">int</span> <span style="color:#d14">`json:&#34;modified_on&#34;`</span>
+</span></span><span style="display:flex;"><span>    DeletedOn <span style="color:#458;font-weight:bold">int</span> <span style="color:#d14">`json:&#34;deleted_on&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="实现-callbacks-1">实现 Callbacks</h3>
+<p>打开 models 目录下的 models.go 文件，实现以下方法：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">deleteCallback</span>(scope <span style="color:#000;font-weight:bold">*</span>gorm.Scope) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> !scope.<span style="color:#900;font-weight:bold">HasError</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">var</span> extraOption <span style="color:#458;font-weight:bold">string</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">if</span> str, ok <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">Get</span>(<span style="color:#d14">&#34;gorm:delete_option&#34;</span>); ok {
+</span></span><span style="display:flex;"><span>            extraOption = fmt.<span style="color:#900;font-weight:bold">Sprint</span>(str)
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        deletedOnField, hasDeletedOnField <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">FieldByName</span>(<span style="color:#d14">&#34;DeletedOn&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">if</span> !scope.Search.Unscoped <span style="color:#000;font-weight:bold">&amp;&amp;</span> hasDeletedOnField {
+</span></span><span style="display:flex;"><span>            scope.<span style="color:#900;font-weight:bold">Raw</span>(fmt.<span style="color:#900;font-weight:bold">Sprintf</span>(
+</span></span><span style="display:flex;"><span>                <span style="color:#d14">&#34;UPDATE %v SET %v=%v%v%v&#34;</span>,
+</span></span><span style="display:flex;"><span>                scope.<span style="color:#900;font-weight:bold">QuotedTableName</span>(),
+</span></span><span style="display:flex;"><span>                scope.<span style="color:#900;font-weight:bold">Quote</span>(deletedOnField.DBName),
+</span></span><span style="display:flex;"><span>                scope.<span style="color:#900;font-weight:bold">AddToVars</span>(time.<span style="color:#900;font-weight:bold">Now</span>().<span style="color:#900;font-weight:bold">Unix</span>()),
+</span></span><span style="display:flex;"><span>                <span style="color:#900;font-weight:bold">addExtraSpaceIfExist</span>(scope.<span style="color:#900;font-weight:bold">CombinedConditionSql</span>()),
+</span></span><span style="display:flex;"><span>                <span style="color:#900;font-weight:bold">addExtraSpaceIfExist</span>(extraOption),
+</span></span><span style="display:flex;"><span>            )).<span style="color:#900;font-weight:bold">Exec</span>()
+</span></span><span style="display:flex;"><span>        } <span style="color:#000;font-weight:bold">else</span> {
+</span></span><span style="display:flex;"><span>            scope.<span style="color:#900;font-weight:bold">Raw</span>(fmt.<span style="color:#900;font-weight:bold">Sprintf</span>(
+</span></span><span style="display:flex;"><span>                <span style="color:#d14">&#34;DELETE FROM %v%v%v&#34;</span>,
+</span></span><span style="display:flex;"><span>                scope.<span style="color:#900;font-weight:bold">QuotedTableName</span>(),
+</span></span><span style="display:flex;"><span>                <span style="color:#900;font-weight:bold">addExtraSpaceIfExist</span>(scope.<span style="color:#900;font-weight:bold">CombinedConditionSql</span>()),
+</span></span><span style="display:flex;"><span>                <span style="color:#900;font-weight:bold">addExtraSpaceIfExist</span>(extraOption),
+</span></span><span style="display:flex;"><span>            )).<span style="color:#900;font-weight:bold">Exec</span>()
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">addExtraSpaceIfExist</span>(str <span style="color:#458;font-weight:bold">string</span>) <span style="color:#458;font-weight:bold">string</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> str <span style="color:#000;font-weight:bold">!=</span> <span style="color:#d14">&#34;&#34;</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> <span style="color:#d14">&#34; &#34;</span> <span style="color:#000;font-weight:bold">+</span> str
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">return</span> <span style="color:#d14">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>scope.Get(&quot;gorm:delete_option&quot;)</code> 检查是否手动指定了 delete_option</li>
+<li><code>scope.FieldByName(&quot;DeletedOn&quot;)</code> 获取我们约定的删除字段，若存在则 <code>UPDATE</code> 软删除，若不存在则 <code>DELETE</code> 硬删除</li>
+<li><code>scope.QuotedTableName()</code> 返回引用的表名，这个方法 GORM 会根据自身逻辑对表名进行一些处理</li>
+<li><code>scope.CombinedConditionSql()</code> 返回组合好的条件 SQL，看一下方法原型很明了</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (scope <span style="color:#000;font-weight:bold">*</span>Scope) <span style="color:#900;font-weight:bold">CombinedConditionSql</span>() <span style="color:#458;font-weight:bold">string</span> {
+</span></span><span style="display:flex;"><span>    joinSQL <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">joinsSQL</span>()
+</span></span><span style="display:flex;"><span>    whereSQL <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">whereSQL</span>()
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> scope.Search.raw {
+</span></span><span style="display:flex;"><span>        whereSQL = strings.<span style="color:#900;font-weight:bold">TrimSuffix</span>(strings.<span style="color:#900;font-weight:bold">TrimPrefix</span>(whereSQL, <span style="color:#d14">&#34;WHERE (&#34;</span>), <span style="color:#d14">&#34;)&#34;</span>)
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">return</span> joinSQL <span style="color:#000;font-weight:bold">+</span> whereSQL <span style="color:#000;font-weight:bold">+</span> scope.<span style="color:#900;font-weight:bold">groupSQL</span>() <span style="color:#000;font-weight:bold">+</span>
+</span></span><span style="display:flex;"><span>        scope.<span style="color:#900;font-weight:bold">havingSQL</span>() <span style="color:#000;font-weight:bold">+</span> scope.<span style="color:#900;font-weight:bold">orderSQL</span>() <span style="color:#000;font-weight:bold">+</span> scope.<span style="color:#900;font-weight:bold">limitAndOffsetSQL</span>()
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li><code>scope.AddToVars</code> 该方法可以添加值作为 SQL 的参数，也可用于防范 SQL 注入</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (scope <span style="color:#000;font-weight:bold">*</span>Scope) <span style="color:#900;font-weight:bold">AddToVars</span>(value <span style="color:#000;font-weight:bold">interface</span>{}) <span style="color:#458;font-weight:bold">string</span> {
+</span></span><span style="display:flex;"><span>    _, skipBindVar <span style="color:#000;font-weight:bold">:=</span> scope.<span style="color:#900;font-weight:bold">InstanceGet</span>(<span style="color:#d14">&#34;skip_bindvar&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> expr, ok <span style="color:#000;font-weight:bold">:=</span> value.(<span style="color:#000;font-weight:bold">*</span>expr); ok {
+</span></span><span style="display:flex;"><span>        exp <span style="color:#000;font-weight:bold">:=</span> expr.expr
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">for</span> _, arg <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> expr.args {
+</span></span><span style="display:flex;"><span>            <span style="color:#000;font-weight:bold">if</span> skipBindVar {
+</span></span><span style="display:flex;"><span>                scope.<span style="color:#900;font-weight:bold">AddToVars</span>(arg)
+</span></span><span style="display:flex;"><span>            } <span style="color:#000;font-weight:bold">else</span> {
+</span></span><span style="display:flex;"><span>                exp = strings.<span style="color:#900;font-weight:bold">Replace</span>(exp, <span style="color:#d14">&#34;?&#34;</span>, scope.<span style="color:#900;font-weight:bold">AddToVars</span>(arg), <span style="color:#099">1</span>)
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> exp
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    scope.SQLVars = <span style="color:#0086b3">append</span>(scope.SQLVars, value)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">if</span> skipBindVar {
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">return</span> <span style="color:#d14">&#34;?&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">return</span> scope.<span style="color:#900;font-weight:bold">Dialect</span>().<span style="color:#900;font-weight:bold">BindVar</span>(<span style="color:#0086b3">len</span>(scope.SQLVars))
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="注册-callbacks-1">注册 Callbacks</h3>
+<p>在 models.go 的 init 函数中，增加以下删除的回调</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span>db.<span style="color:#900;font-weight:bold">Callback</span>().<span style="color:#900;font-weight:bold">Delete</span>().<span style="color:#900;font-weight:bold">Replace</span>(<span style="color:#d14">&#34;gorm:delete&#34;</span>, deleteCallback)
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="验证-1">验证</h3>
+<p>重启服务，访问 DeleteTag 接口，成功后即可发现 deleted_on 字段有值</p>
+<h2 id="小结">小结</h2>
+<p>在这一章节中，我们结合 GORM 完成了新增、更新、查询的 Callbacks，在实际项目中常常也是这么使用</p>
+<p>毕竟，一个钩子的事，就没有必要自己手写过多不必要的代码了</p>
+<p>（注意，增加了软删除后，先前的代码需要增加 <code>deleted_on</code> 的判断）</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/gin/2018-04-15-gorm-callback/">https://index.zshipu.com/go/posts/go/gin/2018-04-15-gorm-callback/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/gin/2018-03-26-cgo/">「番外」Golang 交叉编译</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-03-24-golang-docker/">「连载九」将Golang应用部署到Docker</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-03-18-swagger/">「连载八」为它加上Swagger</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-03-15-reload-http/">「连载七」优雅的重启服务</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-15-log/">「连载六」编写一个简单的文件日志</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/gin'>gin</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

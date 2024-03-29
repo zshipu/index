@@ -1,0 +1,2425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>同城搜索引擎中相似字符串查找那些事儿 | 知识铺的博客</title>
+    <meta property="og:title" content="同城搜索引擎中相似字符串查找那些事儿 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+        
+    <meta property="article:modified_time" content='2022-03-15T09:20:48&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="同城搜索引擎中相似字符串查找那些事儿">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%90%8C%E5%9F%8E%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E4%B8%AD%E7%9B%B8%E4%BC%BC%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%9F%A5%E6%89%BE%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">
+    <link rel="shortcut icon" href='/geek/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek/css/normalize.css'>
+    <link rel="stylesheet" href='/geek/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#导读"><strong>导读</strong></a></li>
+    <li><a href="#背景"><strong>背景</strong></a></li>
+    <li><a href="#基础问题"><strong>基础问题</strong></a></li>
+    <li><a href="#进阶"><strong>进阶</strong></a>
+      <ul>
+        <li><a href="#41-熟悉自动机和dfa">4.1 熟悉自动机和DFA</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">同城搜索引擎中相似字符串查找那些事儿</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2022年3月15日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p>来源： 58技术 丁斌</p>
+</blockquote>
+<h2 id="导读"><strong>导读</strong></h2>
+<p>本文主要介绍如何基于Levenshtein和Damerau Levenshtein自动机技术高效地解决在搜索引擎系统中相似字符串快速查找问题的技术原理和操作实践。文中创造性地提出一种Damerau Levenshtein自动机的有效构建算法，并创造性地给出了利用Levenshtein自动机和Damerau Levenshtein自动机技术，解决快速查找相似字符串问题实现方案的正确性理论依据论证。</p>
+<h2 id="背景"><strong>背景</strong></h2>
+<p>首先从字符串相似查找谈起。相似字符串查找，顾名思义即查询与目标字符串在物理上词形相似的字符串集合，在搜索引擎中有很多应用。其中比较常见的有2个：模糊搜索 (Fuzzy Search)和 拼写纠错(Spelling Check或Spelling Correction)。</p>
+<ul>
+<li><strong>模糊搜索</strong></li>
+</ul>
+<p>模糊搜索，或者叫做模糊查询，在搜索引擎中一般指在用户搜索意图不明确时，搜索引擎将用户的查询（query）与待检索的内容（doc）进行模糊匹配，找出与查询相关的内容。例如，查询名字Smith时，模糊查询方式就会找出与之相似的Smithe， Smythe， Smyth， Smitt等。这在克服少无结果搜索时尤其有用。注意本文讨论的模糊搜索特指查询query与待检索内容在文本字符串物理词形上的相似为目标，语义相似的模糊查询不在本文讨论范围内。</p>
+<ul>
+<li><strong>拼写错误</strong></li>
+</ul>
+<p>拼写纠错，或者叫拼写检查功能在搜索引擎中一般指的是：用户将查询的关键词提交给搜索引擎之后，搜索引擎便开始分析用户的输入，检查用户的拼写是否有错误，如果有的话，给出正确的拼写建议。例如用户在搜索引擎检索框中输入faeebook， 搜索引擎能给出拼写纠错建议facebook等。</p>
+<p>搜索引擎中解决模糊搜索和拼写纠错本质上都是字符串文本相似匹配和度量问题。用户给搜索引擎输入了查询query字符串a,如何在待检索内容全集中遍历每一个字符串b，并迅速确定a和b是否相似，最终把所有与字符串a最相似的topN个字符串集合作为目标返回供进一步扩展召回或作为纠错建议的基础就成为解决问题的关键。</p>
+<ul>
+<li><strong>编辑距离</strong></li>
+</ul>
+<p>如何量化两个字符串之间的相似程度呢？有一个非常著名的量化方法，那就是编辑距离（Edit Distance）。</p>
+<p>编辑距离指的就是，将一个字符串转化成另一个字符串，需要的最少编辑操作次数（比如增加一个字符、删除一个字符、替换一个字符）。编辑距离越大，说明两个字符串的相似程度越小；相反，编辑距离就越小，说明两个字符串的相似程度越大。对于两个完全相同的字符串来说，编辑距离就是 0。</p>
+<p>编辑距离有多种不同的计算方式，比较著名的有莱文斯坦距离（Levenshtein distance）和最长公共子串长度（Longest common substring length）。其中，莱文斯坦距离允许增加、删除、替换字符这三个编辑操作，最长公共子串长度只允许增加、删除字符这两个编辑操作。</p>
+<p>一些主流搜索引擎如著名开源搜索引擎Elastic Search都采用莱文斯坦距离（Levenshtein distance），同时包含更进一步的Damerau Levenshtein距离来度量字符串相似程度，以此为搜索引擎中的模糊搜索和拼写纠错提供基础解决方案。</p>
+<p>由此引入本文将重点讨论的主题：Levenshtein和Damerau Levenshtein 自动机技术在58同城搜索引擎场景下的应用实践。在进入下一节之前，先用简短的篇幅迅速描述一下Levenshtein距离和Damerau Levenshtein距离的定义。</p>
+<ul>
+<li>Levenshtein Distance 和 Damerau Levenshtein Distance 定义</li>
+</ul>
+<blockquote>
+<p>注意:为了简化表述，本文以下都非正式地将Levenshtein Distance简称为LD，将Damerau Levenshtein Distance简称为DLD。</p>
+</blockquote>
+<p>Levenshtein Distance，参考维基百科上Levenshtein Distance （来自参考文献1）给出的定义如下：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271704561.png" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705128.png" />   
+    </p>
+<p>维基百科对Damerau Levenshtein Distance（来自参考文献2） 给出的定义如下：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705028.png" />   
+    </p>
+<p>通过维基百科上关于Levenshtein Distance和Damerau Levenshtein Distance的描述可知DLD与LD的区别仅在于：如果字符串a和b的某处前后两个相邻字符前后互换位置后相同时， LD认为是经过2次变化，编辑距离是2；然后DLD认为这是一次变化，编辑距离是1。</p>
+<p>本文接下来将由浅入深地从如下3个层次依次讨论利用编辑距离LD或DLD解决搜索引擎中查找相似字符串问题的实践技术细节：</p>
+<ol>
+<li>单纯计算两个字符串间的编辑距离问题</li>
+<li>在搜索引擎场景中如何快速找出与目标字符串a最相似的前N个候选字符串集合问题</li>
+<li>构造正确有效的Levenshtein DFA和Damerau Levenshtein DFA 高效求解搜索引擎中查找相似字符串问题</li>
+</ol>
+<h2 id="基础问题"><strong>基础问题</strong></h2>
+<p>利用LD和DLD度量字符串相似程度，首先面临要解决一个基础问题：</p>
+<p>问题：对于任意给定的2个字符串a和b，如何用快速的算法求解a和b的LD和DLD？</p>
+<p>在理解了维基百科中关于LD和DLD的定义后，解决这个问题并不困难。可以分2个层面逐步深入理解这个问题。</p>
+<p>第一个层面：最朴素的思路是采用蛮力法递归求解。一种Levenshtein Distance的Java实现代码示例如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">public static int RecurLevenshteinDistance(String a, int lenA, String b, int lenB) {
+    if (lenA == 0)
+        return lenB;
+    if (lenB == 0)
+        return lenA;
+
+    int cost = (a.charAt(lenA-1) == b.charAt(lenB-1) ? 0 : 1);
+
+    int dist1 = RecurLevenshteinDistance(a, lenA - 1, b, lenB) + 1;
+    int dist2 = RecurLevenshteinDistance(a, lenA, b, lenB - 1) + 1;
+    int dist3 = RecurLevenshteinDistance(a, lenA - 1, b, lenB - 1) + cost;
+
+    return Math.min(Math.min(dist1,dist2),dist3);
+}
+
+public static void main(String[] args) {
+    String a = &#34;kitten&#34;;
+    String b = &#34;sitting&#34;;
+    int re = RecurLevenshteinDistance(a, a.length(), b, b.length());
+    System.out.println(re);//输出：3
+}
+</code></pre><p>显然递归的蛮力法求解效率低下，因为有大量重复的计算过程，其时间复杂度可以被证明是指数级的，不可取。</p>
+<p>第二个层面考虑：为避免递归带来的大量重复计算过程，很容易得出求解LD和DLD的最快算法就是自底向上迭代求解的动态规划算法。容易分析得出动态规划算法计算LD和DLD的时间复杂度都是O(m*n)。其中m和n分别是字符串a和b的长度。</p>
+<p>动态规划实现也非常简单，下面给出一种Levenshtein Distance动态规划Java实现，仅供参考：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">public static int LevenshteinDistance(String a, String b) {
+    int[][] dist = new int[a.length()+1][b.length()+1];
+    for (int i = 0; i &lt;= a.length(); i++)
+        dist[i][0] = i;
+    for (int j = 0; j &lt;= b.length(); j++)
+        dist[0][j] = j;
+
+    for (int j = 1; j &lt;= b.length(); j++) {
+        for (int i = 1; i &lt;= a.length(); i++) {
+            int cost = (a.charAt(i-1) == b.charAt(j-1) ? 0 : 1);
+            int dist = Math.min(dist[i - 1][j] + 1, dist[i][j - 1] + 1);
+            dist[i][j] = Math.min(dist, dist[i - 1][j - 1] + cost);
+        }
+    }
+    return dist[a.length() - 1][b.length() - 1];
+}
+
+public static void main(String[] args) {
+    String a = &#34;kitten&#34;;
+    String b = &#34;sitting&#34;;
+    int dist = LevenshteinDistance(a, b);
+    System.out.println(dist); //输出：3
+}
+</code></pre><p>可以得出结论：单纯求解两个字符串的LD或DLD，动态规划解法的时间复杂度O(mn)就是最快解法了。然后我们要解决得是搜索引擎场景下的大规模模糊查询中频繁用到的相似字符串查找，有其特殊性。于是进入第二个层次考虑问题。</p>
+<p><strong>搜索场景</strong></p>
+<p>之所以强调在搜索引擎场景，因为该场景有其固定特点如下：</p>
+<ul>
+<li>搜索引擎场景下查找相似字符串是存在一个数量确定的候选字符串集合，用以进行与目标字符串a的相似性判断筛选，该候选集合一般是搜索引擎倒排索引的term词典集合；并且该倒排term词典集合规模一般可能很大，比如千万或上亿规模；</li>
+<li>搜索引擎场景下查找相似字符串操作的次数可能非常频繁，比如用户的每一个模糊查询请求都将引发一次倒排term词典集合的相似字符串查找筛选过程，几千甚至上万的qps，就意味着每秒就要发生几千甚至上万次查找相似字符串的操作；</li>
+<li>在搜索引擎场景下，我们往往只关心与目标检索串非常相似，也即编辑距离非常小的情形。比如参考流行开源搜索引擎es的做法是只关心编辑距离&lt;=2,即0或1或2三种编辑距离的候选词。因为在搜索引擎场景下，我们很难想象提供一个与用户输入的检索目标词很不相似或很不相关的结果给用户是明智的。</li>
+</ul>
+<p>鉴于搜索引擎场景下查找相似字符串问题的以上特点，如何高效地解决问题：在搜索引擎场景中如何快速找出与目标字符串a最相似的前N个候选字符串集合 是否有一些更有效、更优秀的解决方案呢？下面展开分析：</p>
+<p>首先一个最朴素直观的解法是：</p>
+<blockquote>
+<p>遍历搜索引擎索引倒排term词典集合中的全部 term,对其任意一个倒排 term字符串b，都以动态规划方法计算b与目标字符串a的LD或DLD编辑距离值，最后取结果编辑距离值最大的前N个倒排 term输出即可。</p>
+</blockquote>
+<p>这种朴素解法存在的缺陷很明显：</p>
+<p><strong>1. 依次遍历倒排term词典集合过程比较耗时</strong></p>
+<p>考虑到一般搜索引擎索引中倒排term词典集合规模通常很大，经常达到千万或上亿规模，而查询请求又可能很频繁，如果对每一次模糊查询请求，都要依次从头到尾遍历倒排term词典集合可能比较耗时。</p>
+<p>于是很自然的优化目标是：能否做到不必遍历倒排term词典集合中的所有的term？换句话说，是不是能对这个大规模的倒排term字符串集合做个预处理，使其按照某种特定的内存布局预先存储好，比如类似trie树一类的tree数据结构，这样一来，遍历这样的tree类数据结构存储的大规模倒排term词典集合时，有可能在一些正确的理论指导下，可以避开tree类数据结构中的某些根本不需要遍历的分支，从而减少遍历term数量，以提高遍历效率。这个过程可以被形象地称为&quot;减枝&quot;。</p>
+<p>经过调研我们发现：这个存储倒排term词典集合的类似trie树一类的数据结构，在流行开源搜索引擎es的内核实现组件lucene的较新的版本（lucene4以后）中已经有实现，叫做FST（Finite State Transducer）词典，是一种有限状态机，lucene 4中有java代码的开源实现。</p>
+<p>FST有两个优点：1）空间占用小。通过对词典中单词前缀和后缀的重复利用，压缩了存储空间；2）查询速度快。O(len(str))的查询时间复杂度。</p>
+<p>FST的原理和实现细节网络上能够轻松搜索得到，不是本文论述的重点。本文略过不表。</p>
+<p>那么，现在问题演变为：</p>
+<blockquote>
+<p>基于FST词典表达的倒排term表，该有怎么样的“剪枝”策略，以应对大规模连续判断每个term字符串b是否与给定的目标字符串a足够相似，即编辑距离LD或DLD足够小，比如小于预先设定好的阈值1或者2？</p>
+</blockquote>
+<p>该问题的解决方案是提升搜索引擎中查找相似字符串效率的重要手段，是非常有价值的思路，限于篇幅本文暂时不讨论该主题，留待后续系列文章另行论述。</p>
+<p><strong>大规模计算每一个候选倒排term字符串b与目标字符串a的编辑距离比较耗时</strong></p>
+<p>如前文提到的，动态规划方法求解字符串a和b间的LD/DLD，时间复杂度是O(m*n).( m和n分别是a和b的长度)，因为动态规划要自底向上依次迭代计算a、b字符串的每一种前缀子串对组合间的编辑距离。这个过程在大规模遍历倒排词典集合每次都要计算时显得效率较低。怎么优化这个过程呢？</p>
+<p>如前文所提到，考虑到在搜索引擎场景下，我们往往只关心与目标检索串非常相似，也即编辑距离非常小的情形（比如参考流行开源搜索引擎es的做法是只关心编辑距离&lt;=2,即0或1或2三种编辑距离的候选词）的特点，于是把问题限定到：在只需要迭代筛选找出与目标词a编辑距离LD/DLD是0、1、2的所有候选词的前提下，如何快速大规模筛选相似的候选字符串呢?</p>
+<p>显然，如果依然采用朴素的遍历倒排词典集合中每一个词b，都与目标词a用动态规划先求出编辑距离，然后判断是否&lt;=2，如果是就保留否则就丢弃的做法，显然显得不那么明智。因为如果编辑距离大于2的字符串，其实是没有必要耗费O(m*n)的时间先计算编辑距离的，因为显然可以基于某种判断提前终止计算，因为这些编辑距离&gt;2的候选字符串明显不那么相似。</p>
+<p>于是解决问题思路演变为：</p>
+<p><strong>如何加速判断字符串a和b是否非常相似，即编辑距离LD或DLD是否&lt;=2, 而不是缓慢地用动态规划去先计算编辑距离 再判断？</strong></p>
+<p>稍作调研就会发现：该问题解决方案很明确–引入自动机(Automaton),具体来说是引入确定有限状态自动机（deterministic finite automaton, DFA）。LD和DLD两种编辑距离对应两种不同的确定有限状态自动机(DFA）。这两种DFA实现差别比较大，难度差别也很大。具体来说Damerau Levenshtein DFA 实现复杂程度 远高于 Leveshtein DFA。</p>
+<p>经过大量调研互联网或其他公开的资料途径，我们发现：</p>
+<p>1）Leveshtein DFA的编程实现相对容易，可参考的实现过程也比较多。但理论论证Leveshtein DFA实现正确性的公开资料也及其匮乏，或者不够系统；</p>
+<p>2）Damerau Levenshtein DFA的编程实现几乎没有，即使有一些不多的开源实现过程都是漏洞百出，正确性存疑。当然理论论证Damerau Leveshtein DFA实现过程正确性的公开文章资料亦是寥寥无几。</p>
+<p>有鉴于此，于是正式引入本文要重点论述的主题，也是本文提出的技术创新点所在：</p>
+<blockquote>
+<p>本文将创造性地提出Damerau Levenshtein DFA构建方法论和伪代码实现，并且以定理论证方式给出Leveshtein DFA和Damerau Levenshtein DFA构建和实现方法正确性的理论证明。</p>
+</blockquote>
+<h2 id="进阶"><strong>进阶</strong></h2>
+<p>首先简单谈一下DFA（Deterministic Finite Automata，确定的有穷自动机）和自动机(Automaton)。</p>
+<p>很多人一听到“自动机”就觉得很陌生高深难理解,莫名地恐惧自动机。很多计算机科班同学最早接触有限自动机可能是在本科课程《编译原理》中，后来可能又会在CLRS《算法导论》黑宝书中的《利用优先自动机进行字符串匹配》一节中接触到用有限自动机理论解决字符串匹配以及改进版的KMP算法等内容。因此在进入正题之前，本文先来迅速补充一下关于有限自动机的相关知识，尽力熟悉一下有穷自动机解决问题的本质，消除自动机恐惧症。</p>
+<h3 id="41-熟悉自动机和dfa">4.1 熟悉自动机和DFA</h3>
+<ol>
+<li>
+<p>有限自动机FA(Finite Automata)</p>
+<p>我们一般提到的自动机都是指有限自动机（或者叫有穷自动机）。</p>
+<p>在计算机科学中有穷自动机分为DFA和NFA：</p>
+<ul>
+<li>
+<p>确定的FA (Deterministic finite automata, DFA)</p>
+</li>
+<li>
+<p>非确定的FA (Nondeterministic finite automata, NFA)</p>
+<p>有穷自动机 ( Finite Automata，FA )由两位神经物理学家MeCuloch和Pitts于1948年首先提出，是对一类处理系统建立的数学模型</p>
+</li>
+</ul>
+</li>
+</ol>
+<p>这类系统具有一系列离散的输入输出信息和有穷数目的内部状态（状态：概括了对过去输入信息处理的状况）</p>
+<p>系统只需要根据当前所处的状态和当前面临的输入信息就可以决定系统的后继行为。每当系统处理了当前的输入后，系统的内部状态也将发生改变</p>
+<p>2.确定的有穷自动机DFA(Deterministic Finite Automata)</p>
+<p>M = ( S，Σ ，δ，s0，F )* S：有穷状态集</p>
+<ul>
+<li>
+<p>Σ：输入字母表，即输入符号集合。假设ε不是 Σ中的元素</p>
+</li>
+<li>
+<p>δ：将S×Σ映射到S的转换函数。s∈S, a∈Σ, δ(s,a)表示从状态s出发，沿着标记为a的边所能到达的状态。</p>
+</li>
+<li>
+<p>s0：开始状态 (或初始状态)，s0∈S</p>
+</li>
+<li>
+<p>F：接收状态（或终止状态）集合，F⊆ S</p>
+<p>例如下图所展示的一个DFA</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705086.png" />   
+    </p>
+<ol>
+<li>
+<p>非确定的有穷自动机NFA(NonDeterministic Finite Automata)</p>
+<p>M = ( S，Σ ，δ，s0，F )</p>
+<p>例如下图所展示的一个NFA</p>
+</li>
+</ol>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705330.png" />   
+    </p>
+<ul>
+<li>S：有穷状态集</li>
+<li>Σ：输入符号集合，即输入字母表。假设ε 不是Σ中的元素</li>
+<li>δ：将S×Σ映射到2S的转换函数。s∈S, a∈Σ, δ(s,a)表示从状态s出发，沿着标记为a的边所能到达的状态集合</li>
+<li>s0：开始状态 (或初始状态)，s0∈S</li>
+<li>F：接收状态（或终止状态）集合，F⊆ S</li>
+</ul>
+<p>注意：DFA与NFA的区别在于，DFA对于每一次输入只能产生唯一一个结果，结果是确定的。而NFA的一次输入可能产生多个结果。如上图用红色方框标出的位置，DFA的每一次输入只对应一个结果，而NFA的依次输入可能对应多个结果，形成一个结果集。</p>
+<p>综合以上：我们不妨尝试高度抽象且不失直观感性地总结一下有穷自动机，尤其是DFA解决问题的思路：</p>
+<blockquote>
+<p>有穷状态自动机解决问题的思路，本质上就是: 在预处理阶段我们生成一个包含: 要素1）一系列抽象出来的状态集合S，（当然S里包含初始状态s0和可以被接受的状态的集合F,这二者能够被确定）；要素2）一个包含所有可能输入符号的输入符号集合Σ；和要素3）对于任意属于状态集合S的任意元素s, 以及属于输入符号集合Σ的任意符号c，能够明确转换生成新状态的状态转换函数 δ(s,c) 。</p>
+<p>当具备了这三要素后，就可以在后续大量判别过程中，从头到尾依次迭代给定的每个输入符号序列，比如给定的目标字符串a, 然后不断地 转化生成新的状态 ，并且同步判断每一步产生的新状态是否可被接受，直到输入符号序列迭代结束。通过这样的方式 一般能在线性时间甚至更快的时间复杂度内快速解决问题。</p>
+</blockquote>
+<p>后面我们也将通过构造Levenshtein DFA或 Damerau Levenshtein DFA解决字符串相似性判断问题来加深对上面这段话的理解。</p>
+<p>接下来我们给出一些将DFA应用于搜索引擎中查找相似字符串的直观理解。</p>
+<h4 id="42-dfa应用于搜索引擎中查找相似字符串的直观理解">4.2 DFA应用于搜索引擎中查找相似字符串的直观理解</h4>
+<p>首先我们再重新审视一下我们的待解决目标问题：</p>
+<ul>
+<li>如何快速确定某个字符串b与目标字符串a是否最相似，即编辑距离LD或DLD&lt;=2？</li>
+</ul>
+<p>前文已经提到，单纯用动态规划法先计算a和b的LD/DLD，再判断是否&lt;=2，时间复杂度是O（length[a] * length[b])，在大规模判断中每次都这样操作太慢。</p>
+<p>引入DFA优化这一过程的思想在于：提前对目标字符串a进行预处理，生成一个DFA，该DFA的核心要素包括：</p>
+<ul>
+<li>所有可能的有限的状态集合S,初始状态S0，能被接受的所有状态集合F；</li>
+<li>输入符号集合Σ ：表明所有可能输入的符合的集合；</li>
+<li>状态转换函数δ：Convert(State s, Char c) -&gt; newState</li>
+</ul>
+<p>有了DFA以后，确定某个字符串b与目标字符串a的最相似问题，就可以按如下伪代码示例进行操作：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">PRE-PROCESS(a)            //预处理生成目标字符串a对应的dfa结构
+1 dfa &lt;- a
+
+CHECK-SIMILAR-STRINGS (dfa,b) //判断b是否与a相似
+1 s0 &lt;- dfa.initState()
+2 s  &lt;- s0                   //以dfa的初始状态S0初始化状态s
+3 n  &lt;- length[b]
+4 for i &lt;- 1 to n            //依次遍历待判断字符串b的每个字符c
+5     do c &lt;- b[i]
+6        s &lt;-dfa.Convert(s,c)
+7        if null == s         //无状态，返回false,提前终止流程
+8           then return false
+9           else if dfa.IsAccept(s)
+10                  then return true //字符c被接受，完成判断
+11                  else continue
+</code></pre><p>简单看一下上述伪代码示例过程的执行时间复杂度：</p>
+<ul>
+<li>预处理过程生成目标字符串a的dfa，时间复杂度是O(length[a]) 。后文我们会详细分析该过程的时间复杂度。</li>
+<li>第6行dfa状态转化过程耗费常量时间。因为dfa内部的所有States都被提前缓存好了，转化过程只是一个逻辑判断过程而已。</li>
+<li>第4~11行迭代遍历待check字符串b，可能在第8行或者第10行提前终止迭代过程，因此最大迭代length[b]次，因此每次判断时间复杂度是O(length[b])。</li>
+</ul>
+<p>可见：引入DFA后，增加了预处理过程O(length[a])的时间复杂度，每次相似性判断的时间复杂度从动态规划算法的O（length[a] x length[b])降低至O(length[b])。该过程的前提是正确构造出正确高效的DFA结构。 我们接下来论述该主题。</p>
+<h4 id="43-levenshtein-dfa"><strong>4.3 Levenshtein DFA</strong></h4>
+<h5 id="431-分析-levenshtein-dfa">4.3.1 分析 Levenshtein DFA</h5>
+<p>通过前文4.1节我们已知一个DFA有5要素组成：M = ( S，Σ ，δ，s0，F )，5要素可以归结为3类要素如下：</p>
+<ul>
+<li>状态：跟状态有关的要素有3个分别是：S是状态集合，s0是初始状态，F是接受状态集合；</li>
+<li>转换函数：而δ是定义在S和Σ上的转换函数，能生成一个新的状态。</li>
+<li>\<em>\</em> 输入符号：\<em>\</em> 此外Σ 是输入符号集合；</li>
+</ul>
+<p>那么Levenshtein DFA中这5个要素该如何定义呢？怎么直观感性理解呢？</p>
+<p>本质上来看，我们是要对目标字符串a预处理以构造编辑距离LD&lt;=最大编辑距离maxEdit(2或1)的DFA，下面我们以目标字符串a为“woof&quot;,编辑距离LD &lt;=1为例来说明Levenshtein DFA的构造过程。</p>
+<p>首先我们直观思索一下Levenshtein DFA的状态应该是什么结构或怎么定义能满足我们解决问题的诉求，我们的诉求是：对任意给定的字符串b,比如wof，判断b和目标字符串a，即 wof 和 woof 的LD编辑距离是否满足&lt;=1的条件。按照前文提到的动态规划法自底向上解决问题的思路，我们可能的做法应该是：</p>
+<ol>
+<li>依次迭代列出b串和a串的所有前缀子串。</li>
+</ol>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705284.png" />   
+    </p>
+<p>如上方表格示意，第一行为目标字符串a自底向上的每一个前缀子串,第一列为待检查字符串b自底向上的每一个前缀子串。（注意空串也是前缀子串,不能省略，因为动态规划方法自底向上解决问题的一个重要基础就是空，空串或空集合）。</p>
+<ol>
+<li>自底向上迭代求出每一个前缀子串组合见的编辑距离。</li>
+</ol>
+<p>如下面伪代码所示：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">
+#a是目标字符串，b是待判断字符串
+for i &lt;- 0 to length[b]
+    do for j &lt;- 0 to length[a]
+           do 计算b[..i] 与 a[..j] 前缀子串间的 编辑距离dist[i,j]
+              #而 dist[i,j] 跟dist[i-1,j],dist[i,j-1],dist[i-1,j-1]以及a[i]和b[j]是否相等有关系
+</code></pre><p>既然dist[i,j] 跟dist[i-1,j],dist[i,j-1],dist[i-1,j-1]以及a[i]和b[j]是否相等有关系，那么我们是不是就可以定义任意待判断字符串b的每一个前缀子串（假定名称为 prev-substr(b) ) 与目标串a的 所有前缀子串集合中每一个元素的 编辑距离值 的集合呢。对应到上面表格中的例子，所有的状态应该就是每一行的元素值的集合。全部状态集合S是（计算过程如下表格）：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">{
+  { 0,1,2,3,4 },
+  { 1,0,1,2,3 },
+  { 2,1,0,1,2 },
+  { 3,2,1,1,1 }
+}
+</code></pre><p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705908.png" />   
+    </p>
+<p>因此结论是：Levenshtein DFA的状态可定义为：任意待判断字符串与目标字符串a的依序前缀子串间编辑距离值的集合。</p>
+<p>初始状态s0 应该就是prev-substr(b) 前缀子串为空时的状态，即 { 0,1,2,3,4 }。推而广之，对于目标字符串a ,初始状态s0应为：{0,1,2,…,length[a]}。 于是形成计算初始状态函数 Start 伪代码如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Start(String a )
+1   n &lt;- length[a]
+2   State s = {0,1,...,n}
+3   return s
+</code></pre><p>考虑到我们问题的目标是要检查判断出来b与目标字符串a编辑距离LD值是否&lt;=1 ，因此 接受状态就应该是 每个状态最后一个值&lt;=1的所有状态的集合。对应于本例，接受状态结合F只有一个元素，即：F = { { 3,2,1,1,1 } }。当然，如果我们要解决的是检查判断出来b与目标字符串a编辑距离LD值是否&lt;=2， 那么接受状态集合就是：{ { 2,1,0,1,2 } ，{ 3,2,1,1,1 } }。这是就2个或更多的元素。至此，Levenshtein DFA 中状态类3个要素 状态集合S，初始状态S0，可接受状态集合F 都能容易直观理解了。再抽象一下可得出结论：</p>
+<p><strong>对于目标字符串a,最大编辑距离LD阈值为maxEdit的相似性判断问题中， 状态s= {s0,s1,…sn} （n= length[a]）是否可以被接受的条件是：sn &lt;= maxEdit。</strong> 于是形成 判断状态s是否可被接受函数IsMatch:</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">IsMatch(State s, maxEdit)
+1   n &lt;- length[s]
+2   return s[n-1] &lt;= maxEdit
+</code></pre><p>对于状态s的任意一个编辑距离值 v, 这里在做一下扩展，给出定理1。</p>
+<p>定理1：在构造目标字符串a,最大编辑距离阈值为maxEdit 的Levenshtein DFA时，对于任意状态s = {s0,s1,…,sk sn}中任意k满足0&lt;= k &lt;=n，如果s[k] &gt; maxEdit，则可以用新状态snew = {s0,…,s[k-1], maxEdit +1, s[k+1],…,sn} 代替状态s。</p>
+<p>定理1基于这样的理解：不管任意编辑距离值v &gt; maxEdit的v值具体是多大，其对相似性结果判断的效果是等价的。因此可以全部以maxEdit +1 来表示所有 v &gt; maxEdit 的v值。 这样做的好处是 利于极大减少 Levenshtein DFA中全部状态集合S的规模，降低内存，也能节省处理时间。这一点非常重要。 定理1的证明过程略。</p>
+<p>根据定理1，上述例子目标字符串a = ’woof’, maxEdit = 1，待判断字符串b = ‘wof’ 的全部状态集合演变为：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">状态集合S由
+{
+  { 0,1,2,3,4 },
+  { 1,0,1,2,3 },
+  { 2,1,0,1,2 },
+  { 3,2,1,1,1 }
+}
+演变为：
+{
+  { 0,1,2,2,2 },
+  { 1,0,1,2,2 },
+  { 2,1,0,1,2 },
+  { 2,2,1,1,1 }
+}
+</code></pre><p>基于对Levenshtein DFA 中状态值可以定义为 编辑距离LD值的集合的认识, 再参考第1节中提到的维基百科中对LD的定义，借助动态规划方法思想，容易写出在上一个状态s前提下，Levenshtein DFA 处理新读入任何字符c 生成新状态的“步进函数”Step 伪代码。（Step函数作用为：在上一个状态基础上，读入一个新字符，转换到下一个状态)</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Step(String a,  State s,  Char c)
+ 1   State snew = [s[0] + 1 ]
+ 2   for i &lt;- 1 to length[a]
+ 3       do  cost = (a[i-1] == c ? 0 : 1)
+ 4           dist = Min(s[i-1] + cost, s[i] + 1, snew[i-1] +1 )
+ 5           snew.append(Min(dist, maxEdit+1))//根据定理1，maxEdit+1能代表所有无效的编辑距离值
+ 6   return snew
+</code></pre><p>再来看一下 另外2个要素：状态转换函数 δ和输入符号集合Σ 。</p>
+<ul>
+<li>状态转换函数 δ</li>
+</ul>
+<p>Levenshtein DFA 的状态转换函数 δ 其实比较简单，只需要把构造Levenshtein DFA过程的每一个状态的过程缓存成为哈希表结构如：HashMap&lt;State, HashMap&lt;char, State&gt; &gt;存储于内存中，表明了任意State经过任意字符char 能转化成的唯一状态State的逻辑。对于任意State对应的HashMap&lt;char,State&gt;中没有的char 都是不能产生有效相似性判断结果的，因此都被省略了。这也是应用Levenshtein DFA解决字符串相似性判断问题时能提高性能的一个影响方面。</p>
+<ul>
+<li>输入符号集合Σ</li>
+</ul>
+<p>显然我们要解决的问题是面向所有可能的字符串，那么每次输入给自动机判断的就是任意字符，自然地，输入符号集合就是所有字符集合，即字母表。虽然取字母表集合作为Levenshtein DFA或Damerau Levenshtein DFA的输入字符集合没有错，但稍作分析会发现有进一步更有效的处理办法。下面我们以先给出定理论述，再给出定理证明的方式依次论述 Levenshtein DFA 输入符号集合Σ的优化策略:</p>
+<p>定理2：在构造目标字符串a的Levenshtein DFA时，已知：</p>
+<p>1）Set(a) 为 目标字符串a的所有包含的字符的集合;</p>
+<p>2）字符c1,c2 为任意两个不属于Set(a)的字符,即 c1 ∉ Set(a) 且 c2 ∉ Set(a)，且满足c1 != c2；</p>
+<p>3）δ(s,c) 为状态转换函数；</p>
+<p>对于任意前一个状态s，令 s1 = δ(s,c1) , s2 = δ(s,c2) 分别为输入c1和c2后转换所得的新状态，则 s1 必定恒等于s2。</p>
+<p>先来直观理解一下定理2：假设目标字符串 a = woof， 则Set(a)为 { ‘w’, ‘o’, ‘o’, ‘f’ }, 因为 c1 ∉ Set(a) 且 c2 ∉ Set(a) 且 c1 != c2，假设c1=‘x’,c2=‘y’, s1 = δ(s,’x’) 和 s2 = δ(s,‘y’)，那么状态s1和s2必定相等。是这样吗？肯定。因为s1和s2的状态不过是Levenshtein Distance编辑距离值的集合而已，根据LD编辑距离的定义，在给定的相同目标字符串a和相同的前一个状态s前提下，下一个状态仅仅与新读入字符c与目标字符串a中对应位置字符a[k]是否相等有关系，如果新读入的2个字符都与目标字符串a中对应位置字符a[k]相等或不相等，则根据LD定义，下一个编辑距离值LD必定相等。</p>
+<p>下面给出定理2证明过程：</p>
+<p>证明：</p>
+<p>已知: a是目标字符串，n = length[a];</p>
+<p>Set(a) 为 目标字符串a的所有包含的字符集合;</p>
+<p>任意2个字符：c1和c2满足 c1 ∉ Set(a) 且 c2 ∉ Set(a) 且 c1 != c2;</p>
+<p>δ(s,c) 为状态转换函数;</p>
+<p>s1 = δ(s,c1) , s2 = δ(s,c2);</p>
+<p>令: 任意上一个状态值 s = {s0,s1…sn};</p>
+<p>根据dfa构造过程的直观理解，假设s 是任意待判断字符串b的任意前缀子串b[0…k]与目标字符串a的DL值集合,其中k∈[0,n]，</p>
+<p>则：根据LD定义和动态规划方法，通过前文论述过的Step()步进函数可得出求解s1状态的伪代码如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Step(String a,  State s,  Char c1)
+ 1   State s1 = [s[0] + 1]
+ 2   for i &lt;- 1 to length[a]
+ 3       do  cost = (a[i-1] == c1 ? 0 : 1)
+ 4           dist = Min(s[i-1] + cost, s[i] + 1, s1[i-1] +1 )
+ 5           s1.append( Min(dist, maxEdit+1) )
+ 6   return s1
+</code></pre><p>求解s2状态的伪代码如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Step(String a,  State s,  Char c2)
+ 1   State s2 = [s[0] + 1]
+ 2   for i &lt;- 1 to length[a]
+ 3       do  cost = (a[i-1] == c2 ? 0 : 1)
+ 4           dist = Min(s[i-1] + cost, s[i] + 1, s2[i-1] +1 )
+ 5           s2.append( Min(dist, maxEdit+1) )
+ 6   return s2
+</code></pre><p>又因为c1和c2是满足 c1 != c2 且 c1 ∉ Set(a) 且 c2 ∉ Set(a)的任意两个字符。那么上述伪代码中第3行计算出的cost 必定都等于0。于是迭代完全部过程后，s1 必定恒等于s2。证明完毕。</p>
+<p>定理3：在构造目标字符串a的Levenshtein DFA时，已知：</p>
+<p>1）Set(a) 为 目标字符串a的所有包含的字符的集合;</p>
+<p>2）字符c0 为任意一个不属于Set(a)的字符，c0 ∉ Set(a)；</p>
+<p>则目标字符串a的Levenshtein DFA的输入符号集合Σ可配置为: {Set(a), c0}。</p>
+<p>首先我们仍然来直观理解一下定理3: 首先根据前文的分析我们已经知道Levenshtein DFA的输入符号集合Σ为全体字符集合，或者叫做字符表集合Alpha。字母表集合可以表达为Set(a）和Set(a)补集的并集。现在定理2本质上是用了Set(a)的补集中的任意一个元素组成的单元素集合代替了Set(a)的补集。而根据定理1我们知道，Set(a)的补集中任意一个元素经过转换函数生成的新状态都是相等的。于是定理3 就容易理解了。</p>
+<p>下面给出定理3证明过程：</p>
+<p>证明：</p>
+<p>已知: a是目标字符串，n = length[a];</p>
+<p>Set(a) 为 目标字符串a的所有包含的字符集合;</p>
+<p>字符c0 为任意一个不属于Set(a)的字符，c0 ∉ Set(a)；</p>
+<p>s1 = δ(s,c1) , s2 = δ(s,c2);</p>
+<p>令: c1 ∉ Set(a) 且 c2 ∉ Set(a) 且 c1 != c2 是不属于Set(a)的任意两个字符，则：根据定理1，得到 c1 和c2 经过dfa的转换函数会生成两个相等的新状态，即：同一个DFA 状态值。因此c1和c2对Levenshtein DFA状态转化贡献完全一致。可以简化表达只取其中任意一个字符加入到 Levenshtein DFA的输入符号集合Σ。推而广之， Set(a) 补集中任意元素对 Levenshtein DFA 作用等价，因此只取Set(a) 补集中任意字符元素c0加入输入符号集合Σ即可代表整体Set(a) 补集集合对 Levenshtein DFA的作用。因此 目标字符串a的Levenshtein DFA的输入符号集合Σ可配置为: {Set(a), c0}。证明完毕。</p>
+<p>于是，根据定理3，我们可以写出 求解 输入符号集合Σ的函数Transitions()的伪代码如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Transitions(String a)
+1   Set(a) &lt;- a所有包含的字符组成的集合
+2   c0     &lt;- 为任意 不属于Set(a)的抽象字符
+3   return { Set(a), c0}
+</code></pre><p>定理4：在构造目标字符串a的Levenshtein DFA时，已知：</p>
+<p>1）Set(a) 为 目标字符串a的所有包含的字符经过去重后的集合;</p>
+<p>2）字符c0 为任意一个不属于Set(a)的字符，c0 ∉ Set(a)；</p>
+<p>则目标字符串a的Levenshtein DFA的输入符号集合Σ可配置为: {Set(a), c0 }。</p>
+<p>定理4证明：</p>
+<p>已知: a是目标字符串，n = length[a];</p>
+<p>Set(a) 为 目标字符串a的所有包含的字符集合;</p>
+<p>字符c1,c2是任意两个属于Set(a)的字符，且c1 == c2；</p>
+<p>则：根据定理2的证明过程克制，转换函数经过c1与c2生成的新状态必相等，即：同一个DFA 状态值。因此c1和c2对Levenshtein DFA状态转化贡献完全一致。可以简化表达只取其中任意一个字符加入到 Levenshtein DFA的输入符号集合Σ。再结合定理3，可得定理4得证。</p>
+<p>证明完毕#。</p>
+<p>根据定理4，求解 输入符号集合Σ的函数Transitions()继续演变为：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Transitions(String a)
+1   Set(a) &lt;- a所有包含的字符组成的集合
+2   Set(a) &lt;- Set(a).RemoveDuplicate()   #元素去重
+3   c0     &lt;- 为任意 不属于Set(a)的抽象字符
+4   return { Set(a), c0}
+</code></pre><p>定理5：在构造目标字符串a的Levenshtein DFA时，已知：</p>
+<p>1）s = {s0,s1, …, sn} 为任意上一个状态，其中n = length[a]，(注意length[s] = n + 1);</p>
+<p>2）maxEdit 为相似性判断条件中预设的最大编辑距离阈值；</p>
+<p>3）δ(s,c) 为状态转换函数；</p>
+<p>则 对于任意k 满足 0&lt;= k &lt;= n-1 且 s[k] &gt; maxEdit ，则 求解基于上一个状态s的输入符号集合Σ过程中必然可以不考虑k位置的字符a[k] 。</p>
+<p>首先我们直接给出根据定理5演变的求解 输入符号集合Σ的函数Transitions()的伪代码如下：</p>
+<blockquote>
+<p>注意，根据定理5,Transtions()函数的前提条件又多了2个，即：任意上一个状态s 和 最大编辑距离：maxEdit。</p>
+</blockquote>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Transitions(String a, State s, int maxEdit)
+1    n &lt;-length[a]
+2    resultChars = {}    #结果字符集合，初始化为空集
+3    for i &lt;- 0 to n-1
+4        do if s[i] &lt;= maxEdit
+5              then resultChars.Append(a[i])
+6    resultChars &lt;-  resultChars.RemoveDuplicate()   #集合去重
+7    c0     &lt;- 为任意 不属于resultChars 的抽象字符
+8    resultChars.Append(c0)
+9    return resultChars
+</code></pre><p>注意：一些网络上公开的介绍的Levenshtein DFA构造的文章，比如其中一篇比较流行的文章&lt; &lt; Levenshtein automata can be simple and fast &gt; &gt; （来自参考文献3）中给出的解释是如下图截图红色框中所示：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705616.png" />   
+    </p>
+<p>该文作者认为：如果某一个位置出现了状态值3，也就是编辑距离值3，（作者说这句话的上下文是最大编辑距离阈值maxEdit是2），我们就不需要再去尝试目标字符串中相应位置的字符了，原因是它从此再也不会导致一个满足最终编辑距离&lt;=maxEdit的相似匹配了。事实真是如此吗？本文作者经过充分深入的思考，最终发现该文章中此处的解释其实是错误的。为什么呢？接下来将给出一个反例以证明该文中解释是错误的，如下：</p>
+<p>假定要构造目标字符串a = ‘abc’, Levenshtein Distance 编辑距离阈值为1的Levenshtein DFA，构造过程可如下表格演示：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705739.png" />   
+    </p>
+<p>第一行为目标字符串a, 第一列依次为假定遇到的输入符号，先是字符‘a’,再是字符’b’。可以看到当依次读入了字符’a’和’b’以后，状态转化为 s = {2,1,0,1}。此时对照定理4的内容，s[0] = 2 &gt; maxEdit (本例子中maxEdit 为1)，位置是0。于是 目标字符串a的第0号位置的字符a[0] = &lsquo;a’就不用被纳入考虑 基于上一个状态s = {2,1,0,1}的Step函数步进过程去计算新的状态，为什么呢？如果按照上面改文章的解释，因为这个位置的字符a[0] = &lsquo;a’不会再导致一个满足最终编辑距离&lt;=maxEdit为1的相似匹配了。是这样吗？我们如下表格验证一下：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705528.png" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705214.png" />   
+    </p>
+<p>看到最终的编辑距离值是 1。1 满足小于等于maxEdit。所以其实该位置字符a[0] =‘a’ 是完全可以导致生成一个最终编辑距离&lt;=maxEdit的相似匹配的。因此该文章的解释是完全错误的。那么到底该如何解释证明定理5呢？ <strong>本文接下来创造性地给出定理4 的解释论证过程。这也是本文体现独创性的重要方面，因为相关的公开文献资料较少有能清晰且正确地阐述为什么Levenshtein DFA的求解输入符号集合Σ的Transitions()函数按照如下红框中所示这么写的：</strong></p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705829.png" />   
+    </p>
+<p>下面给出定理5证明过程</p>
+<p>定理5证明：</p>
+<p>令Set(a)是目标字符串a全部所包含字符去重后构成的集合， c0是满足 c0 ∉ Set(a)的任意字符，则根据定理3可知 字符c0必是求解输入符号集合Σ所必不可少需要包括的一个字符。再假设对于任意k 满足 0&lt;= k &lt;= n-1 且 s[k] &gt; maxEdit ，我们此时将字符a[k] 与 特殊字符c0 进行对照考察。根据前文论述过的 Step步进函数伪代码如下所示：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Step(String a,  State s,  Char c)
+ 1   State snew = [0]
+ 2   for i &lt;- 1 to length[a]
+ 3       do  cost = (a[i-1] == c ? 0 : 1)
+ 4           dist = Min(s[i-1] + cost, s[i] + 1, snew[i-1] +1 )
+ 5           snew.append( Min(dist, maxEdit+1) )
+ 6   return snew
+</code></pre><p>考虑上述伪代码中第23行的迭代判断，对于c == a[k]的情况下，23循环过程只在i -1 == k时，cost 值会等于0，其他i迭代时，cost值都等于1。现在分2种情况考虑如下:</p>
+<p><strong>1. 当i -1 == k时</strong></p>
+<p>a) 对于c == a[k]的情况, 计算cost的值等于0,于是此时新的编辑距离dist = Min(s[i-1], s[i] +1, snew[i-1] + 1)，因为i -1== k，于是：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(s[k], s[k+1] + 1,  snew[k] + 1)
+</code></pre><p>又因为定理5题干前提条件令s[k] &gt; maxEdit，根据定理1，所有大于maxEdit 的编辑距离值都可以用maxEdit + 1等价代替。于是有：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(maxEdit + 1, s[k+1] + 1,  snew[k] + 1)
+</code></pre><p>b) 对于 c == c0的情况,因为c0是任意不属于Set(a)集合的元素，所以c0 必不等于a[i-1],于是cost = 0,因为i -1 = k，于是有：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(s[k], s[k+1] + 1,  snew[k] + 1)
+</code></pre><p>同样结合定理1，得到：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(maxEdit + 1, s[k+1] + 1, snew[k] + 1
+</code></pre><p>可见在i-1 == k的情况，对应于 c == a[k] 或 c0， 新计算所得的状态dist值都为：Min(maxEdit + 1, s[k+1] + 1, snew[k] + 1)。因为根据定理1，所有大于maxEdit的值都可以等价替换为maxEdit， 因此 dist的值 只取决于 s[k+1] + 1 和 snew[k] + 1 二者的值。假设a[k]在字符串a中不重复（如果重复，那么其它位置的相同字符会根据它所处的位置重新判断是否满足定理5），则上述伪代码第3行迭代字符串a的任意位置t 满足t !=k，则a[t] 必不等于a[k], 同时考虑到c0是任意不属于Set(a)集合的元素, 同样有a[t]必不等于c0,即：迭代任意位置t != k 时，伪代码第4行 cost值 在c == a[k] 或c0时都等于0，也即：不论c = a[k]或c0， snew当前位置k+1的前一位置k的值snew[k]也必相等。同时 在c == a[k] 或c0时s[k+1]的值都是相同的，因此 二者在i-1==k位置计算所得的dist值是恒相等的。</p>
+<p><strong>2. 当i-1 != k时</strong></p>
+<p>还是在a[k]在字符串a。中不重复的假设下（如果重复，那么其它位置的相同字符会根据它所处的位置重新判断是否满足定理5），所有满足i -1 != k的位置i ,因 a[i] ！= a[k] 和 a[i] != c0同时成立，于是有：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(s[k] + 1, s[k+1] + 1,  snew[k] + 1)
+</code></pre><p>同样结合定理1，同时考虑到定理5题干前提条件s[k] &gt; maxEdit，可得：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">dist = Min(maxEdit + 1, s[k+1] + 1,  snew[k] + 1)
+</code></pre><p>因此 dist的值 只取决于 s[k+1] + 1 和 snew[k] + 1 二者的值。雷同前面当 i -1 ==k 的情况，可知 这两值 s[k+1] + 1 和 snew[k] + 1在c == a[k] 和 c == c0两种情况也也分别都相等，因此可得：二者在i-1!=k位置计算所得的dist值也是恒相等的。</p>
+<p>综合以上1和2两种情况，可得 对于任意k 满足 0&lt;= k &lt;= n-1 且 s[k] &gt; maxEdit 的字符a[k]，其实与定理3，定理4中定义的任意一个不属于Set(a)即c0 ∉ Set(a)的字符时候完全等价的，即他们会生成完全一致的新的状态。因此， 根据定理4，特殊字符c0是必定会被纳入输入符号集合Σ代入状态转换函数用于生成新状态的，因此只需要纳入其中的c0字符考虑即可，在求解基于上一个状态s的输入符号集合Σ过程中必然可以不考虑k位置的字符a[k] 。定理5证明完毕。</p>
+<p>由以上定理5的证明过程可知，并不是像上述引用的文章中给出的解释那样：一旦生成了&gt;maxEdit的编辑距离的位置字符再次转换生成的新的最终的编辑距离就不会减小了。事实是完全可能再次减小的，之所以可以不考虑该位置的字符，是因为有等价的c0字符已经被考虑了。仅此而已。定理5虽然是很不起眼的一处代码，实则背后有着耐人寻味的理论依据。</p>
+<p>最后说一下，为什么要如此大的篇幅来实施定理5所表达的处理逻辑，即：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705826.png" />   
+    </p>
+<p>原因是为了减少不必要的计算Levenshtein DFA中所有状态的次数，提高构建Levenshtein DFA的效率。</p>
+<p>至此，我们终于把 Leveshtein DFA的三大类要素：状态、转换函数和输入符号细节全部分析完毕。接下来我们给出Levenshtein DFA的伪代码实现，并给出效果图，最后分析时间复杂度。</p>
+<blockquote>
+<p>注意：本文为了简化讨论，只讨论单字节字符的情况。对于多字节字符比如汉字字符有关的Levenshtein问题解决方案我们后续另行系列文章讨论。</p>
+</blockquote>
+<h5 id="432-构建-levenshtein-dfa和性能分析"><strong>4.3.2 构建 Levenshtein DFA和性能分析</strong></h5>
+<p>本节将依次给出构建 Levenshtein DFA 的代码示例和性能分析定义状态：</p>
+<p>对于目标字符串a, n = length[a], Levenshtein DFA的状态State 定义伪代码示意如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">1   Class State {
+2   public:
+3      int hash();
+4      int equal(const State&amp; rhs);
+5
+6   private:
+7      Arrays[0..n]    m_edits;  //编辑距离值的数组，长度为n+1，n = length[a]
+8   }
+</code></pre><p>可见 Levenshtein DFA的状态State 唯一数据成员就是长度为n+1 的LD编辑距离值的数组。因为State要被用于Hash表缓存，因此须定义hash()和equal()函数，两个函数实现逻辑也很简单，m_edits 数组全部元素分别相等在认为相等；每个元素值都需要被考虑组合生成hash值。</p>
+<p>缓存的全局状态hash表结构式示意如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">HashMap&lt; State, HashMap&lt;Char, State&gt;  &gt;  cachedStatesMap;
+</code></pre><p>cachedStatesMap结构解决的问题是：基于上一个状态s,和某个输入字符c，能否有效转换或转换成什么样的新状态。</p>
+<ol>
+<li>
+<p><strong>定义Levenshtein DFA</strong></p>
+<p>Levenshtein DFA 伪代码示意如下：</p>
+</li>
+</ol>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">1   Class LevenshteinDFA {
+2   public:
+3   State           Start();  //初始状态
+4   State           Step(State s, Char c); //状态转化
+5   bool            IsMatch(State s);
+6   bool            CanMatch(State s);
+7   Array&lt;Char&gt;     Transitions(State s); //获取输入符号集合
+8
+9   private:
+10  String        m_str;      //目标字符串
+11  int           m_maxEdit;  // 最大编辑距离阈值，只能为1或2
+12  }
+</code></pre><p>初始状态伪代码示意如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">State LevenshteinDFA::Start()
+1   n &lt;- length[ m_str ]
+2   s = {0}
+3   for i &lt;- 1 to n
+4       do s.Append(i)
+5   return State(s)
+</code></pre><p>状态转化函数Step()伪代码示意如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">State  LevenshteinDFA::Step(State s, Char c )
+ 1   State snew = [s[0] + 1 ]
+ 2   for i &lt;- 1 to length[m_str]
+ 3       do  cost = ( m_str[i-1] == c ? 0 : 1 )
+ 4           dist = Min(s[i-1] + cost,  s[i] + 1,  snew[i-1] +1 )
+ 5           snew.Append( Min(dist, m_maxEdit+1) )//根据定理1，maxEdit+1能代表所有无效的编辑距离值
+ 6   return snew
+</code></pre><p>获取输入符号Transitions()伪代码示意如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Array&lt;Char&gt;  Transitions(State s)
+1    n &lt;- length[ m_str ]
+2    resultChars = {}    #结果字符集合，初始化为空集
+3    for i &lt;- 0 to n-1
+4        do if s[i] &lt;= m_maxEdit
+5              then resultChars.Append(m_str[i])
+6    resultChars &lt;-  resultChars.RemoveDuplicate() #集合去重
+7    c0   &lt;- 为任意 不属于resultChars 的抽象字符
+8    resultChars.Append(c0)
+9    return resultChars
+</code></pre><p>IsMatch(s) 功能是判断s是否是最终可以被接受的状态，即最终与目标字符串是否相似。CanMatch(s) 功能是判断s是否是潜在可以被纳入考虑状态。根据LD的定义可知编辑距离值迭代结果只会不变或增大1，永远不会减小。显然如果s序列中的最小的编辑距离值都&gt; maxEdit，那么该状态s后续怎么迭代也不可能产生&lt;= maxEdit的新状态，于是这样的状态可以永远不被考虑，即not CanMatch。</p>
+<p>IsMatch 和CanMatch 伪代码如下：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">bool LevenshteinDFA::IsMatch(State s)
+1    return s.Last() &lt;= m_maxEdit //最后一个编辑距离值是否&lt;= maxEdit
+
+bool LevenshteinDFA::CanMatch(State s)
+1    return s.Min() &lt;= m_maxEdit //最小的编辑距离值是否&lt;= maxEdit
+</code></pre><p><strong>1.初始化dfa和全局状态缓存变量cachedStatesMap</strong></p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">1  HashMap&lt;State,HashMap&lt;Char,State&gt; &gt;  cachedStatesMap;
+2  LevenshteinDFA dfa(str, maxEdit);
+</code></pre><p>递归搜索所有可能的状态转换关系并缓存至cachedStatesMap</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">RecursiveExploreDFA(State s)
+1  if !cachedStatesMap.Contains(s)
+2     then cachedStatesMap[s] &lt;- HashMap();
+3          for c in dfa.Transitions(s)
+4              do  news &lt;- Step(s,c)
+5                  if  dfa.CanMatch(news)
+6                      then RecursiveExploreDFA(news)
+7                  cachedStatesMap[s][c] &lt;- news
+</code></pre><p>构建Levenshtein DFA</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">BuildLevenshteinDFA()
+1  RecursiveExploreDFA(dfa.Start())
+</code></pre><ol>
+<li><strong>判断字符串相似性</strong></li>
+</ol>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">bool IsStringSimilar(String b)
+1   n &lt;- length[b]
+2   s &lt;- dfa.Start()
+3   for i &lt;- 1 to n
+4       do if !cachedStatesMap.Contains(s) or !cachedStatesMap[s].Contains(b[i])
+5          then return false
+6          s &lt;- cachedStatesMap[s][b[i]]
+4   return dfa.IsMatch(s)
+</code></pre><ol>
+<li><strong>性能分析</strong></li>
+</ol>
+<p>令目标字符串a 长度n = length[a] ; 待判断字符串b长度为m= length[b]；由上述伪代码容易分析得出：IsStringSimilar() 执行m次，复杂度为O(m); BuildLevenshteinDFA() 过程耗时取决于 RecursiveExploreDFA()函数递归次数和 RecursiveExploreDFA()第三行迭代Transitions()字符集和的次数。而Transitions()字符集和规模虽然之前做了优化，但规模最坏情况仍是O(n)。RecursiveExploreDFA()函数递归次数等于 dfa中最终状态个数sc。</p>
+<p>下面分析一下sc的规模：首先容易知道长度为i的字符串 与 长度为j的字符串的LD编辑距离值至少为|i-j|。利用动态规划方法考虑一共可能出现多少种不同的状态值,如下图所示：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">public static int LevenshteinDistance(String a, String b) {
+    int[][] dist = new int[a.length()+1][b.length()+1];
+    for (int i = 1; i &lt;= a.length(); i++)
+        dist[i][0] = i;
+    for (int j = 1; j &lt;= b.length(); j++)
+        dist[0][j] = j;
+
+    for (int j = 1; j &lt;= b.length(); j++) {
+        for (int i = 1; i &lt;= a.length(); i++) {
+            int cost = (a.charAt(i-1) == b.charAt(j-1) ? 0 : 1);
+            int dist = Math.min(dist[i - 1][j] + 1, dist[i][j - 1] + 1);
+            dist[i][j] = Math.min(dist, dist[i - 1][j - 1] + cost);
+        }
+    }
+    return dist[a.length() - 1][b.length() - 1];
+}
+</code></pre><ol>
+<li>
+<p>上述伪代码第8行迭代待检查字符串b的每一个前缀子串b[…j]时，对应该前缀子串的该行编辑距离值中，只有 j-maxEdit ~ j+ maxEdit 一共2*maxEdit +1 列编辑距离的值有可能&lt;=maxEdit。其它列的编辑距离值 必定都大于maxEdit,根据定理1，都可以用maxEdit +1 值等价代替。即当maxEdit=1时只有2*1 +1 = 3; 当maxEdit=2时只有2*2+1=5列编辑距离值&lt;=maxEdit，其它列都是maxEdit+1。maxEdit=1时，&lt;=maxEdit的值有0或1两种；maxEdit=2时&lt;=maxEdit的取值有0,1,2三种；也就是说 所有编辑距离值组合中最多只有 2^3+1 或 3^5+1种组合，即最多只有9种或244种状态。因此对于固定的maxEdit （1或2）， 状态个数sc 也是常量值。</p>
+<p>综合以上可得，BuildLevenshteinDFA时间复杂度为O(sc * length[n]) 即O(n)，为线性的，而且更重要的是，BuildLevenshteinDFA过程是预处理过程，是一次性过程。而每次查找判断字符串b与a的相似性时，复杂度为O(length[b]),即O(m),也是线性的。这线性时间复杂度明显优于动态规划法的O(m * n)时间复杂度。</p>
+<p>最后给出一个目标字符串为a=“北京北站”,maxEdit=1构建的LevenshteinDFA示意图，图中阴影椭圆图形表示该状态是可接受的，即LD编辑距离&lt;=1。字符*表示任意不属于目标字符串a所有包含字符集合{‘北’,‘京’,‘站’}的特殊字符。</p>
+</li>
+</ol>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705592.png" />   
+    </p>
+<h4 id="44-创新点damerau-levenshtein-dfa">4.4 创新点：Damerau Levenshtein DFA</h4>
+<p>关于Damerau Levenshtein DFA，网络上很多实现过程都是错误的，缺乏正确理论论证支撑。本文创造性地提出了一种高效的Damerau Levenshtein DFA的构建技术，同时独创性地给出了严密的正确性论证过程。</p>
+<p>本节仍然按照定义、分析和实现三部分展开讨论。</p>
+<h5 id="441-定义damerau-levenshtein">4.4.1 定义Damerau Levenshtein</h5>
+<p>通过前文第1节的介绍可知Damerau Levenshtein Distance(简称DLD）与Levenshtein Distance（简称LD）的唯一区别就是 状态转换的时候，下一个状态的生成除了依赖当前状态的DLD值外，还依赖于上一个DLD的值。具体来讲是：当最近两个相邻字符交叉相等时，下一个DLD的计算还需要考虑上一个DLD值+1。</p>
+<p>下面示例代码展示了DLD的动态规划算法的实现过程，红色方框中逻辑即为DLD 比LD唯一多出的逻辑处理。不多不少，就多出这一处逻辑处理过程。</p>
+<p>注意：为了便于表述，我们将下面红色方框中伪代码处理 特别地 成为 ”Damerau 条件分支”。 后文定理表述中会提到“Damerau 条件分支”表述。</p>
+<p>容易分析得出，DLD的蛮力法和动态规划法时间复杂度都与LD完全一致。此处不再展开。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705447.png" />   
+    </p>
+<p>下面分析Damerau Levenshtein DFA确定有穷自动机的构建技术。</p>
+<h5 id="442-分析-damerau-levenshtein-dfa">4.4.2 分析 Damerau Levenshtein DFA</h5>
+<p>分析Damerau Levenshtein DFA，我们仍然按照DFA 五大要素(M = ( S，Σ ，δ，s0，F ))和 3类要素（状态、转换函数、输入符号）的内容进行。</p>
+<ol>
+<li>
+<p>状态</p>
+<p>Damerau Levenshtein DFA 之所以比Levenshtein DFA复杂，就是因为它的状态复杂。根据定义，生成的下一个状态的DLD序列值不仅与当前状态的DLD值有关，还可能在相邻字符交叉相等的情况下，与上一个状态的DLD有关。（LD不同的是只与上一个状态的LD值有关）。因此很自然地，将 上一个状态的DLD值序列 prevDists 和当前状态的DLD值序列 curDists，以及 prevDists 经由什么字符prevChar 转换生成了当前curDists。令字符串a为目标字符串，则Damerau Levenshtein DFA状态State伪代码如下：</p>
+</li>
+</ol>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">Class  State {
+   bool Equal(const State&amp; s);
+   int  Hash();
+
+public:
+   Array[0..n]       m_prevDists;//上一个状态的DLD值序列，n=length[a],不能为null
+   Char              m_prevChar; //m_prevDists 经由m_prevChar转换生成了m_curDists，可以为null
+   Array[0..n]       m_curDists; //当前状态的DLD值序列,可以为null
+
+   String            m_str; //目标字符串
+   int               m_maxEdit; //最大编辑距离阈值，必须为1或2
+}
+</code></pre><ol>
+<li>
+<p>通过前文4.3.2节对Levenshtein DFA的性能分析类比知道， m_prevDists或m_curDists的可能取值的数量最多可能为9种或244种。m_prevChar取值数量为length[a], 现在如果放任 m_prevDists、m_prevChar、m_curDists 三种变量组合，那么Damerau Levenshtein DFA 状态集合的规模将爆炸式增长，姑且称之为“状态爆炸”。根据对LD性能分析我们大体类比会猜测到 BuildDamerauLeveshteinDFA的时间复杂度大体也与DLD dfa的状态集合规模正相关。又因为构建DFA的过程就是缓存全部可能状态的过程。因此，这种单纯放任状态数量暴涨的朴素方式必然导致 构建DamerauLevenshtein DFA过程时间复杂度高，且耗费内存较大，不可取！</p>
+<p>如何解决“状态爆炸”问题，提高构建DamerauLevenshtein DFA的效率并减少其内存消耗呢？这是本文重要的创新点之一。 下面详细展开论述。</p>
+</li>
+<li>
+<p>Damerau Levenshtein DFA状态消减策略</p>
+<p>消减状态数量本质上就是要把大量逻辑上可以等价对待状态视为1个状态即可。因为所有状态最终是要被缓存到全局Hash表中的。因此消减Damerau Levenshtein DFA状态 策略等价于 为State类数据结构定义一个逻辑完善且正确的 Equal()函数。</p>
+<p>下面给出Damerau Levenshtein DFA状态消减策略的一个定理。</p>
+<p>定理6：在构造目标字符串a的Damerau Levenshtein DFA时，</p>
+<p>对于任意状态s，如果不存在 任意一个k 满足 0 &lt; k &lt; length[a] ,使得</p>
+<p>1）a[k] != a[k-1]</p>
+<p>2）a[k] == s.m_prevChar</p>
+<p>3）s.m_prevDists[k-1] &lt; Min( maxEdit, s.m_curDists[k] , s.m_curDists[k+1])</p>
+<p>以上3个条件同时成立，则 基于状态s为上一个状态的任意状态转换过程中对新编辑距离的计算逻辑可忽略“Damerau 条件分支”，这样不影响最终构建Damerau Levenshtein DFA结果的正确性。</p>
+<blockquote>
+<p>注：“Damerau 条件分支”前文4.4.1节提到过。</p>
+</blockquote>
+</li>
+</ol>
+<p>证明：</p>
+<p>反证法，假定任意存在一个k 满足 0 &lt; k &lt; length[a]，使得 定理6中3个条件同时成立，那么就可能存在1个字符c == a[k-1] 基于状态s进行状态转换，因为c == a[k-1] 且a[k] == s.m_prevChar , 同时a[k] != a[k-1]， 即相邻两个字符不相等，但交叉相等，于是根据DLD的定义，新编辑距离值计算必定从形式包含了“Damerau 条件分支”；于是，新的编辑距离值dist 必定为 s.m_curDists[k]+1, s.m_curDists[k+1] + 1, s.m_prevDists[k-1] + 1 三者中的最小值，又根据定理6条件3)得知，s.m_prevDists[k-1] 是 s.m_curDists[k] 和 s.m_curDists[k+1] 二者的最小值，因此dist值必定恒等于 s.m_prevDists[k-1] + 1 。根据条件3)同时s.m_prevDists[k-1] &lt; maxEdit， 因此dist &lt; maxEdit +1 &lt;= maxEdit。即 最终的新的编辑距离值dist是有效的，且其值来源于 ““Damerau 条件分支””。因此新的编辑距离迭代实质上也是发生在了“Damerau 条件分支” 。即：只要任意存在一个k 满足 0 &lt; k &lt; length[a]，使得 定理6中3个条件同时成立，那么基于状态s为上一个状态，字符c==a[k-1]的状态转换过程中对新编辑距离的计算逻辑 就必定 从形式和实质上都包含“Damerau 条件分支”。反之，迭代目标字符串的每一个位置k，如果都不能使得下一次状态转换逻辑计算过程包含“Damerau 条件分支”，则 该基于该状态s为上一个状态的转换实际就是一个不包含“Damerau 条件分支”的转换，忽略“Damerau 条件分支”，不影响最终构建Damerau Levenshtein DFA结果的正确性。证明完毕。</p>
+<p>根据定理6可以给出如下伪代码,判断状态s是否可能是实质包含“Damerau 条件分支”，即 IsPossibleDamerau()</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">IsPossibleDamerau(State s)
+1   n &lt;- length[a]
+2   for i &lt;- 1 to n-1
+3       do if (a[i] != a[i-1] and a[i] == s.m_prevChar
+4                   and s.m_prevDists[i-1] &lt; Min(maxEdit, s.curDists[i], s.curDists[i+1]) )
+5            then return True
+6   return False
+</code></pre><p>于是根据IsPossibleDamerau，本文给出State的Equal() 伪代码，按照如下示意：</p>
+<pre tabindex="0"><code class="language-highlight-chroma" data-lang="highlight-chroma">bool  State::Equal(const State&amp; rhs)
+1    if  m_curDists != rhs.m_curDists
+2        then return False
+3    isIn    &lt;- m_str.Contains(s.m_prevChar)
+4    isInRhs &lt;- m_str.Contains(rhs.m_prevChar)
+5    if isIn != isInRhs
+6       then return False
+7    else if False == isIn
+8            then return True
+9         else if m_preChar != rhs.m_prevChar
+10                then return False
+11                else if IsPossibleDamerau(*this) or IsPossibleDamerau(rhs)
+12                        then return m_prevDists == rhs.m_prevDists
+13                        else return True
+</code></pre><ol>
+<li>
+<p>此外因为State要被缓存到全局，所以不可以避免要对状态进行散列hash， Hash()函数逻辑很简单，直接按照m_curDists值去散列即可。</p>
+</li>
+<li>
+<p>转换函数</p>
+<p>转换函数比较简单，直接按照DLD的定义编写即可。</p>
+</li>
+<li>
+<p>输入符号</p>
+<p>DamerauLevenshtein DFA的输入符号方面，Transitions() 函数实现过程同样遵循定理5。理解过程与Levenshtein 相同。</p>
+</li>
+</ol>
+<h5 id="443-构建damerau-levenshtein-dfa和性能分析">4.4.3 构建Damerau Levenshtein DFA和性能分析</h5>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312271705325.png" />   
+    </p>
+<p>上图给出了目标字符串a=“北京南”,最大编辑距离阈值maxEdit=1的DamerauLevenshtein DFA的示意图。图中方形框 表示状态可以被接受，即满足字符串相似性。图中方框中文本表示状态来源关系，如：s3:2122from1122:北 含义是：当前状态s3,DLD序列值是{2,1,2,2}, 它的上一个状态的DLD序列值是：{1,1,2,2}，经过字符是北。容易分析出图中大量状态被等价归一化了，减小了内存消耗和处理时间消耗。</p>
+<p>DamerauLevenshtein DFA的类定义，构建方法以及查找字符串是否满足DamerauLevenshtein相似性的伪代码基本同前文Levenshtein DFA差别不大。主要的差异是状态State相关的逻辑，前文已经论述过。</p>
+<p>最后，分析一下DamerauLevenshtein DFA方法的时间复杂度。预处理构建DamerauLevenshtein DFA 过程为O(sc*length[a]),sc为状态集合数量，length[a]为目标字符串长度。在sc被大量等价归一化后，仍为O(length[a])。每一次查找字符串是否满足相似性条件的过程时间复杂度仍旧为O(length[b]),b为待检查字符串。综合来看，DamerauLevenshtein DFA 解决字符串相似问题的时间复杂度也是线性的。</p>
+<p><strong>总结与讨论</strong></p>
+<p>至此，基于Levenshtein和Damerau Levenshtein自动机技术，高效求解搜索引擎中相似字符串快速查找问题的技术原理全部论述完毕。总览全文，本文创造性地提出了一种Damerau Levenshtein自动机的有效构建算法，并创造性地给出了利用Levenshtein自动机和Damerau Levenshtein自动机技术，解决快速查找相似字符串问题实现方案的正确性理论依据论证。</p>
+<p>与本文主题相关的未解决的留待后续继续讨论的主题可能还有：</p>
+<ol>
+<li>本文提出的状态消�</li>
+</ol>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%90%8C%E5%9F%8E%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E4%B8%AD%E7%9B%B8%E4%BC%BC%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%9F%A5%E6%89%BE%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/">https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%90%8C%E5%9F%8E%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E4%B8%AD%E7%9B%B8%E4%BC%BC%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%9F%A5%E6%89%BE%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E6%96%B0%E6%9E%B6%E6%9E%84%E4%B8%8E%E4%B8%8D%E5%BE%97%E4%B8%8D%E8%AF%B4%E7%9A%84%E6%95%85%E4%BA%8B/">搜索引擎新架构与不得不说的故事</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%B9%B2%E8%B4%A7%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E6%8A%80%E6%9C%AF%E8%B5%84%E6%96%99%E6%95%B4%E7%90%86/">干货搜索引擎技术资料整理</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%BE%AE%E4%BF%A1%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E4%B8%AD%E7%B4%A2%E5%BC%95%E7%9A%84%E5%88%86%E5%B8%83%E5%BC%8F%E6%BC%94%E8%BF%9B/">微信搜索引擎中索引的分布式演进</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%B9%B4%E9%98%BF%E9%87%8C%E6%B2%89%E6%B7%80%E5%87%BA%E6%80%8E%E6%A0%B7%E7%9A%84%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/">年阿里沉淀出怎样的搜索引擎</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E7%99%BE%E5%BA%A6%E6%90%9C%E7%B4%A2%E7%A8%B3%E5%AE%9A%E6%80%A7%E9%97%AE%E9%A2%98%E5%88%86%E6%9E%90%E7%9A%84%E6%95%85%E4%BA%8B%E4%B8%8A/">百度搜索稳定性问题分析的故事上</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E'>搜索引擎</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/netty/netty-code/Netty-%E7%9A%84%E6%9C%AC%E8%B4%A8-%E5%A6%82%E4%BD%95%E6%8F%90%E5%8D%87-NIO-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%95%88%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Netty 的本质  如何提升 NIO 服务端的工作效率？-- 知识铺">Netty 的本质  如何提升 NIO 服务端的工作效率？-- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/%E5%BE%AE%E6%9C%8D%E5%8A%A1/001-%E4%BB%80%E4%B9%88%E6%98%AF%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%89%A9%E5%B1%95%E6%80%A7%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8F%AF%E6%89%A9%E5%B1%95%E6%80%A7/" title="001 什么是微服务扩展性和高可用、可扩展性">001 什么是微服务扩展性和高可用、可扩展性</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-send-store/" title="rocketmq-send-store">rocketmq-send-store</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-send-message/" title="rocketmq-send-message">rocketmq-send-message</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-pullmessage/" title="rocketmq-pullmessage">rocketmq-pullmessage</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-pullmessage-processor/" title="rocketmq-pullmessage-processor">rocketmq-pullmessage-processor</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-producer-start/" title="rocketmq-producer-start">rocketmq-producer-start</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-nameserver-broker/" title="rocketmq-nameserver-broker">rocketmq-nameserver-broker</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-mappedfile-detail/" title="rocketmq-mappedfile-detail">rocketmq-mappedfile-detail</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-indexfile/" title="rocketmq-indexfile">rocketmq-indexfile</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://index.zshipu.com/geek/categories/flutter/">Flutter (30)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/iOS/">IOS (7)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/unix/">Unix (9)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/%E7%AE%97%E6%B3%95/">算法 (3)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek/tags/360%E6%90%9C%E7%B4%A2/">360搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/58%E5%90%8C%E5%9F%8E/">58同城</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/abtest/">Abtest</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AB%E6%B5%8B%E8%AF%95/">AB测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdaBoost/">AdaBoost</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdaDeltaW/">AdaDeltaW</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdamW/">AdamW</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdvancedFeaturesOfNetty/">AdvancedFeaturesOfNetty</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AFM%E6%A8%A1%E5%9E%8B/">AFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AILab/">AILab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Airbnb/">Airbnb</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AI%E5%B9%B3%E5%8F%B0/">AI平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AKF%E6%9E%B6%E6%9E%84/">AKF架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Alink/">Alink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/android/">Android</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ANN/">ANN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AnnotationFormatterFactory/">AnnotationFormatterFactory</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Announcement/">Announcement</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AOF/">AOF</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AOP/">AOP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/apache/">Apache</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ApacheFlink/">ApacheFlink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AQS/">AQS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/architectureDesign/">ArchitectureDesign</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AresDB/">AresDB</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ASR/">ASR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AUC/">AUC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Augur/">Augur</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Automaton/">Automaton</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AutoML/">AutoML</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Bagging/">Bagging</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Bandits/">Bandits</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/basic/">Basic</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BERT/">BERT</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BI/">BI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BigGAN/">BigGAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BI%E5%B9%B3%E5%8F%B0/">BI平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/boosting/">Boosting</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BPR/">BPR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/checkpoint/">Checkpoint</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/clazz/">Clazz</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ClickHouse/">ClickHouse</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/cluster/">Cluster</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CNN/">CNN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/collection/">Collection</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/concurrentCoding/">ConcurrentCoding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ConcurrentProgramming/">ConcurrentProgramming</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Condition/">Condition</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CRF/">CRF</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/css/">Css</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/cto/">Cto</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR/">CTR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR%E6%A8%A1%E5%9E%8B/">CTR模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR%E9%A2%84%E4%BC%B0/">CTR预估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CV/">CV</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CVPR/">CVPR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DDD/">DDD</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DDD%E5%AE%9E%E6%88%98/">DDD实战</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFFM/">DeepFFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFM/">DeepFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFM%E6%A8%A1%E5%9E%8B/">DeepFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DesignPattern/">DesignPattern</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DevOps/">Devops</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Dgraph/">Dgraph</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DIN/">DIN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DKN%E6%A8%A1%E5%9E%8B/">DKN模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DMP%E5%B9%B3%E5%8F%B0/">DMP平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/docs/">Docs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Doris/">Doris</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DPP/">DPP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DRN/">DRN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Druid/">Druid</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DSP/">DSP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DSSM/">DSSM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Dubbo/">Dubbo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/EE%E9%97%AE%E9%A2%98/">EE问题</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ELK/">ELK</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ELMo/">ELMo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Embedding/">Embedding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/EncodingSpecification/">EncodingSpecification</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Epoll/">Epoll</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ESSM/">ESSM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ETL/">ETL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Faraday/">Faraday</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Feed%E6%B5%81/">Feed流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FFM/">FFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FFM%E6%A8%A1%E5%9E%8B/">FFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FixedBitSet/">FixedBitSet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FixMatch/">FixMatch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Flink/">Flink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/flutter/">Flutter</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FM/">FM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FM%E6%A8%A1%E5%9E%8B/">FM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/format/">Format</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FreeWheel/">FreeWheel</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FST/">FST</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FTRL/">FTRL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FullGC/">FullGC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/game/">Game</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GAN/">GAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBDT/">GBDT</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBDT&#43;LR%E8%9E%8D%E5%90%88/">GBDT&#43;LR融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBM/">GBM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GC/">GC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Git/">Git</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/github/">Github</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/gitlab/">Gitlab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GNN/">GNN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/golang/">Golang</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Google/">Google</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/graphql/">Graphql</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GraphScope/">GraphScope</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GRU4REC/">GRU4REC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Ha3/">Ha3</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/hadoop/">Hadoop</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hbase/">Hbase</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hologres/">Hologres</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hystrix/">Hystrix</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Iceberg/">Iceberg</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IM/">IM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ImageNet/">ImageNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Impala/">Impala</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IntBlockPool/">IntBlockPool</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IoC/">IoC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IOTechnologyBase/">IOTechnologyBase</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IRGAN/">IRGAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IT%E5%8D%9A%E5%A3%AB/">IT博士</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IT%E7%A7%BB%E6%B0%91/">IT移民</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JanusGraph/">JanusGraph</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JavaScript/">JavaScript</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JDBC/">Jdbc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JDK/">JDK</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/js/">JS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/kafka/">Kafka</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/KBQA/">KBQA</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/KV%E5%AD%98%E5%82%A8/">KV存储</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/lab/">Lab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LambdaMART/">LambdaMART</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LDA/">LDA</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LearningExperience/">LearningExperience</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/linUCB%E6%96%B9%E6%B3%95/">LinUCB方法</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Linux/">Linux</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LruCache/">LruCache</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LSTM/">LSTM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LSTM%E7%BD%91%E7%BB%9C/">LSTM网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Lucence/">Lucence</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/lucene/">Lucene</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/message/">Message</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MKR%E6%A8%A1%E5%9E%8B/">MKR模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MLflow/">MLflow</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MMoE/">MMoE</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Mock/">Mock</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MoE/">MoE</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Monorepo/">Monorepo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MRR/">MRR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/mvc/">Mvc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Mybatis/">Mybatis</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/mysql/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nacos/">Nacos</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NDCG/">NDCG</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NER/">NER</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty/">Netty</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E4%B8%BB%E8%A6%81%E7%BB%84%E4%BB%B6%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Netty主要组件源码分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E5%A4%9A%E5%8D%8F%E8%AE%AE%E5%BC%80%E5%8F%91/">Netty多协议开发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E6%8A%80%E6%9C%AF%E7%BB%86%E8%8A%82%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Netty技术细节源码分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E7%BC%96%E8%A7%A3%E7%A0%81/">Netty编解码</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nexp/">Nexp</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nextjs/">Nextjs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nifi/">Nifi</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NIO/">NIO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NIPS/">NIPS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NLP/">NLP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/node2vec/">Node2vec</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nodejs/">Nodejs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/npm/">Npm</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OCR/">OCR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OKR/">OKR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/olap/">Olap</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/one-hot/">One-Hot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OPPO/">OPPO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/oss/">Oss</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PageRank/">PageRank</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Parser/">Parser</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PersonalExperience/">PersonalExperience</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Pinot/">Pinot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PlaceholderResolver/">PlaceholderResolver</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Printer/">Printer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PropertySource/">PropertySource</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Pulsar/">Pulsar</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Push%E7%B3%BB%E7%BB%9F/">Push系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/pytorch/">Pytorch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/QA/">Q&amp;A</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Que2Search/">Que2Search</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Query%E6%89%A9%E5%B1%95/">Query扩展</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Query%E7%90%86%E8%A7%A3/">Query理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/query%E7%BA%A0%E9%94%99/">Query纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/R-Tree/">R-Tree</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/react/">React</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/reactjs/">Reactjs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/reactor/">Reactor</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/region/">Region</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/registry/">Registry</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/remote/">Remote</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RippleNet/">RippleNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RMI/">RMI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ROC/">ROC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/rocketmq/">RocketMQ</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RPC/">Rpc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RTree/">RTree</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/select/">Select</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Sentinel/">Sentinel</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Serverless/">Serverless</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SHAP/">SHAP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/sharding/">Sharding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SIGAI/">SIGAI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SimCLR/">SimCLR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/skleam/">Skleam</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Softmax/">Softmax</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/solr/">Solr</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/spark/">Spark</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SPI/">SPI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring5%E6%96%B0%E7%89%B9%E6%80%A7/">Spring5新特性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringBootBatch/">SpringBootBatch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringCloud/">SpringCloud</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringMVC/">SpringMVC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringSecurity/">SpringSecurity</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringTransaction/">SpringTransaction</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring%E6%95%B4%E4%BD%93%E8%84%89%E7%BB%9C/">Spring整体脉络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring%E6%BA%90%E7%A0%81%E6%95%85%E4%BA%8B%E7%9E%8E%E7%BC%96%E7%89%88/">Spring源码故事（瞎编版）</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/sqllit/">Sqllit</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Stage/">Stage</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/storm/">Storm</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/storybook/">Storybook</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SVM/">SVM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/tailwind/">Tailwind</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TCP%E7%B2%98%E6%8B%86%E5%8C%85/">TCP粘拆包</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TensorFlow/">TensorFlow</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TFServing/">TFServing</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Tomcat/">Tomcat</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Topk/">Topk</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/trace/">Trace</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Transformer/">Transformer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TurboSearch/">TurboSearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TX/">TX</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Typora/">Typora</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/UX/">UX</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/vivo/">Vivo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/vuejs/">Vuejs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/web/">Web</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/web3/">Web3</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/WebRTC/">WebRTC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/WideDeep/">Wide&amp;Deep</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Word2vec/">Word2vec</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XDeepFM/">XDeepFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XDL/">XDL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XGBoost/">XGBoost</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XLNet/">XLNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Yoo%E8%A7%86%E9%A2%91/">Yoo视频</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/YoshuaBengio/">YoshuaBengio</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ZeroSearch/">ZeroSearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Zookeeper/">Zookeeper</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%80%E8%87%B4%E6%80%A7/">一致性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%91%E5%B0%8F%E9%B8%AD%E5%AE%9A%E7%90%86/">丑小鸭定理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%9A%E5%8A%A1/">业务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%9A%E5%8A%A1%E7%BA%BF/">业务线</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AA%E6%80%A7%E5%8C%96%E6%8E%A8%E8%8D%90/">个性化推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AA%E6%80%A7%E5%8C%96%E6%B5%B7%E6%8A%A5/">个性化海报</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E5%85%B3%E6%9D%91/">中关村</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E6%96%87%E5%88%86%E8%AF%8D/">中文分词</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E6%96%87%E7%BA%A0%E9%94%99/">中文纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%BB%E9%A2%98%E5%BB%BA%E6%A8%A1/">主题建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B9%A6%E7%B1%8D/">书籍</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%9E%B6%E6%9E%84/">事件驱动架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%8B%E5%8A%A1/">事务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%9A%E9%A9%AC%E9%80%8A/">亚马逊</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%A4%E5%8F%89%E9%AA%8C%E8%AF%81/">交叉验证</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%BA%E6%9C%BA%E9%97%AE%E7%AD%94/">人机问答</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BE%9B%E5%BA%94%E9%93%BE/">供应链</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BE%9D%E5%AD%98%E5%8F%A5%E6%B3%95%E5%88%86%E6%9E%90/">依存句法分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2/">信息检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BF%A1%E6%81%AF%E6%B5%81%E6%8E%A8%E8%8D%90/">信息流推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95/">倒排索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%80%92%E6%8E%92%E8%A1%A8/">倒排表</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%81%87%E8%AE%BE%E6%A3%80%E9%AA%8C/">假设检验</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E6%96%87%E7%B4%A2%E5%BC%95/">全文索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E6%B0%91K%E6%AD%8C/">全民K歌</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E9%93%BE%E8%B7%AF%E5%8E%8B%E6%B5%8B/">全链路压测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%AC%E5%B9%B3%E9%94%81/">公平锁</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%B3%E7%B3%BB/">关系</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%B4%E8%B6%A3/">兴趣</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%85%E5%AE%B9%E6%8C%96%E6%8E%98/">内容挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%85%E5%AE%B9%E7%90%86%E8%A7%A3/">内容理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%B3%E7%AD%96%E6%A0%91/">决策树</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%B7%E5%90%AF%E5%8A%A8/">冷启动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%87%BA%E8%BD%A8/">出轨</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B1%82%E5%AE%9E%E9%AA%8C/">分层实验</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/">分布式系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/">分布式锁</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E8%AF%8D/">分词</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%9B%E4%B8%9A/">创业</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8A%A0%E6%9D%83%E8%9E%8D%E5%90%88/">加权融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%97%E4%BA%AC/">北京</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%BA%E5%9D%97/">区块</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%BA%E5%9D%97%E9%93%BE/">区块链</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E5%90%8C%E8%AE%B0%E5%BF%86%E7%BD%91%E7%BB%9C/">协同记忆网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E5%90%8C%E8%BF%87%E6%BB%A4/">协同过滤</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E6%96%B9%E5%B7%AE/">协方差</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95/">单元测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%9A%E5%A3%AB/">博士</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%9A%E5%A3%ABoffer/">博士offer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8E%8B%E6%B5%8B/">压测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8E%9F%E5%88%99/">原则</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8C%E5%A1%94%E6%A8%A1%E5%9E%8B/">双塔模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E4%BD%9C%E5%BC%8A/">反作弊</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E6%AC%BA%E8%AF%88/">反欺诈</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E8%84%86%E5%BC%B1/">反脆弱</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%98%E9%87%8F/">变量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AC%E5%9B%9E/">召回</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AC%E5%9B%9E%E7%8E%87/">召回率</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AF%E8%A7%A3%E9%87%8A%E6%80%A7/">可解释性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%88%E7%BA%A6/">合约</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%8E%E5%8E%82%E6%9D%91/">后厂村</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E5%8F%AC%E5%9B%9E/">向量召回</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95/">向量索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%B4%E6%81%A9%E8%BE%BE/">吴恩达</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%91%BD%E5%90%8D%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB/">命名实体识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%93%8D%E5%BA%94%E5%BC%8F%E7%BC%96%E7%A8%8B/">响应式编程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%95%86%E6%B1%A4%E7%A7%91%E6%8A%80/">商汤科技</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%9E%E5%BD%92%E6%A8%A1%E5%9E%8B/">回归模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%A0%E6%9E%9C%E5%88%86%E6%9E%90/">因果分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E5%83%8F%E6%A3%80%E7%B4%A2/">图像检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB/">图像识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E6%95%B0%E6%8D%AE%E5%BA%93/">图数据库</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E7%81%B5%E5%B9%B3%E5%8F%B0/">图灵平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E7%89%87%E7%BF%BB%E8%AF%91/">图片翻译</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E8%AE%A1%E7%AE%97/">图计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9C%A8%E7%BA%BF%E5%AD%A6%E4%B9%A0/">在线学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9D%90%E6%A0%87%E5%9B%9E%E5%BD%92/">坐标回归</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9F%BA%E4%BA%8ENetty%E5%BC%80%E5%8F%91%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%8F%8A%E5%AE%A2%E6%88%B7%E7%AB%AF/">基于Netty开发服务端及客户端</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9F%BA%E7%A1%80%E6%94%AF%E6%8C%81%E5%B1%82/">基础支持层</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A2%9E%E9%87%8F%E5%AD%A6%E4%B9%A0/">增量学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E5%A4%9A/">多多</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E6%A8%A1%E6%80%81/">多模态</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E7%9B%AE%E6%A0%87%E4%BC%98%E5%8C%96/">多目标优化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/">大数据</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE%E5%BC%80%E5%8F%91/">大数据开发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%B4%E6%9D%A1/">头条</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A5%A5%E5%8D%A1%E5%A7%86%E5%89%83%E5%88%80/">奥卡姆剃刀</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0/">学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">学习资料</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%BA%90/">学习资源</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%BC%9A%E6%8F%90%E9%97%AE/">学会提问</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB/">实体识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%8E%A8%E8%8D%90/">实时推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93/">实时数仓</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE/">实时数据</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%97%A5%E5%BF%97%E6%94%B6%E9%9B%86/">实时日志收集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E8%AE%A1%E7%AE%97/">实时计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E9%AA%8C%E5%B9%B3%E5%8F%B0/">实验平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%B9%E7%81%BE%E4%BD%93%E7%B3%BB%E5%BB%BA%E8%AE%BE/">容灾体系建设</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AF%B9%E6%AF%94%E5%AD%A6%E4%B9%A0/">对比学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AF%B9%E8%AF%9D%E7%B3%BB%E7%BB%9F/">对话系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E5%9F%8E%E5%B8%82/">小城市</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%B1%B3/">小米</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%B1%B3%E6%90%9C%E7%B4%A2/">小米搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%BE%A4%E6%95%88%E5%BA%94/">小群效应</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B7%A5%E4%BD%9C/">工作</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8/">布隆过滤器</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B8%AE%E5%B8%AE/">帮帮</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%B4%E8%BD%BB%E4%BA%BA/">年轻人</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%BF%E5%91%8A/">广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%BF%E5%91%8A%E7%B3%BB%E7%BB%9F/">广告系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BA%8F%E5%88%97%E6%A0%87%E6%B3%A8/">序列标注</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BB%BA%E6%A8%A1%E8%B0%83%E5%8F%82/">建模调参</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%80%E6%BA%90%E6%95%B0%E6%8D%AE%E9%9B%86/">开源数据集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">开源项目</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%82%E6%AD%A5IO/">异步IO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%A0%E5%98%89%E4%BD%B3/">张嘉佳</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">强化学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BD%92%E4%B8%80%E5%8C%96/">归一化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%85%E5%88%86%E7%B1%BB/">待分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E8%BD%AFEXP/">微软EXP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E8%BD%AF%E4%BA%9A%E6%B4%B2%E7%A0%94%E7%A9%B6%E9%99%A2/">微软亚洲研究院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%80%9D%E7%BB%B4/">思维</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%83%85%E6%84%9F%E5%88%86%E6%9E%90/">情感分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%84%8F%E5%9B%BE%E8%AF%86%E5%88%AB/">意图识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%88%BF%E7%A7%9F/">房租</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8A%80%E6%9C%AF/">技术</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%86%E5%88%86/">拆分</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%9B%E8%81%98/">招聘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%BC%E5%A4%9A%E5%A4%9A/">拼多多</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8C%81%E7%BB%AD%E4%BA%A4%E4%BB%98/">持续交付</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8C%81%E7%BB%AD%E9%9B%86%E6%88%90/">持续集成</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8D%9F%E5%A4%B1%E5%87%BD%E6%95%B0/">损失函数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E5%BA%8F/">排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E5%BA%8F%E6%A8%A1%E5%9E%8B/">排序模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E9%98%9F/">排队</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E7%90%86%E7%B3%BB%E7%BB%9F/">推理系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90/">推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90%E7%90%86%E7%94%B1/">推荐理由</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/">推荐系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E9%80%81%E5%B9%B3%E5%8F%B0/">推送平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8F%90%E9%97%AE%E7%9A%84%E6%99%BA%E6%85%A7/">提问的智慧</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2/">搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E5%B9%BF%E5%91%8A/">搜索广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/">搜索引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E6%8E%92%E5%BA%8F/">搜索排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E6%9E%B6%E6%9E%84/">搜索架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E7%B3%BB%E7%BB%9F/">搜索系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%94%AF%E6%8C%81%E5%90%91%E9%87%8F/">支持向量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%94%AF%E6%8C%81%E5%90%91%E9%87%8F%E6%9C%BA/">支持向量机</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E4%BB%93%E4%BD%93%E7%B3%BB/">数仓体系</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E4%BB%93%E5%B9%B3%E5%8F%B0/">数仓平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E4%B8%AD%E5%8F%B0/">数据中台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E4%BB%93%E5%BA%93/">数据仓库</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90%E5%B9%B3%E5%8F%B0/">数据分析平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5/">数据同步</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%B9%B3%E5%8F%B0/">数据平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%8C%87%E6%A0%87/">数据指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%8C%96%E6%8E%98/">数据挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%B2%BB%E7%90%86/">数据治理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%B9%96/">数据湖</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E7%A7%91%E5%AD%A6/">数据科学</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E9%9B%86/">数据集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E9%A9%B1%E5%8A%A8/">数据驱动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E5%AD%97%E8%AF%86%E5%88%AB/">文字识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%91%98/">文摘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E5%88%86%E7%B1%BB/">文本分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E6%83%85%E6%84%9F%E5%88%86%E7%B1%BB/">文本情感分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E6%8C%96%E6%8E%98/">文本挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E7%BA%A0%E9%94%99/">文本纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E8%A1%A8%E5%BE%81/">文本表征</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%B0%E9%97%BB%E6%8E%A8%E8%8D%90/">新闻推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%B9%E6%B3%95%E8%AE%BA/">方法论</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%A5%E5%BF%97%E6%9E%B6%E6%9E%84/">日志架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%A5%E5%BF%97%E6%A3%80%E7%B4%A2/">日志检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%B6%E5%BA%8F%E7%89%B9%E5%BE%81%E6%8C%96%E6%8E%98/">时序特征挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E6%85%A7%E7%89%A9%E6%B5%81/">智慧物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E5%90%88%E7%BA%A6/">智能合约</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E5%AE%A2%E6%9C%8D/">智能客服</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E7%89%A9%E6%B5%81/">智能物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E8%AF%AD%E9%9F%B3/">智能语音</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E9%97%AE%E7%AD%94/">智能问答</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E9%A2%84%E8%AD%A6/">智能预警</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%8D%E5%8A%A1/">服务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%88%B1%E5%A5%BD%E8%80%85/">机器学习爱好者</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E9%9D%A2%E8%AF%95%E9%A2%98/">机器学习面试题</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E7%BF%BB%E8%AF%91/">机器翻译</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E8%A7%86%E8%A7%89/">机器视觉</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E9%98%85%E8%AF%BB/">机器阅读</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9D%A1%E4%BB%B6%E9%9A%8F%E6%9C%BA%E5%9C%BA/">条件随机场</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9E%B6%E6%9E%84/">架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE/">标签</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E5%B9%B3%E6%BB%91/">标签平滑</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E8%AF%86%E5%88%AB/">标签识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E9%80%89%E6%8B%A9/">标签选择</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%A1%E6%8B%9B/">校招</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%B7%E6%9C%AC/">样本</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%B8%E5%BF%83%E5%A4%84%E7%90%86%E5%B1%82/">核心处理层</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A3%80%E7%B4%A2%E5%BC%95%E6%93%8E/">检索引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A7%BD%E4%BD%8D%E8%AF%86%E5%88%AB/">槽位识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E5%89%AA%E6%9E%9D/">模型剪枝</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">模型压缩</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E8%9E%8D%E5%90%88/">模型融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E8%AF%84%E4%BC%B0/">模型评估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2/">模型部署</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E9%A2%84%E4%BC%B0/">模型预估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%BC%8F%E5%8C%B9%E9%85%8D/">模式匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%BC%8F%E8%AF%86%E5%88%AB/">模式识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%AD%A3%E5%88%99%E5%8C%96/">正则化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B4%8B%E7%A0%81%E5%A4%B4/">洋码头</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B5%81%E6%89%B9%E4%B8%80%E4%BD%93/">流批一体</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6/">深度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E5%85%B4%E8%B6%A3%E7%BD%91%E7%BB%9C/">深度兴趣网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0/">深度学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E6%A0%91%E5%8C%B9%E9%85%8D/">深度树匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E6%A0%91%E6%A3%80%E7%B4%A2/">深度树检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B7%E6%8E%92/">混排</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B7%E6%B2%8C%E5%B7%A5%E7%A8%8B/">混沌工程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%81%AB%E7%84%B0%E5%9B%BE/">火焰图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%83%AD%E7%82%B9%E6%8C%96%E6%8E%98/">热点挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7/">熔断降级</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%88%AC%E8%99%AB/">爬虫</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%88%B1%E5%A5%87%E8%89%BA/">爱奇艺</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%9B%E9%A1%BF-%E8%8E%B1%E5%B8%83%E5%B0%BC%E8%8C%A8/">牛顿-莱布尼茨</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%A9%E6%B5%81/">物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E5%B7%A5%E7%A8%8B/">特征工程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E5%B9%B3%E5%8F%B0/">特征平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E7%B3%BB%E7%BB%9F/">特征系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%8C%9C%E4%BD%A0%E5%96%9C%E6%AC%A2/">猜你喜欢</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%A8%E6%88%B7%E5%BB%BA%E6%A8%A1/">用户建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%A8%E6%88%B7%E7%94%BB%E5%83%8F/">用户画像</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%B5%E5%95%86%E6%90%9C%E7%B4%A2/">电商搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%99%BD%E5%85%94/">白兔</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%99%BE%E5%BA%A6/">百度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9B%B8%E5%85%B3%E7%B3%BB%E6%95%B0/">相关系数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9C%9F%E8%AF%9D/">真话</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A2%E9%87%8F%E8%AF%AD%E4%B9%89/">矢量语义</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E4%B9%8E%E6%9E%B6%E6%9E%84/">知乎架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E5%A2%9E%E5%BC%BA/">知识增强</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E8%92%B8%E9%A6%8F/">知识蒸馏</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E6%96%87%E6%9C%AC%E8%A7%A3%E6%9E%90/">短文本解析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%A7%86%E9%A2%91/">短视频</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%AF%AD%E6%8A%BD%E5%8F%96/">短语抽取</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%AF%AD%E6%8C%96%E6%8E%98/">短语挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A2%A7%E6%A1%82%E5%9B%AD/">碧桂园</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">神经网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A5%9E%E9%A9%AC%E6%90%9C%E7%B4%A2/">神马搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A6%BB%E7%BA%BF%E8%AE%A1%E7%AE%97/">离线计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A7%92%E6%9D%80%E6%9E%B6%E6%9E%84/">秒杀架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A7%92%E6%9D%80%E7%B3%BB%E7%BB%9F/">秒杀系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%8B%E5%BA%8F%E4%BA%BA%E7%94%9F/">程序人生</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%8B%E5%BA%8F%E5%91%98/">程序员</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7%E8%A7%84%E8%8C%83/">稳定性规范</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A9%BA%E9%97%B4%E7%B4%A2%E5%BC%95/">空间索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AA%97%E5%8F%A3%E5%87%BD%E6%95%B0/">窗口函数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AB%AF%E4%B8%8A%E6%99%BA%E8%83%BD/">端上智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AB%AF%E6%99%BA%E8%83%BD/">端智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AE%97%E6%B3%95/">算法</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B1%BB%E5%8D%8F%E5%90%8C%E8%AE%AD%E7%BB%83/">类协同训练</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B1%BB%E7%9B%AE%E8%AF%86%E5%88%AB/">类目识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B2%97%E6%8E%92/">粗排</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B4%A2%E5%BC%95/">索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BA%BF%E7%A8%8B/">线程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/">线程池</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BC%93%E5%AD%98/">缓存</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BD%91%E7%BB%9C%E5%9B%BE/">网络图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BD%AE%E4%BF%A1%E5%BA%A6/">置信度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2/">美团</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2%E5%A4%A7%E8%84%91/">美团大脑</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2%E7%82%B9%E8%AF%84/">美团点评</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%81%8C%E5%9C%BA/">职场</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%81%94%E9%82%A6%E5%AD%A6%E4%B9%A0/">联邦学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%85%BE%E8%AE%AF%E6%8A%80%E6%9C%AF/">腾讯技术</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">自动化测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E7%84%B6%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">自然语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%89%B2%E6%83%85%E8%AF%86%E5%88%AB/">色情识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%8A%B1%E6%A4%92%E7%9B%B4%E6%92%AD/">花椒直播</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%8B%9E%E8%B0%B7/">苞谷</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%9A%82%E8%9A%81%E9%87%91%E6%9C%8D/">蚂蚁金服</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%84%E5%88%99%E5%B9%B3%E5%8F%B0/">规则平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%84%E5%88%99%E5%BC%95%E6%93%8E/">规则引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%86%E9%A2%91%E6%8E%A8%E8%8D%90/">视频推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A1%E7%AE%97%E5%B9%BF%E5%91%8A/">计算广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A4%E7%9F%A5/">认知</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A8%E8%AE%BA%E5%8C%BA/">讨论区</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%B0%E5%BF%86%E5%BB%BA%E6%A8%A1/">记忆建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%B0%E5%BF%86%E7%BD%91%E7%BB%9C/">记忆网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%BA%E6%96%87/">论文</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%84%E4%BB%B7%E6%8C%87%E6%A0%87/">评价指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%84%E6%B5%8B%E6%8C%87%E6%A0%87/">评测指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E5%90%91%E9%87%8F/">词向量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E5%B5%8C%E5%85%A5/">词嵌入</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E6%9D%83%E9%87%8D/">词权重</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E5%88%86%E5%89%B2/">语义分割</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E5%8C%B9%E9%85%8D/">语义匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E6%A3%80%E7%B4%A2/">语义检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E6%A8%A1%E5%9E%8B/">语义模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E7%90%86%E8%A7%A3/">语义理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E9%9F%B3%E5%86%85%E5%AE%B9%E8%AF%86%E5%88%AB/">语音内容识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">语音识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B0%B7%E6%AD%8C%E9%9D%A2%E8%AF%95/">谷歌面试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%B8%AA%E6%80%A7%E5%8C%96%E6%8E%92%E5%BA%8F/">贝叶斯个性化排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%A3%B3%E6%89%BE%E6%88%BF/">贝壳找房</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%A3%B3%E6%99%BA%E6%90%9C/">贝壳智搜</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%A7%E5%B8%81%E5%8C%96/">货币化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B5%B7%E6%AD%A5/">起步</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B6%8B%E5%8A%BF%E7%A7%91%E6%8A%80/">趋势科技</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B7%AF%E5%BE%84%E8%A7%84%E5%88%92/">路径规划</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BD%AF%E5%AE%9E%E5%8A%9B/">软实力</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BE%B9%E7%BC%98%E8%AE%A1%E7%AE%97/">边缘计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BE%BE%E6%91%A9%E9%99%A2/">达摩院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0/">迁移学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BF%87%E6%8B%9F%E5%90%88/">过拟合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%80%BB%E8%BE%91%E5%9B%9E%E5%BD%92/">逻辑回归</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%80%BB%E8%BE%91%E6%80%9D%E7%BB%B4/">逻辑思维</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%87%E8%B4%AD/">采购</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E5%8F%A0%E5%AE%9E%E9%AA%8C%E6%A1%86%E6%9E%B6/">重叠实验框架</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E6%8E%92%E5%BA%8F/">重排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E6%9E%84/">重构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%91%E8%9E%8D/">金融</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%B6%E6%B1%A4%E5%8C%99/">银汤匙</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%BE%E8%A1%A8/">链表</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%BE%E8%A1%A8%E6%B1%82%E4%BA%A4%E9%9B%86/">链表求交集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C/">阿里</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E5%A6%88%E5%A6%88/">阿里妈妈</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E5%B0%8F%E8%9C%9C/">阿里小蜜</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E8%BE%BE%E6%91%A9%E9%99%A2/">阿里达摩院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%88%E8%96%87/">陈薇</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%8C%E9%99%8C/">陌陌</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%8D%E7%BA%AC%E6%89%93%E5%87%BB/">降纬打击</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9A%8F%E6%9C%BA%E5%8F%98%E9%87%8F/">随机变量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9B%B6%E6%8B%B7%E8%B4%9D/">零拷贝</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9D%A2%E7%BB%8F/">面经</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9D%A2%E8%AF%95/">面试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86/">项目管理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%84%E4%BC%B0%E5%BC%95%E6%93%8E/">预估引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%84%E8%AE%AD%E7%BB%83/">预训练</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%86%E5%9F%9F%E8%AE%BE%E8%AE%A1/">领域设计</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8/">领域驱动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A3%8E%E6%8E%A7/">风控</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A3%8E%E6%8E%A7%E7%B3%BB%E7%BB%9F/">风控系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E5%8F%AF%E7%94%A8/">高可用</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E6%96%AF%E7%83%AD%E5%9B%BE/">高斯热图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E7%BB%B4%E6%95%B0%E6%8D%AE%E7%B4%A2%E5%BC%95/">高维数据索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%BB%84%E5%B3%A5/">黄峥</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%BB%91%E7%9B%92%E6%A8%A1%E5%9E%8B/">黑盒模型</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

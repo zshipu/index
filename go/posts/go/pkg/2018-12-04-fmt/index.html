@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>fmt 标准库 --- Print* 是怎么样输出的？ | 知识铺的博客</title>
+    <meta property="og:title" content="fmt 标准库 --- Print* 是怎么样输出的？ - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-12-04T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-12-04T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="fmt 标准库 --- Print* 是怎么样输出的？">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/pkg/2018-12-04-fmt/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前言">前言</a></li>
+    <li><a href="#原型">原型</a></li>
+    <li><a href="#执行流程">执行流程</a>
+      <ul>
+        <li><a href="#案例一print">案例一：Print</a></li>
+        <li><a href="#案例二printf">案例二：Printf</a></li>
+        <li><a href="#案例三println">案例三：Println</a></li>
+      </ul>
+    </li>
+    <li><a href="#如何格式化参数">如何格式化参数</a></li>
+    <li><a href="#拓展">拓展</a>
+      <ul>
+        <li><a href="#fmtstate">fmt.State</a></li>
+        <li><a href="#fmtformatter">fmt.Formatter</a></li>
+        <li><a href="#fmtstringer">fmt.Stringer</a></li>
+        <li><a href="#fmtgostringer">fmt.GoStringer</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">fmt 标准库 --- Print* 是怎么样输出的？</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年12月4日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="前言">前言</h2>
+<pre tabindex="0"><code>package main
+
+import (
+	&#34;fmt&#34;
+)
+
+func main() {
+	fmt.Println(&#34;Hello World!&#34;)
+}
+</code></pre><p>标准开场见多了，那内部标准库又是怎么输出这段英文的呢？今天一起来围观下源码吧 🤭</p>
+<h2 id="原型">原型</h2>
+<pre tabindex="0"><code>func Print(a ...interface{}) (n int, err error) {
+	return Fprint(os.Stdout, a...)
+}
+
+func Println(a ...interface{}) (n int, err error) {
+	return Fprintln(os.Stdout, a...)
+}
+
+func Printf(format string, a ...interface{}) (n int, err error) {
+	return Fprintf(os.Stdout, format, a...)
+}
+</code></pre><ul>
+<li>Print：使用默认格式说明符打印格式并写入标准输出。当两者都不是字符串时，在操作数之间添加空格</li>
+<li>Println：同上，不同的地方是始终在操作数之间添加空格，并附加换行符</li>
+<li>Printf：根据格式说明符进行格式化并写入标准输出</li>
+</ul>
+<p>以上三类就是最常见的格式化 I/O 的方法，我们将基于此去进行拆解描述</p>
+<h2 id="执行流程">执行流程</h2>
+<h3 id="案例一print">案例一：Print</h3>
+<p>在这里我们使用 <code>Print</code> 方法做一个分析，便于后面的加深理解 😄</p>
+<pre tabindex="0"><code>func Print(a ...interface{}) (n int, err error) {
+	return Fprint(os.Stdout, a...)
+}
+</code></pre><p><code>Print</code> 使用默认格式说明符打印格式并写入标准输出。另外当两者都为非空字符串时将插入一个空格</p>
+<h4 id="原型-1">原型</h4>
+<pre tabindex="0"><code>func Fprint(w io.Writer, a ...interface{}) (n int, err error) {
+	p := newPrinter()
+	p.doPrint(a)
+	n, err = w.Write(p.buf)
+	p.free()
+	return
+}
+</code></pre><p>该函数一共有两个形参：</p>
+<ul>
+<li>w：输出流，只要实现 io.Writer 就可以（抽象）为流的写入</li>
+<li>a：任意类型的多个值</li>
+</ul>
+<h4 id="分析主干流程">分析主干流程</h4>
+<p>1、 p := newPrinter(): 申请一个临时对象池（sync.Pool）</p>
+<pre tabindex="0"><code>var ppFree = sync.Pool{
+	New: func() interface{} { return new(pp) },
+}
+
+func newPrinter() *pp {
+	p := ppFree.Get().(*pp)
+	p.panicking = false
+	p.erroring = false
+	p.fmt.init(&amp;p.buf)
+	return p
+}
+</code></pre><ul>
+<li>ppFree.Get()：基于 sync.Pool 实现 *pp 的临时对象池，每次获取一定会返回一个新的 pp 对象用于接下来的处理</li>
+<li>*pp.panicking：用于解决无限递归的 panic、recover 问题，会根据该参数在 catchPanic 及时掐断</li>
+<li>*pp.erroring：用于表示正在处理错误无效的 verb 标识符，主要作用是防止调用 handleMethods 方法</li>
+<li>*pp.fmt.init(&amp;p.buf)：初始化 fmt 配置，会设置 buf 并且清空 fmtFlags 标志位</li>
+</ul>
+<p>2、 p.doPrint(a): 执行约定的格式化动作（参数间增加一个空格、最后一个参数增加换行符）</p>
+<pre tabindex="0"><code>func (p *pp) doPrint(a []interface{}) {
+	prevString := false
+	for argNum, arg := range a {
+	    true &amp;&amp; false
+		isString := arg != nil &amp;&amp; reflect.TypeOf(arg).Kind() == reflect.String
+		// Add a space between two non-string arguments.
+		if argNum &gt; 0 &amp;&amp; !isString &amp;&amp; !prevString {
+			p.buf.WriteByte(&#39; &#39;)
+		}
+		p.printArg(arg, &#39;v&#39;)
+		prevString = isString
+	}
+}
+</code></pre><p>可以看到底层通过判断该入参，<strong>同时</strong>满足以下条件就会添加分隔符（空格）：</p>
+<ul>
+<li>当前入参为多个参数（例如：Slice）</li>
+<li>当前入参不为 nil 且不为字符串（通过反射确定）</li>
+<li>当前入参不为首项或上一个入参不为字符串</li>
+</ul>
+<p>而在 <code>Print</code> 方法中，不需要指定格式符。实际上在该方法内直接指定为 <code>v</code>。也就是默认格式的值</p>
+<pre tabindex="0"><code>p.printArg(arg, &#39;v&#39;)
+</code></pre><ol start="3">
+<li>
+<p>w.Write(p.buf): 写入标准输出（io.Writer）</p>
+</li>
+<li>
+<p>*pp.free(): 释放已缓存的内容。在使用完临时对象后，会将 buf、arg、value 清空再重新存放到 ppFree 中。以便于后面再取出重用（利用 sync.Pool 的临时对象特性）</p>
+</li>
+</ol>
+<h3 id="案例二printf">案例二：Printf</h3>
+<h4 id="标识符">标识符</h4>
+<h5 id="verbs">Verbs</h5>
+<pre tabindex="0"><code>%v	the value in a default format
+	when printing structs, the plus flag (%+v) adds field names
+%#v	a Go-syntax representation of the value
+%T	a Go-syntax representation of the type of the value
+%%	a literal percent sign; consumes no value
+%t	the word true or false
+</code></pre><h5 id="flags">Flags</h5>
+<pre tabindex="0"><code>+	always print a sign for numeric values;
+	guarantee ASCII-only output for %q (%+q)
+-	pad with spaces on the right rather than the left (left-justify the field)
+#	alternate format: add leading 0 for octal (%#o), 0x for hex (%#x);
+	0X for hex (%#X); suppress 0x for %p (%#p);
+	for %q, print a raw (backquoted) string if strconv.CanBackquote
+	returns true;
+	always print a decimal point for %e, %E, %f, %F, %g and %G;
+	do not remove trailing zeros for %g and %G;
+	write e.g. U+0078 &#39;x&#39; if the character is printable for %U (%#U).
+&#39; &#39;	(space) leave a space for elided sign in numbers (% d);
+	put spaces between bytes printing strings or slices in hex (% x, % X)
+0	pad with leading zeros rather than spaces;
+	for numbers, this moves the padding after the sign
+</code></pre><p>详细建议参见 <a href="https://golang.org/pkg/fmt/#hdr-Printing">Godoc</a></p>
+<h4 id="原型-2">原型</h4>
+<pre tabindex="0"><code>func Fprintf(w io.Writer, format string, a ...interface{}) (n int, err error) {
+	p := newPrinter()
+	p.doPrintf(format, a)
+	n, err = w.Write(p.buf)
+	p.free()
+	return
+}
+</code></pre><p>与 Print 相比，最大的不同就是 doPrintf 方法了。在这里我们来详细看看其代码，如下：</p>
+<pre tabindex="0"><code>func (p *pp) doPrintf(format string, a []interface{}) {
+	end := len(format)
+	argNum := 0         // we process one argument per non-trivial format
+	afterIndex := false // previous item in format was an index like [3].
+	p.reordered = false
+formatLoop:
+	for i := 0; i &lt; end; {
+		p.goodArgNum = true
+		lasti := i
+		for i &lt; end &amp;&amp; format[i] != &#39;%&#39; {
+			i++
+		}
+		if i &gt; lasti {
+			p.buf.WriteString(format[lasti:i])
+		}
+		if i &gt;= end {
+			// done processing format string
+			break
+		}
+
+		// Process one verb
+		i++
+
+		// Do we have flags?
+		p.fmt.clearflags()
+	simpleFormat:
+		for ; i &lt; end; i++ {
+			c := format[i]
+			switch c {
+			case &#39;#&#39;:   //&#39;#&#39;、&#39;0&#39;、&#39;+&#39;、&#39;-&#39;、&#39; &#39;
+				...
+			default:
+				if &#39;a&#39; &lt;= c &amp;&amp; c &lt;= &#39;z&#39; &amp;&amp; argNum &lt; len(a) {
+					...
+					p.printArg(a[argNum], rune(c))
+					argNum++
+					i++
+					continue formatLoop
+				}
+				
+				break simpleFormat
+			}
+		}
+
+		// Do we have an explicit argument index?
+		argNum, i, afterIndex = p.argNumber(argNum, format, i, len(a))
+
+		// Do we have width?
+		if i &lt; end &amp;&amp; format[i] == &#39;*&#39; {
+			...
+		}
+
+		// Do we have precision?
+		if i+1 &lt; end &amp;&amp; format[i] == &#39;.&#39; {
+			...
+		}
+
+		if !afterIndex {
+			argNum, i, afterIndex = p.argNumber(argNum, format, i, len(a))
+		}
+
+		if i &gt;= end {
+			p.buf.WriteString(noVerbString)
+			break
+		}
+
+		...
+
+		switch {
+		case verb == &#39;%&#39;: // Percent does not absorb operands and ignores f.wid and f.prec.
+			p.buf.WriteByte(&#39;%&#39;)
+		case !p.goodArgNum:
+			p.badArgNum(verb)
+		case argNum &gt;= len(a): // No argument left over to print for the current verb.
+			p.missingArg(verb)
+		case verb == &#39;v&#39;:
+			...
+			fallthrough
+		default:
+			p.printArg(a[argNum], verb)
+			argNum++
+		}
+	}
+
+	if !p.reordered &amp;&amp; argNum &lt; len(a) {
+		...
+	}
+}
+</code></pre><h4 id="分析主干流程-1">分析主干流程</h4>
+<ol>
+<li>写入 % 之前的字符内容</li>
+<li>如果所有标志位处理完毕（到达字符尾部），则跳出处理逻辑</li>
+<li>（往后移）跳过 % ，开始处理其他 verb 标志位</li>
+<li>清空（重新初始化） fmt 配置</li>
+<li>处理一些基础的 verb 标识符（simpleFormat）。如：&rsquo;#&rsquo;、&lsquo;0&rsquo;、&rsquo;+&rsquo;、&rsquo;-&rsquo;、&rsquo; &rsquo; 以及<strong>简单的 verbs 标识符（不包含精度、宽度和参数索引）。需要注意的是，若当前字符为简单 verb 标识符。则直接进行处理。完成后会直接后移到下一个字符</strong>。其余标志位则变更 fmt 配置项，便于后续处理</li>
+<li>处理参数索引（argument index）</li>
+<li>处理参数宽度（width）</li>
+<li>处理参数精度（precision）</li>
+<li>% 之后若不存在 verbs 标识符则返回 <code>noVerbString</code>。值为 %!(NOVERB)</li>
+<li>处理特殊 verbs 标识符（如：&rsquo;%%&rsquo;、&rsquo;%#v&rsquo;、&rsquo;%+v&rsquo;）、错误情况（如：参数索引指定错误、参数集个数与 verbs 标识符数量不匹配）或进行格式化参数集</li>
+<li>常规流程处理完毕</li>
+</ol>
+<p>在特殊情况下，若提供的参数集比 verb 标识符多。fmt 将会贪婪检查下去，将多出的参数集以特定的格式输出，如下：</p>
+<pre tabindex="0"><code>fmt.Printf(&#34;%d&#34;, 1, 2, 3)
+// 1%!(EXTRA int=2, int=3)
+</code></pre><ul>
+<li>约定前缀额外标志：%!(EXTRA</li>
+<li>当前参数的类型</li>
+<li>约定格式符：=</li>
+<li>当前参数的值（默认以 %v 格式化）</li>
+<li>约定格式符：)</li>
+</ul>
+<p>值得注意的是，当指定了参数索引或实际处理的参数小于入参的参数集时，就不会进行贪婪匹配来展示</p>
+<h3 id="案例三println">案例三：Println</h3>
+<h4 id="原型-3">原型</h4>
+<pre tabindex="0"><code>func Fprintln(w io.Writer, a ...interface{}) (n int, err error) {
+	p := newPrinter()
+	p.doPrintln(a)
+	n, err = w.Write(p.buf)
+	p.free()
+	return
+}
+</code></pre><p>在这个方法中，最大的区别就是 doPrintln，我们一起来看看，如下：</p>
+<pre tabindex="0"><code>func (p *pp) doPrintln(a []interface{}) {
+	for argNum, arg := range a {
+		if argNum &gt; 0 {
+			p.buf.WriteByte(&#39; &#39;)
+		}
+		p.printArg(arg, &#39;v&#39;)
+	}
+	p.buf.WriteByte(&#39;\n&#39;)
+}
+</code></pre><h4 id="分析主干流程-2">分析主干流程</h4>
+<ul>
+<li>循环入参的参数集，并以空格分隔</li>
+<li>格式化当前参数，默认以 <code>%v</code> 对参数进行格式化</li>
+<li>在结尾添加 <code>\n</code> 字符</li>
+</ul>
+<h2 id="如何格式化参数">如何格式化参数</h2>
+<p>在上例的执行流程分析中，可以看到格式化参数这一步是在 <code>p.printArg(arg, verb)</code> 执行的，我们一起来看看它都做了些什么？</p>
+<pre tabindex="0"><code>func (p *pp) printArg(arg interface{}, verb rune) {
+	p.arg = arg
+	p.value = reflect.Value{}
+
+	if arg == nil {
+		switch verb {
+		case &#39;T&#39;, &#39;v&#39;:
+			p.fmt.padString(nilAngleString)
+		default:
+			p.badVerb(verb)
+		}
+		return
+	}
+
+	switch verb {
+	case &#39;T&#39;:
+		p.fmt.fmt_s(reflect.TypeOf(arg).String())
+		return
+	case &#39;p&#39;:
+		p.fmtPointer(reflect.ValueOf(arg), &#39;p&#39;)
+		return
+	}
+
+	// Some types can be done without reflection.
+	switch f := arg.(type) {
+	case bool:
+		p.fmtBool(f, verb)
+	case float32:
+		p.fmtFloat(float64(f), 32, verb)
+	...
+	case reflect.Value:
+		if f.IsValid() &amp;&amp; f.CanInterface() {
+			p.arg = f.Interface()
+			if p.handleMethods(verb) {
+				return
+			}
+		}
+		p.printValue(f, verb, 0)
+	default:
+		if !p.handleMethods(verb) {
+			p.printValue(reflect.ValueOf(f), verb, 0)
+		}
+	}
+}
+</code></pre><p>在小节代码中可以看见，fmt 本身对不同的类型做了不同的处理。这样子就避免了通过反射确定。相对的提高了性能</p>
+<p>其中有两个特殊的方法，分别是 <code>handleMethods</code> 和 <code>badVerb</code>，接下来分别来看看他们的作用是什么</p>
+<p>1、badVerb</p>
+<p>它主要用于格式化并处理错误的行为。我们可以一起来看看，代码如下：</p>
+<pre tabindex="0"><code>func (p *pp) badVerb(verb rune) {
+	p.erroring = true
+	p.buf.WriteString(percentBangString)
+	p.buf.WriteRune(verb)
+	p.buf.WriteByte(&#39;(&#39;)
+	switch {
+	case p.arg != nil:
+		p.buf.WriteString(reflect.TypeOf(p.arg).String())
+		p.buf.WriteByte(&#39;=&#39;)
+		p.printArg(p.arg, &#39;v&#39;)
+	...
+	default:
+		p.buf.WriteString(nilAngleString)
+	}
+	p.buf.WriteByte(&#39;)&#39;)
+	p.erroring = false
+}
+</code></pre><p>在处理错误格式化时，我们可以对比以下例子：</p>
+<pre tabindex="0"><code>fmt.Printf(&#34;%s&#34;, []int64{1, 2, 3})
+// [%!s(int64=1) %!s(int64=2) %!s(int64=3)]%
+</code></pre><p>在 badVerb 中可以看到错误字符串的处理主要分为以下部分：</p>
+<ul>
+<li>约定前缀错误标志：%!</li>
+<li>当前的格式化操作符</li>
+<li>约定格式符：(</li>
+<li>当前参数的类型</li>
+<li>约定格式符：=</li>
+<li>当前参数的值（默认以 %v 格式化）</li>
+<li>约定格式符：)</li>
+</ul>
+<p>2、handleMethods</p>
+<pre tabindex="0"><code>func (p *pp) handleMethods(verb rune) (handled bool) {
+	if p.erroring {
+		return
+	}
+	// Is it a Formatter?
+	if formatter, ok := p.arg.(Formatter); ok {
+		handled = true
+		defer p.catchPanic(p.arg, verb)
+		formatter.Format(p, verb)
+		return
+	}
+
+	// If we&#39;re doing Go syntax and the argument knows how to supply it, take care of it now.
+	...
+	
+	return false
+}
+</code></pre><p>这个方法比较特殊，一般在自定义结构体和未知情况下进行调用。主要流程是：</p>
+<ul>
+<li>若当前参数为错误 verb 标识符，则直接返回</li>
+<li>判断是否实现了 Formatter</li>
+<li>实现，则利用自定义 Formatter 格式化参数</li>
+<li>未实现，则最大程度的利用 Go syntax 默认规则去格式化参数</li>
+</ul>
+<h2 id="拓展">拓展</h2>
+<p>在 fmt 标准库中可以通过自定义结构体来实现方法的自定义，大致如下几种</p>
+<h3 id="fmtstate">fmt.State</h3>
+<pre tabindex="0"><code>type State interface {
+	Write(b []byte) (n int, err error)
+
+	Width() (wid int, ok bool)
+
+	Precision() (prec int, ok bool)
+
+	Flag(c int) bool
+}
+</code></pre><p>State 用于获取标志位的状态值，涉及如下：</p>
+<ul>
+<li>Write：将格式化完毕的字符写入缓冲区中，等待下一步处理</li>
+<li>Width：返回宽度信息和是否被设置</li>
+<li>Precision：返回精度信息和是否被设置</li>
+<li>Flag：返回特殊标志符（&rsquo;#&rsquo;、&lsquo;0&rsquo;、&rsquo;+&rsquo;、&rsquo;-&rsquo;、&rsquo; &lsquo;）是否被设置</li>
+</ul>
+<h3 id="fmtformatter">fmt.Formatter</h3>
+<pre tabindex="0"><code>type Formatter interface {
+	Format(f State, c rune)
+}
+</code></pre><p>Formatter 用于实现<strong>自定义格式化方法</strong>。可通过在自定义结构体中实现 Format 方法来实现这个目的</p>
+<p>另外，可以通过 f 获取到当前标识符的宽度、精度等状态值。c 为 verb 标识符，可以得到其动作是什么</p>
+<h3 id="fmtstringer">fmt.Stringer</h3>
+<pre tabindex="0"><code>type Stringer interface {
+	String() string
+}
+</code></pre><p>当该对象为 String、Array、Slice 等类型时，将会调用 <code>String()</code> 方法对类字符串进行格式化</p>
+<h3 id="fmtgostringer">fmt.GoStringer</h3>
+<pre tabindex="0"><code>type GoStringer interface {
+	GoString() string
+}
+</code></pre><p>当格式化特定 verb 标识符（%v）时，将调用 <code>GoString()</code> 方法对其进行格式化</p>
+<h2 id="总结">总结</h2>
+<p>通过本文对 fmt 标准库的分析，可以发现它有以下特点：</p>
+<ul>
+<li>在拓展性方面，可以自定义格式化方法等</li>
+<li>在完整度方面，尽可能的贪婪匹配，输出参数集</li>
+<li>在性能方面，每种不同的参数类型，都实现了不同的格式化处理操作</li>
+<li>在性能方面，尽可能的最短匹配，格式化参数集</li>
+</ul>
+<p>总的来说，fmt 标准库有许多值得推敲的细节，希望你能够在本文学到 😄</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/pkg/2018-12-04-fmt/">https://index.zshipu.com/go/posts/go/pkg/2018-12-04-fmt/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/pkg/2018-09-28-log/">log 标准库</a></li>
+        
+        <li><a href="/go/posts/go/talk/2018-11-25-gomock/">使用 Gomock 进行单元测试</a></li>
+        
+        <li><a href="/go/posts/go/grpc/2018-10-20-zipkin/">「连载十」分布式链路追踪 gRPC &#43; Opentracing &#43; Zipkin</a></li>
+        
+        <li><a href="/go/posts/go/grpc/2018-10-16-deadlines/">「连载九」gRPC Deadlines</a></li>
+        
+        <li><a href="/go/posts/go/grpc/2018-10-14-per-rpc-credentials/">「连载八」对 RPC 方法做自定义认证</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90'>源码分析</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

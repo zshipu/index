@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>用 GODEBUG 看调度跟踪 | 知识铺的博客</title>
+    <meta property="og:title" content="用 GODEBUG 看调度跟踪 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-08-19T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-08-19T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="用 GODEBUG 看调度跟踪">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/tools/2019-08-19-godebug-sched/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前置知识">前置知识</a></li>
+    <li><a href="#godebug">GODEBUG</a>
+      <ul>
+        <li><a href="#演示代码">演示代码</a></li>
+        <li><a href="#schedtrace">schedtrace</a></li>
+        <li><a href="#scheddetail">scheddetail</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">用 GODEBUG 看调度跟踪</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年8月19日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="image" src="/posts/images/b01c2ce25e34f80d499f0488d034b00b.png" />   
+    </p>
+<p>让 Go 更强大的原因之一莫过于它的 GODEBUG 工具，GODEBUG 的设置可以让 Go 程序在运行时输出调试信息，可以根据你的要求很直观的看到你想要的调度器或垃圾回收等详细信息，并且还不需要加装其它的插件，非常方便，今天我们将先讲解 GODEBUG 的调度器相关内容，希望对你有所帮助。</p>
+<p>不过在开始前，没接触过的小伙伴得先补补如下前置知识，便于更好的了解调试器输出的信息内容。</p>
+<h2 id="前置知识">前置知识</h2>
+<p>Go scheduler 的主要功能是针对在处理器上运行的 OS 线程分发可运行的 Goroutine，而我们一提到调度器，就离不开三个经常被提到的缩写，分别是：</p>
+<ul>
+<li>G：Goroutine，实际上我们每次调用 <code>go func</code> 就是生成了一个 G。</li>
+<li>P：处理器，一般为处理器的核数，可以通过 <code>GOMAXPROCS</code> 进行修改。</li>
+<li>M：OS 线程</li>
+</ul>
+<p>这三者交互实际来源于 Go 的 M: N 调度模型，也就是 M 必须与 P 进行绑定，然后不断地在 M 上循环寻找可运行的 G 来执行相应的任务，如果想具体了解可以详细阅读 <a href="https://speakerdeck.com/retervision/go-runtime-scheduler">《Go Runtime Scheduler》</a>，我们抽其中的工作流程图进行简单分析，如下:</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/fb4c6c92c93af3bc2dfc4f13dc167cdf.png" />   
+    </p>
+<ol>
+<li>当我们执行 <code>go func()</code> 时，实际上就是创建一个全新的 Goroutine，我们称它为 G。</li>
+<li>新创建的 G 会被放入 P 的本地队列（Local Queue）或全局队列（Global Queue）中，准备下一步的动作。</li>
+<li>唤醒或创建 M 以便执行 G。</li>
+<li>不断地进行事件循环</li>
+<li>寻找在可用状态下的 G 进行执行任务</li>
+<li>清除后，重新进入事件循环</li>
+</ol>
+<p>而在描述中有提到全局和本地这两类队列，其实在功能上来讲都是用于存放正在等待运行的 G，但是不同点在于，本地队列有数量限制，不允许超过 256 个。并且在新建 G 时，会优先选择 P 的本地队列，如果本地队列满了，则将 P 的本地队列的一半的 G 移动到全局队列，这其实可以理解为调度资源的共享和再平衡。</p>
+<p>另外我们可以看到图上有 steal 行为，这是用来做什么的呢，我们都知道当你创建新的 G 或者 G 变成可运行状态时，它会被推送加入到当前 P 的本地队列中。但其实当 P 执行 G 完毕后，它也会 “干活”，它会将其从本地队列中弹出 G，同时会检查当前本地队列是否为空，如果为空会随机的从其他 P 的本地队列中尝试窃取一半可运行的 G 到自己的名下。例子如下：</p>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/e7ca8f212466d8c15ec0f60b69a1ce4d.png" />   
+    </p>
+<p>在这个例子中，P2 在本地队列中找不到可以运行的 G，它会执行 <code>work-stealing</code> 调度算法，随机选择其它的处理器 P1，并从 P1 的本地队列中窃取了三个 G 到它自己的本地队列中去。至此，P1、P2 都拥有了可运行的 G，P1 多余的 G 也不会被浪费，调度资源将会更加平均的在多个处理器中流转。</p>
+<h2 id="godebug">GODEBUG</h2>
+<p>GODEBUG 变量可以控制运行时内的调试变量，参数以逗号分隔，格式为：<code>name=val</code>。本文着重点在调度器观察上，将会使用如下两个参数：</p>
+<ul>
+<li>schedtrace：设置 <code>schedtrace=X</code> 参数可以使运行时在每 X 毫秒发出一行调度器的摘要信息到标准 err 输出中。</li>
+<li>scheddetail：设置 <code>schedtrace=X</code> 和 <code>scheddetail=1</code> 可以使运行时在每 X 毫秒发出一次详细的多行信息，信息内容主要包括调度程序、处理器、OS 线程 和 Goroutine 的状态。</li>
+</ul>
+<h3 id="演示代码">演示代码</h3>
+<pre tabindex="0"><code>func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	for i := 0; i &lt; 10; i++ {
+		go func(wg *sync.WaitGroup) {
+			var counter int
+			for i := 0; i &lt; 1e10; i++ {
+				counter++
+			}
+			wg.Done()
+		}(&amp;wg)
+	}
+
+	wg.Wait()
+}
+</code></pre><h3 id="schedtrace">schedtrace</h3>
+<pre tabindex="0"><code>$ GODEBUG=schedtrace=1000 ./awesomeProject 
+SCHED 0ms: gomaxprocs=4 idleprocs=1 threads=5 spinningthreads=1 idlethreads=0 runqueue=0 [0 0 0 0]
+SCHED 1000ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 2000ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 3001ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 4010ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 5011ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 6012ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 [1 2 2 1]
+SCHED 7021ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 8023ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 9031ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 10033ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 11038ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 12044ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 13051ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=4 [0 1 1 0]
+SCHED 14052ms: gomaxprocs=4 idleprocs=2 threads=5 
+...
+</code></pre><ul>
+<li>sched：每一行都代表调度器的调试信息，后面提示的毫秒数表示启动到现在的运行时间，输出的时间间隔受 <code>schedtrace</code> 的值影响。</li>
+<li>gomaxprocs：当前的 CPU 核心数（GOMAXPROCS 的当前值）。</li>
+<li>idleprocs：空闲的处理器数量，后面的数字表示当前的空闲数量。</li>
+<li>threads：OS 线程数量，后面的数字表示当前正在运行的线程数量。</li>
+<li>spinningthreads：自旋状态的 OS 线程数量。</li>
+<li>idlethreads：空闲的线程数量。</li>
+<li>runqueue：全局队列中中的 Goroutine 数量，而后面的 [0 0 1 1] 则分别代表这 4 个 P 的本地队列正在运行的 Goroutine 数量。</li>
+</ul>
+<p>在上面我们有提到 “自旋线程” 这个概念，如果你之前没有了解过相关概念，一听 “自旋” 肯定会比较懵，我们引用 《Head First of Golang Scheduler》 的内容来说明：</p>
+<blockquote>
+<p>自旋线程的这个说法，是因为 Go Scheduler 的设计者在考虑了 “OS 的资源利用率” 以及 “频繁的线程抢占给 OS 带来的负载” 之后，提出了 “Spinning Thread” 的概念。也就是当 “自旋线程” 没有找到可供其调度执行的 Goroutine 时，并不会销毁该线程 ，而是采取 “自旋” 的操作保存了下来。虽然看起来这是浪费了一些资源，但是考虑一下 syscall 的情景就可以知道，比起 “自旋&quot;，线程间频繁的抢占以及频繁的创建和销毁操作可能带来的危害会更大。</p>
+</blockquote>
+<h3 id="scheddetail">scheddetail</h3>
+<p>如果我们想要更详细的看到调度器的完整信息时，我们可以增加 <code>scheddetail</code> 参数，就能够更进一步的查看调度的细节逻辑，如下：</p>
+<pre tabindex="0"><code>$ GODEBUG=scheddetail=1,schedtrace=1000 ./awesomeProject
+SCHED 1000ms: gomaxprocs=4 idleprocs=0 threads=5 spinningthreads=0 idlethreads=0 runqueue=0 gcwaiting=0 nmidlelocked=0 stopwait=0 sysmonwait=0
+  P0: status=1 schedtick=2 syscalltick=0 m=3 runqsize=3 gfreecnt=0
+  P1: status=1 schedtick=2 syscalltick=0 m=4 runqsize=1 gfreecnt=0
+  P2: status=1 schedtick=2 syscalltick=0 m=0 runqsize=1 gfreecnt=0
+  P3: status=1 schedtick=1 syscalltick=0 m=2 runqsize=1 gfreecnt=0
+  M4: p=1 curg=18 mallocing=0 throwing=0 preemptoff= locks=0 dying=0 spinning=false blocked=false lockedg=-1
+  M3: p=0 curg=22 mallocing=0 throwing=0 preemptoff= locks=0 dying=0 spinning=false blocked=false lockedg=-1
+  M2: p=3 curg=24 mallocing=0 throwing=0 preemptoff= locks=0 dying=0 spinning=false blocked=false lockedg=-1
+  M1: p=-1 curg=-1 mallocing=0 throwing=0 preemptoff= locks=1 dying=0 spinning=false blocked=false lockedg=-1
+  M0: p=2 curg=26 mallocing=0 throwing=0 preemptoff= locks=0 dying=0 spinning=false blocked=false lockedg=-1
+  G1: status=4(semacquire) m=-1 lockedm=-1
+  G2: status=4(force gc (idle)) m=-1 lockedm=-1
+  G3: status=4(GC sweep wait) m=-1 lockedm=-1
+  G17: status=1() m=-1 lockedm=-1
+  G18: status=2() m=4 lockedm=-1
+  G19: status=1() m=-1 lockedm=-1
+  G20: status=1() m=-1 lockedm=-1
+  G21: status=1() m=-1 lockedm=-1
+  G22: status=2() m=3 lockedm=-1
+  G23: status=1() m=-1 lockedm=-1
+  G24: status=2() m=2 lockedm=-1
+  G25: status=1() m=-1 lockedm=-1
+  G26: status=2() m=0 lockedm=-1
+</code></pre><p>在这里我们抽取了 1000ms 时的调试信息来查看，信息量比较大，我们先从每一个字段开始了解。如下：</p>
+<h4 id="g">G</h4>
+<ul>
+<li>status：G 的运行状态。</li>
+<li>m：隶属哪一个 M。</li>
+<li>lockedm：是否有锁定 M。</li>
+</ul>
+<p>在第一点中我们有提到 G 的运行状态，这对于分析内部流转非常的有用，共涉及如下 9 种状态：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>_Gidle</td>
+<td>0</td>
+<td>刚刚被分配，还没有进行初始化。</td>
+</tr>
+<tr>
+<td>_Grunnable</td>
+<td>1</td>
+<td>已经在运行队列中，还没有执行用户代码。</td>
+</tr>
+<tr>
+<td>_Grunning</td>
+<td>2</td>
+<td>不在运行队列里中，已经可以执行用户代码，此时已经分配了 M 和 P。</td>
+</tr>
+<tr>
+<td>_Gsyscall</td>
+<td>3</td>
+<td>正在执行系统调用，此时分配了 M。</td>
+</tr>
+<tr>
+<td>_Gwaiting</td>
+<td>4</td>
+<td>在运行时被阻止，没有执行用户代码，也不在运行队列中，此时它正在某处阻塞等待中。</td>
+</tr>
+<tr>
+<td>_Gmoribund_unused</td>
+<td>5</td>
+<td>尚未使用，但是在 gdb 中进行了硬编码。</td>
+</tr>
+<tr>
+<td>_Gdead</td>
+<td>6</td>
+<td>尚未使用，这个状态可能是刚退出或是刚被初始化，此时它并没有执行用户代码，有可能有也有可能没有分配堆栈。</td>
+</tr>
+<tr>
+<td>_Genqueue_unused</td>
+<td>7</td>
+<td>尚未使用。</td>
+</tr>
+<tr>
+<td>_Gcopystack</td>
+<td>8</td>
+<td>正在复制堆栈，并没有执行用户代码，也不在运行队列中。</td>
+</tr>
+</tbody>
+</table>
+<p>在理解了各类的状态的意思后，我们结合上述案例看看，如下：</p>
+<pre tabindex="0"><code>G1: status=4(semacquire) m=-1 lockedm=-1
+G2: status=4(force gc (idle)) m=-1 lockedm=-1
+G3: status=4(GC sweep wait) m=-1 lockedm=-1
+G17: status=1() m=-1 lockedm=-1
+G18: status=2() m=4 lockedm=-1
+</code></pre><p>在这个片段中，G1 的运行状态为 <code>_Gwaiting</code>，并没有分配 M 和锁定。这时候你可能好奇在片段中括号里的是什么东西呢，其实是因为该 <code>status=4</code> 是表示 <code>Goroutine</code> 在<strong>运行时时被阻止</strong>，而阻止它的事件就是 <code>semacquire</code> 事件，是因为 <code>semacquire</code> 会检查信号量的情况，在合适的时机就调用 <code>goparkunlock</code> 函数，把当前 <code>Goroutine</code> 放进等待队列，并把它设为 <code>_Gwaiting</code> 状态。</p>
+<p>那么在实际运行中还有什么原因会导致这种现象呢，我们一起看看，如下：</p>
+<pre tabindex="0"><code>	waitReasonZero                                    // &#34;&#34;
+	waitReasonGCAssistMarking                         // &#34;GC assist marking&#34;
+	waitReasonIOWait                                  // &#34;IO wait&#34;
+	waitReasonChanReceiveNilChan                      // &#34;chan receive (nil chan)&#34;
+	waitReasonChanSendNilChan                         // &#34;chan send (nil chan)&#34;
+	waitReasonDumpingHeap                             // &#34;dumping heap&#34;
+	waitReasonGarbageCollection                       // &#34;garbage collection&#34;
+	waitReasonGarbageCollectionScan                   // &#34;garbage collection scan&#34;
+	waitReasonPanicWait                               // &#34;panicwait&#34;
+	waitReasonSelect                                  // &#34;select&#34;
+	waitReasonSelectNoCases                           // &#34;select (no cases)&#34;
+	waitReasonGCAssistWait                            // &#34;GC assist wait&#34;
+	waitReasonGCSweepWait                             // &#34;GC sweep wait&#34;
+	waitReasonChanReceive                             // &#34;chan receive&#34;
+	waitReasonChanSend                                // &#34;chan send&#34;
+	waitReasonFinalizerWait                           // &#34;finalizer wait&#34;
+	waitReasonForceGGIdle                             // &#34;force gc (idle)&#34;
+	waitReasonSemacquire                              // &#34;semacquire&#34;
+	waitReasonSleep                                   // &#34;sleep&#34;
+	waitReasonSyncCondWait                            // &#34;sync.Cond.Wait&#34;
+	waitReasonTimerGoroutineIdle                      // &#34;timer goroutine (idle)&#34;
+	waitReasonTraceReaderBlocked                      // &#34;trace reader (blocked)&#34;
+	waitReasonWaitForGCCycle                          // &#34;wait for GC cycle&#34;
+	waitReasonGCWorkerIdle                            // &#34;GC worker (idle)&#34;
+</code></pre><p>我们通过以上 <code>waitReason</code> 可以了解到 <code>Goroutine</code> 会被暂停运行的原因要素，也就是会出现在括号中的事件。</p>
+<h4 id="m">M</h4>
+<ul>
+<li>p：隶属哪一个 P。</li>
+<li>curg：当前正在使用哪个 G。</li>
+<li>runqsize：运行队列中的 G 数量。</li>
+<li>gfreecnt：可用的G（状态为 Gdead）。</li>
+<li>mallocing：是否正在分配内存。</li>
+<li>throwing：是否抛出异常。</li>
+<li>preemptoff：不等于空字符串的话，保持 curg 在这个 m 上运行。</li>
+</ul>
+<h4 id="p">P</h4>
+<ul>
+<li>status：P 的运行状态。</li>
+<li>schedtick：P 的调度次数。</li>
+<li>syscalltick：P 的系统调用次数。</li>
+<li>m：隶属哪一个 M。</li>
+<li>runqsize：运行队列中的 G 数量。</li>
+<li>gfreecnt：可用的G（状态为 Gdead）。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>_Pidle</td>
+<td>0</td>
+<td>刚刚被分配，还没有进行进行初始化。</td>
+</tr>
+<tr>
+<td>_Prunning</td>
+<td>1</td>
+<td>当 M 与 P 绑定调用 acquirep 时，P 的状态会改变为 _Prunning。</td>
+</tr>
+<tr>
+<td>_Psyscall</td>
+<td>2</td>
+<td>正在执行系统调用。</td>
+</tr>
+<tr>
+<td>_Pgcstop</td>
+<td>3</td>
+<td>暂停运行，此时系统正在进行 GC，直至 GC 结束后才会转变到下一个状态阶段。</td>
+</tr>
+<tr>
+<td>_Pdead</td>
+<td>4</td>
+<td>废弃，不再使用。</td>
+</tr>
+</tbody>
+</table>
+<h2 id="总结">总结</h2>
+<p>通过本文我们学习到了调度的一些基础知识，再通过神奇的 GODEBUG 掌握了观察调度器的方式方法，你想想，是不是可以和我上一篇文章的 <code>go tool trace</code> 来结合使用呢，在实际的使用中，类似的办法有很多，组合巧用是重点。</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs">Debugging performance issues in Go programs</a></li>
+<li><a href="https://dave.cheney.net/tag/godebug">A whirlwind tour of Go’s runtime environment variables</a></li>
+<li><a href="https://mp.weixin.qq.com/s?__biz=Mzg3MTA0NDQ1OQ==&amp;mid=2247483907&amp;idx=2&amp;sn=c955372683bc0078e14227702ab0a35e&amp;chksm=ce85c607f9f24f116158043f63f7ca11dc88cd519393ba182261f0d7fc328c7b6a94fef4e416&amp;scene=38#wechat_redirect">Go调度器系列（2）宏观看调度器</a></li>
+<li><a href="https://rakyll.org/scheduler/">Go&rsquo;s work-stealing scheduler</a></li>
+<li><a href="https://www.ardanlabs.com/blog/2015/02/scheduler-tracing-in-go.html">Scheduler Tracing In Go</a></li>
+<li><a href="https://zhuanlan.zhihu.com/p/42057783">Head First of Golang Scheduler</a></li>
+<li><a href="http://xargin.com/state-of-goroutine/">goroutine 的状态切换</a></li>
+<li><a href="https://golang.org/pkg/runtime/#hdr-Environment_Variables">Environment_Variables</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/tools/2019-08-19-godebug-sched/">https://index.zshipu.com/go/posts/go/tools/2019-08-19-godebug-sched/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/tools/2019-07-12-go-tool-trace/">Go 大杀器之跟踪剖析 trace</a></li>
+        
+        <li><a href="/go/posts/go/talk/2019-06-29-talking-grpc/">从实践到原理，带你参透 gRPC</a></li>
+        
+        <li><a href="/go/posts/go/grpc-gateway/2019-06-22-grpc-gateway-tls/">「连载四」gRPC&#43;gRPC Gateway 能不能不用证书？</a></li>
+        
+        <li><a href="/go/posts/go/talk/2019-06-16-defer-loss/">Go1.12 defer 会有性能损耗，尽量不要用？</a></li>
+        
+        <li><a href="/go/posts/go/defer/2019-05-27-defer/">深入理解 Go defer</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

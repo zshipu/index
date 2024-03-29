@@ -1,0 +1,2513 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>淘宝搜索中语义向量检索技术 | 知识铺的博客</title>
+    <meta property="og:title" content="淘宝搜索中语义向量检索技术 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+        
+    <meta property="article:modified_time" content='2022-03-15T08:59:41&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="淘宝搜索中语义向量检索技术">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E6%B7%98%E5%AE%9D%E6%90%9C%E7%B4%A2%E4%B8%AD%E8%AF%AD%E4%B9%89%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E6%8A%80%E6%9C%AF/">
+    <link rel="shortcut icon" href='/geek/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek/css/normalize.css'>
+    <link rel="stylesheet" href='/geek/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#1-motivation"><strong>1. Motivation</strong></a></li>
+    <li><a href="#2-solution"><strong>2. Solution</strong></a></li>
+    <li><a href="#21-user-tower"><strong>2.1 User Tower</strong></a>
+      <ul>
+        <li><a href="#211-多粒度语义单元multi-granular-semantic-unit"><strong>2.1.1 多粒度语义单元(Multi-Granular Semantic Unit)</strong></a></li>
+      </ul>
+    </li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130126svgxml"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130456.svg+xml" alt=""><strong>unigram</strong> 单字粒度的表征做mean-pooling，
+<img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130126.svg+xml" alt=""></a></li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130288svgxml"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130884.svg+xml" alt=""><strong>2-gram</strong> 的表征做mean-pooling，
+<img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130288.svg+xml" alt=""></a></li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130676svgxml"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130147.svg+xml" alt=""><strong>分词粒度</strong> 的词的表征做mean-pooling，
+<img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130676.svg+xml" alt=""></a>
+      <ul>
+        <li><a href="#212-用户行为注意力机制user-behaviors-attention"><strong>2.1.2 用户行为注意力机制(User Behaviors Attention)</strong></a></li>
+        <li><a href="#213-语义表征和个性化行为表征融合-fusion-of-semantics-and-personalization"><strong>2.1.3 语义表征和个性化行为表征融合 (Fusion of Semantics and Personalization)</strong></a></li>
+      </ul>
+    </li>
+    <li><a href="#22-item-tower"><strong>2.2 Item Tower</strong></a></li>
+    <li><a href="#23-loss-function"><strong>2.3 Loss Function</strong></a></li>
+    <li><a href="#24-系统架构"><strong>2.4 系统架构</strong></a></li>
+    <li><a href="#3-evaluation"><strong>3. Evaluation</strong></a></li>
+    <li><a href="#31-settings"><strong>3.1 Settings</strong></a></li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272133397svgxml用户点击或者购买的item作为ground-truth去预测top-k-item作者提到在检索阶段用auc做离线指标时和线上的gmv指标无法保持一致而召回指标则可以"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133397.svg+xml" alt="">。用户点击或者购买的item作为ground truth，去预测Top-K Item。作者提到，在检索阶段，用AUC做离线指标时，和线上的GMV指标无法保持一致，而召回指标则可以。</a></li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272133281svgxml相关性指标top-k结果中有多少个结果和query强相关即相关item的数量比例是否相关的label不是人工标注的而是采用了一个很强的相关性模型在单独的人工标注数据集上的auc能够达到-0915-来打标"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133281.svg+xml" alt="">。相关性指标，Top-K结果中有多少个结果和query强相关，即：相关item的数量比例。是否相关的label不是人工标注的，而是采用了一个很强的相关性模型(在单独的人工标注数据集上的AUC能够达到 <strong>0.915</strong> )来打标。</a></li>
+    <li><a href="#32-离线对比实验"><strong>3.2 离线对比实验</strong></a></li>
+    <li><a href="#33-消融实验"><strong>3.3 消融实验</strong></a></li>
+    <li><a href="#httpscdnjsdelivrnetghzshipuimagesv2main2023202312272134246svgxml-23中的温度参数对召回指标负向但是对相关性指标提升非常显著"><img src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134246.svg+xml" alt="">： 2.3中的温度参数。对召回指标负向，但是对相关性指标提升非常显著。</a></li>
+    <li><a href="#34-online-ab-test"><strong>3.4 Online A/B Test</strong></a></li>
+    <li><a href="#4summarization"><strong>4.Summarization</strong></a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">淘宝搜索中语义向量检索技术</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2022年3月15日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p>转载自 <a href="https://zshipu.com/t?url=https%3A%2F%2Fwww.zhihu.com%2Fcolumn%2Fmgxs-note">蘑菇先生学习记</a></p>
+</blockquote>
+<p>今天带来一篇论文的分享，KDD'21的Applied Data Science Track中，淘宝搜索发表的一篇EBR文章[9]： <strong>Embedding-based Product Retrieval in Taobao Search</strong> 。论文要讨论的几大问题提前预览下：</p>
+<ul>
+<li>搜索场景中，query如何 <strong>充分地进行语义表征</strong> ？电商平台的query通常是短query，如何对有限长度的query进行充分的语义表征？</li>
+<li>搜索场景中， <strong>用户历史行为序列如何建模</strong> ？如何防止 <strong>引入和当前query无关的历史行为</strong> 导致相关性问题？</li>
+<li>搜索场景中，基于向量的检索系统(EBR)如何 <strong>保证相关性</strong> ？ EBR是基于向量的检索，不是完全匹配的检索，很容易检索到和当前query不相关的商品，那么该如何保证相关性？</li>
+</ul>
+<p>下面按照 <strong>Motivation，Solution，Evaluation和Summarization</strong> 来介绍。</p>
+<h2 id="1-motivation"><strong>1. Motivation</strong></h2>
+<p><strong>研究对象</strong> ：电商平台的商品搜索引擎(product search engines)。</p>
+<p><strong>整体淘宝搜索系统包括四阶段</strong> ：match-prerank-rank-rerank，召回，粗排，精排，重排。本文重点在match。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129292.jpeg" />   
+     <strong>挑战</strong> ：电商平台的文本通常较短，没有语法结构，因此要考虑引入海量的用户历史行为。基于词匹配(lexical matching)的搜索引擎(倒排索引)，性能好、可控性强，尽管存在一些语义鸿沟问题，但仍被广泛的应用在现有的搜索引擎架构中。但是，这种搜索引擎无法有效区分 <strong>相同query下</strong> ， 不同用户的 <strong>兴趣差异</strong> ，无法捕捉用户 <strong>个性化</strong> 的特征。因此，如何 <strong>高效</strong> 地检索出【最相关】、【最能够满足用户需求】的 <strong>商品，权衡</strong> 【query语义】和【用户个性化历史行为】之间的关系，是电商平台主要的挑战。</p>
+<p><strong>工业界经典的EBR系统文章有，</strong></p>
+<p><strong>电商平台：</strong></p>
+<ul>
+<li>[1]亚马逊：Priyanka Nigam, Yiwei Song, Vijai Mohan, Vihan Lakshman, Weitian Ding, Ankit Shingavi, Choon Hui Teo, Hao Gu, and Bing Yin. 2019. <strong>Semantic product search</strong> . In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining. 2876–2885.</li>
+<li>[2]京东：Han Zhang, Songlin Wang, Kang Zhang, Zhiling Tang, Yunjiang Jiang, Yun Xiao, Weipeng Yan, and Wen-Yun Yang. 2020. <strong>Towards Personalized and Semantic Retrieval: An End-to-End Solution for E-commerce Search via Embedding Learning</strong> . arXiv preprint arXiv:2006.02282 (2020).</li>
+</ul>
+<p><strong>其它：</strong></p>
+<ul>
+<li>[3] Facebook：Jui-Ting Huang, Ashish Sharma, Shuying Sun, Li Xia, David Zhang, Philip Pronin, Janani Padmanabhan, Giuseppe Ottaviano, and Linjun Yang. 2020. <strong>Embedding-based retrieval in facebook search</strong> . In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining. 2553–2561.</li>
+<li>[4] 百度：Miao Fan, Jiacheng Guo, Shuai Zhu, Shuo Miao, Mingming Sun, and Ping Li. 2019. <strong>MOBIUS: towards the next generation of query-ad matching in baidu’s sponsored search</strong> . In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining. 2509–2517.</li>
+<li>[5] Google：Tao Wu, Ellie Ka-In Chio, Heng-Tze Cheng, Yu Du, Steffen Rendle, Dima Kuzmin, Ritesh Agarwal, Li Zhang, John Anderson, Sarvjeet Singh, et al. 2020. <strong>Zero-Shot Heterogeneous Transfer Learning from Recommender Systems to Cold-Start Search Retrieval.</strong> In Proceedings of the 29th ACM International Conference on Information &amp; Knowledge Management. 2821–2828.</li>
+</ul>
+<p>作者指出上述大多数文章 <strong>避重就轻</strong> ，只强调在指标上提升很多，却没有说明 <strong>向量召回会降低相关性</strong> ，引入很多相关性的CASE。</p>
+<p>作者也部署了向量检索系统在淘宝搜索中，观察了很长一段时间，有几个发现：</p>
+<ul>
+<li><strong>长短期效果差异</strong> ：短期效果很好；长期来看，基于embedding的方法由于不是词匹配，即：缺乏【 <strong>完整匹配</strong> (exact match)】query所有terms的能力，很容易造成相关性BAD CASE。</li>
+<li><strong>相关性控制</strong> ：为了能够保证相关性，作者采用了一个相关性控制模块，来对检索到的商品做过滤。控制模块对EBR检索后的结果，做进一步的完整匹配过滤，只保留那些能够 <strong>完整匹配</strong> 结构化字段的商品，给到后续的排序阶段。作者统计了下，这几乎会过滤掉30%的商品，即：30%的商品相关性较低，被过滤的商品既耗费计算资源，又不能够参与到后续精排，导致本来可以进入后续排序的相关性商品无法进入排序，整体指标下降。</li>
+<li>因此，本文的主要目标是期望基于向量的模型能够检索到 <strong>更多相关的商品</strong> ， <strong>有更多相关的商品</strong> 能够参与到后续排序阶段中，从而在保证相关性的前提下，提高整个系统的线上指标。</li>
+</ul>
+<p><strong>这篇文章的核心贡献总结如下：</strong></p>
+<ul>
+<li><strong>模型</strong> ：提出了一种 <strong>多粒度深度语义商品检索模型</strong> (Multi-Grained Deep Semantic Product Retrieval (MGDSPR) Model)，能够动态地捕捉用户搜索语义和个性化交互历史行为的关系，兼顾 <strong>语义</strong> 和 <strong>个性化</strong> 。</li>
+<li><strong>训练和推理的一致性</strong> ：为了保证训练和推理的一致性，使得模型具备全局比较能力，除了采用随机负采样策略外，作者还采用了softmax交叉熵损失函数，而不是hinge pairwise损失函数，因为后者只具备局部比较能力。</li>
+<li><strong>相关性保证</strong> ：提出了两种不需要额外训练过程，就能够保证检索出更多相关商品的方法。1.即： <strong>在softmax基础上引入温度参数</strong> ，对用户隐式反馈(点击数据)进行相关性噪声的平滑。2. <strong>混合正样本和随机负样本</strong> 来产生&quot; <strong>相关性增强</strong> &ldquo;的困难负样本。进一步，作者采用了 <strong>相关性控制模块</strong> 来保证EBR系统的相关性。</li>
+<li><strong>实验和分析</strong> ：在真实的工业级数据上，阐明了MGDSPR的有效性。进一步分析了MGDSPR对 <strong>搜索系统每个阶段</strong> 的影响，介绍了应用向量检索在商品搜索过程中的宝贵经验。</li>
+</ul>
+<hr>
+<h2 id="2-solution"><strong>2. Solution</strong></h2>
+<p><strong>问题形式化</strong> ：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129668.svg&#43;xml" />   
+    表示
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129799.svg&#43;xml" />   
+    个用户集合；
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129068.svg&#43;xml" />   
+    表示相应的queries，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129774.svg&#43;xml" />   
+    表示
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129353.svg&#43;xml" />   
+    个物品的集合。同时，作者将用户
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129965.svg&#43;xml" />   
+    的历史行为根据离当前的时间间隔划分为3个子集合，</p>
+<ul>
+<li><strong>实时行为序列</strong> (当前时间戳前的若干行为)：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129699.svg&#43;xml" />   
+    ；</li>
+<li><strong>短期行为序列</strong> (不包括在
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129402.svg&#43;xml" />   
+    中的10天内的行为)：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129154.svg&#43;xml" />   
+    </li>
+<li><strong>长期行为序列</strong> (不包括在
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272129769.svg&#43;xml" />   
+    和
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130460.svg&#43;xml" />   
+    中的1个月内的行为序列)：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130207.svg&#43;xml" />   
+    。</li>
+</ul>
+<p><strong>任务</strong> ：给定用户
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130469.svg&#43;xml" />   
+    的历史行为序列
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130176.svg&#43;xml" />   
+    ，在时间
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130957.svg&#43;xml" />   
+    发起了一次搜索请求
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130454.svg&#43;xml" />   
+    ，我们期望返回物品的集合
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130115.svg&#43;xml" />   
+    来满足该用户的搜索需求。具体而言，目标是基于用户
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130523.svg&#43;xml" />   
+    和物品 <strong>items</strong> 之间的得分
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130125.svg&#43;xml" />   
+    ，从
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130683.svg&#43;xml" />   
+    中预测出Top-
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130157.svg&#43;xml" />   
+    候选物品。即：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130755.svg&#43;xml" />   
+    </p>
+<p>其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130425.svg&#43;xml" />   
+    是打分函数，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130027.svg&#43;xml" />   
+    是query/behaviors的编码器，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130674.svg&#43;xml" />   
+    是item编码器。作者也是采用了双塔的召回模型，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130292.svg&#43;xml" />   
+    用内积函数来表示。</p>
+<p>先介绍下 <strong>整体的网络框架结构</strong> ：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130054.jpeg" />   
+     典型的 <strong>双塔结构</strong> ，在user tower部分做的比较重，item tower部分做的比较轻量。user tower输出的用户表征向量和item tower输出的物品表征向量做点积得到预测值，再使用sampled softmax损失函数在全局item pool中进行优化。其中，</p>
+<ul>
+<li>
+<p><strong>1. user tower</strong> 包含三个重量的部分，</p>
+<ul>
+<li>query语义表征；</li>
+<li>用户实时、短期、长期历史行为序列个性化表征；</li>
+<li>以及二者如何融合起来的组件。</li>
+</ul>
+</li>
+</ul>
+<p>分别对应图中user tower的左侧、中间和上半部分。</p>
+<ul>
+<li>
+<p><strong>2. item tower</strong> 包含三个轻量的部分，</p>
+<ul>
+<li>item ID；</li>
+<li>item的辅助信息；</li>
+<li>以及二者如何融合起来的组件。</li>
+</ul>
+</li>
+<li>
+<p><strong>3. 优化</strong> ：</p>
+<ul>
+<li>sampled softmax损失函数。</li>
+<li>优化策略：温度参数对训练集进行噪声平滑、在embedding空间生成困难负样本。</li>
+</ul>
+</li>
+</ul>
+<p>下面将分别围绕上述三个部分user tower， item tower和优化方法展开，最后介绍系统架构。</p>
+<h2 id="21-user-tower"><strong>2.1 User Tower</strong></h2>
+<h3 id="211-多粒度语义单元multi-granular-semantic-unit"><strong>2.1.1 多粒度语义单元(Multi-Granular Semantic Unit)</strong></h3>
+<p>淘宝搜索的query通常是中文。经过query分词后，每个分词结果的长度通常小于3。因此，作者提出了一种【 <strong>多粒度语义单元</strong> 】来多粒度地挖掘query语义。具体而言，输入：</p>
+<ul>
+<li>当前query的 <strong>分词结果</strong>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130436.svg&#43;xml" />   
+    ，比如：{红色,连衣裙}</li>
+<li>每个词
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130972.svg&#43;xml" />   
+     又由 <strong>字构成</strong> ，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130595.svg&#43;xml" />   
+    ，比如：{红,色}</li>
+<li>该用户的 <strong>历史搜索行为</strong>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130168.svg&#43;xml" />   
+    ，比如：{绿色，半身裙，黄色，长裙}</li>
+</ul>
+<p>其中，词：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130950.svg&#43;xml" />   
+    ，字：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130596.svg&#43;xml" />   
+    ，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130270.svg&#43;xml" />   
+    ，即：每个词、字、query整体的embedding维度数都设置为
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130914.svg&#43;xml" />   
+    。可以获得如下6种粒度的表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130446.svg&#43;xml" />   
+    ，</p>
+<ul>
+<li></li>
+</ul>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130126svgxml">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130456.svg&#43;xml" />   
+    <strong>unigram</strong> 单字粒度的表征做mean-pooling，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130126.svg&#43;xml" />   
+    </h2>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130288svgxml">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130884.svg&#43;xml" />   
+    <strong>2-gram</strong> 的表征做mean-pooling，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130288.svg&#43;xml" />   
+    </h2>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272130676svgxml">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130147.svg&#43;xml" />   
+    <strong>分词粒度</strong> 的词的表征做mean-pooling，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130676.svg&#43;xml" />   
+    </h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272130336.svg&#43;xml" />   
+    <strong>分词粒度的序列</strong> ，用Transformer作为序列Encoder后，再对最后1层隐层向量做mean pooling，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131964.svg&#43;xml" />   
+    </p>
+<ul>
+<li><strong>历史搜索词</strong>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131522.svg&#43;xml" />   
+    和当前搜索词的表征
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131152.svg&#43;xml" />   
+    做attention后，加权融合，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131772.svg&#43;xml" />   
+    </li>
+<li><strong>混合表征</strong> ：上述5种表征向量相加得到，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131304.svg&#43;xml" />   
+    </li>
+</ul>
+<p>最终，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131920.svg&#43;xml" />   
+    由上述6种拼接而成。具体计算公式如下：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131561.jpeg" />   
+     其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131538.svg&#43;xml" />   
+    即为Transformer，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131288.svg&#43;xml" />   
+    的计算同
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131182.svg&#43;xml" />   
+    。</p>
+<p>可以看到，作者从两个方面来充分地对query进行语义表征， <strong>由此可以回答开篇的第一个问题</strong> ，query如何 <strong>充分地进行语义表征</strong> ？</p>
+<ul>
+<li>query <strong>字面上的组织方式多样</strong> ：字粒度，2-gram粒度，词粒度。</li>
+<li>query的 <strong>表征方法多样</strong> ：pooling，transformer，concat，addition等。</li>
+</ul>
+<p>当然，只讲结果，没有讲为什么这么做。有点过于经验性/实验性驱动，而不是问题/动机驱动。</p>
+<h3 id="212-用户行为注意力机制user-behaviors-attention"><strong>2.1.2 用户行为注意力机制(User Behaviors Attention)</strong></h3>
+<p>用户行为包括：用户的 <strong>实时、短期或长期</strong> 的点击或者购买行为。用户
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131773.svg&#43;xml" />   
+    在
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131499.svg&#43;xml" />   
+    时刻点击item
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131141.svg&#43;xml" />   
+    ，用
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131790.svg&#43;xml" />   
+    来表示。对于物品
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131448.svg&#43;xml" />   
+    的表征向量，首先使用ID和side information(叶子类目、一级类目、品牌和所属店铺)做嵌入，然后对得到的嵌入向量 <strong>做pooling或者拼接在一起。</strong></p>
+<p>不同于广告和推荐场景中常用的 <strong>target-item注意力机制</strong> (如DIN，DIEN等)，此处使用query注意力机制来捕捉 <strong>用户历史行为</strong> 和 <strong>当前query</strong> 的 <strong>语义相关性</strong> 。目的是发现哪些 <strong>历史行为</strong> 和本次query <strong>相关</strong> ，来 <strong>丰富用户在当前query下的语义/意图表征</strong> 。比如：历史购买行为，篮球鞋、裙子，此次搜索query是红裙，显然篮球鞋历史行为(可能送人的)对此次query毫无帮助，直接引入还会带来噪声，而裙子历史行为对此次query是有帮助的。</p>
+<p>具体而言，在搜索场景中，用户的 <strong>历史行为</strong> 和 <strong>当前query</strong> 可能 <strong>都无关</strong> ，参考[6]的做法，作者加了一个 <strong>全零的向量</strong> 到用户的 <strong>行为数据</strong> 中，来消除 <strong>潜在噪声</strong> 和解决 <strong>用户历史行为和当前query可能完全无关</strong> 的情况。</p>
+<p><strong>​个人认为这个优化点非常巧妙</strong> ，如果不加全零向量，模型无论如何都会 <strong>强制关注到至少一个行为</strong> ，这在历史行为 <strong>和当前query都无关</strong> 的时候，显然是噪声。加了零向量后， <strong>在完全无关</strong> 的时候，模型 <strong>attend到这个零向量</strong> 即可， <strong>不会引入额外的噪声</strong> 。个人认为这个优化点在搜索场景中至关重要，也是和推荐场景差别较大的地方，鲜有论文会提到这点。</p>
+<p>接下来介绍如何融合用户的 <strong>实时行为、短期行为和长期行为。</strong></p>
+<ul>
+<li>
+<p><strong>实时点击行为序列</strong> ：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131293.svg&#43;xml" />   
+    ，其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131050.svg&#43;xml" />   
+    是ID和辅助特征嵌入拼接在一起实现。</p>
+<ul>
+<li>首先使用 <strong>LSTM</strong> 来捕捉用户行为的演变，得到LSTM的隐层输出，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131715.svg&#43;xml" />   
+    。</li>
+<li>接着，参考 <strong>SDM</strong> [7]的做法，使用多头自注意力机制来从
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131095.svg&#43;xml" />   
+    中汇聚多个潜在的兴趣点，得到
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131004.svg&#43;xml" />   
+    。</li>
+<li>接着，加一个全零的向量进去，得到：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131588.svg&#43;xml" />   
+    。</li>
+<li>最后，使用注意力机制，来获取和
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131391.svg&#43;xml" />   
+    最相关的实时历史行为表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131988.svg&#43;xml" />   
+    。
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131713.svg&#43;xml" />   
+    ，注意这个向量的维度数，实际上等价于拿组成
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131228.svg&#43;xml" />   
+    的6个向量分别和实时行为做attention后，再拼接起来。</li>
+</ul>
+</li>
+<li>
+<p><strong>短期点击行为序列</strong> ：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131944.svg&#43;xml" />   
+    ，其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131807.svg&#43;xml" />   
+    是ID和辅助特征嵌入拼接在一起实现。</p>
+<p>和实时行为序列表征相比，少了第一步LSTM，其它都一样。</p>
+<ul>
+<li>使用多头自注意力机制从
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131028.svg&#43;xml" />   
+    中汇聚得到
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131621.svg&#43;xml" />   
+    </li>
+<li>同样，加一个全零的向量进去，得到：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131227.svg&#43;xml" />   
+    。</li>
+<li>最后，使用注意力机制，来获取和
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131119.svg&#43;xml" />   
+    最相关的短期历史行为表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131782.svg&#43;xml" />   
+    
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131486.svg&#43;xml" />   
+    </li>
+</ul>
+</li>
+<li>
+<p><strong>长期点击/购买/收藏行为序列</strong> ：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272131220.svg&#43;xml" />   
+    ，考虑到线上用户行为变化很快，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132941.svg&#43;xml" />   
+    是ID和辅助特征嵌入做mean pooling得到，和实时行为、短期行为中用的&rdquo; <strong>拼接</strong> &ldquo;方式不同。</p>
+<p>除此之外，使用4种属性序列来描述1个月内用户的长期行为序列，包括：</p>
+<ul>
+<li>item ID序列(
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132552.svg&#43;xml" />   
+    )</li>
+<li>shop ID序列(
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132518.svg&#43;xml" />   
+    )</li>
+<li>叶子节点类目ID(
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132429.svg&#43;xml" />   
+    )</li>
+<li>品牌ID(
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132249.svg&#43;xml" />   
+    )</li>
+</ul>
+</li>
+</ul>
+<p>每种属性行为使用用户的点击、购买、收藏行为来表示。例如：物品序列
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132916.svg&#43;xml" />   
+    包含了用户的物品点击序列
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132469.svg&#43;xml" />   
+    ，购买序列
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132154.svg&#43;xml" />   
+    和收藏序列
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132763.svg&#43;xml" />   
+    ，全部拼接在一起，形成长期行为序列，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132467.svg&#43;xml" />   
+    ，可以看到同样添加了零向量。则，使用query对长期行为应用注意力机制捕捉这种长期行为表征。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132437.svg&#43;xml" />   
+    </p>
+<p>​同理，对shop ID序列、叶子节点类目ID序列、品牌ID序列执行上述过程得到长期行为表征，最终融合起来的长期行为表征向量为：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132478.svg&#43;xml" />   
+    </p>
+<p><strong>由此可以回答开篇的第二个问题</strong> ，query注意力机制而非target-item注意力机制以及引入零向量，能够保证捕捉和query相关的历史行为信息。</p>
+<h3 id="213-语义表征和个性化行为表征融合-fusion-of-semantics-and-personalization"><strong>2.1.3 语义表征和个性化行为表征融合 (Fusion of Semantics and Personalization)</strong></h3>
+<p><strong>输入：</strong></p>
+<ul>
+<li>多粒度query语义表征：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132346.svg&#43;xml" />   
+    </li>
+<li>个性化序列表征：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132948.svg&#43;xml" />   
+    </li>
+</ul>
+<p>使用自注意力机制来捕捉二者的关系。特别的，作者添加了
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132605.svg&#43;xml" />   
+     token在首位，形成输入：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132237.svg&#43;xml" />   
+    。</p>
+<p><strong>输出：</strong></p>
+<p>然后将self自注意力机制的输出作为user tower的表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132085.svg&#43;xml" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132885.svg&#43;xml" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132667.svg&#43;xml" />   
+    我理解是指用单头自注意力机制即可。
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132969.svg&#43;xml" />   
+    模仿BERT中的结构，可学习的向量，浓缩信息。</p>
+<h2 id="22-item-tower"><strong>2.2 Item Tower</strong></h2>
+<p>根据作者的实验经验，使用Item ID和Item的Title来获得Item的表征
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132548.svg&#43;xml" />   
+    。具体而言，给定item
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132436.svg&#43;xml" />   
+    的ID，其嵌入为：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132153.svg&#43;xml" />   
+    。给定title的分词结果
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132862.svg&#43;xml" />   
+    ，得到物品的表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132474.svg&#43;xml" />   
+    ，即：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132148.svg&#43;xml" />   
+    </p>
+<p>其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132851.svg&#43;xml" />   
+    是可学习的变换矩阵。作者表示，通过实验发现，使用LSTM、Transformer等来捕捉title上下文感知的表征，其效果还不如上述简单的mean-pooling。给出的理由是：大部分的title由关键词堆叠而成，且缺乏语法结构。个人理解，可能想说字面上的语义信息足够凸显，上下文信号较弱，不需要复杂的模型来捕捉语义。</p>
+<h2 id="23-loss-function"><strong>2.3 Loss Function</strong></h2>
+<p>为了保证训练时的样本空间和在线推理时的样本空间一致，大部分工作会使用随机负采样的方法。但是这些工作都采用了pairwise hinge loss作为损失函数，只能进行局部的比较，和在线推理时需要的全局比较不一致。为此，作者使用了softmax交叉熵损失函数，具体而言，给定正样本
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132501.svg&#43;xml" />   
+    ，</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132199.svg&#43;xml" />   
+    
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132409.svg&#43;xml" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132051.svg&#43;xml" />   
+    是全部的item集合。实际上就是softmax交叉熵损失，然后因为
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132600.svg&#43;xml" />   
+    的数量很大，使用sampled softmax来优化即可。此处没有太大的创新点。在sampled softmax中，仍然需要负样本，参考[2]京东的做法，作者使用同一个batch内的其它样本作为当前正样本
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272132557.svg&#43;xml" />   
+    的负样本对，这个效果和使用随机任意的样本作为负样本差不多，而前者还能省不少计算资源。</p>
+<p>接着，为了提高EBR系统的相关性，增加更多相关性的样本进入后续的排序阶段。作者提出了两种优化策略，</p>
+<ul>
+<li><strong>对训练集中的样本进行噪声平滑</strong> ：作者引入了温度参数
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133691.svg&#43;xml" />   
+    。此处也没有什么太大的创新点。
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133245.svg&#43;xml" />   
+    无穷小时，相当于拟合one-hot分布，无限拉大正样本和负样本之间的差距；
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133133.svg&#43;xml" />   
+    无穷大时，相当于拟合均匀分布，无视正样本还是负样本。作者认为，训练集中用户的点击和购买行为包含有不少噪声数据，不仅受到query-product相关性的影响，也受到图片、价格、用户偏好等诸多因素的影响，即用户点击/购买的item不一定和query相关，如果一味地拟合点击/购买行为，可能会带来很多相关性问题，因此引入温度参数来平滑，温度参数参数越大，则平滑的作用越明显，让模型不去过分关注点击样本，也花点&quot;心思&quot;去关注没有点击但是可能是相关的样本。形如：</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133251.svg&#43;xml" />   
+    </p>
+<ul>
+<li>
+<p><strong>生成相关性增强的困难负样本</strong> ：先前有些工作[8]会引入额外的人工标注数据来提升EBR模型的相关性。和这些工作不同，作者提出了一种在embedding空间自动生成困难负样本的方法。特别的，给定一个训练样本
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133050.svg&#43;xml" />   
+    ，其中
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133843.svg&#43;xml" />   
+    是随机负采样的item表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133544.svg&#43;xml" />   
+    是用户表征，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133657.svg&#43;xml" />   
+    是正样本item的表征，为了得到困难负样本：</p>
+<p>使用
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133345.svg&#43;xml" />   
+    去Item Pool中找到和其 <strong>点积最大</strong> 的top-N个负样本集合：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133954.svg&#43;xml" />   
+    ，然后通过插值的方式，来混合正样本
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133643.svg&#43;xml" />   
+    和困难负样本
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133502.svg&#43;xml" />   
+    ，即：</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133192.svg&#43;xml" />   
+    
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133792.svg&#43;xml" />   
+    ，形成N个困难负样本。其中，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133523.svg&#43;xml" />   
+    是从均匀分布
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133244.svg&#43;xml" />   
+    中采样到的，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133012.svg&#43;xml" />   
+    ，显然，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133749.svg&#43;xml" />   
+    越接近1，生成的样本越接近正样本，即：生成的样本越困难。把生成的样本也纳入损失函数的计算：</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133917.svg&#43;xml" />   
+     可以通过调参
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133846.svg&#43;xml" />   
+    和
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133463.svg&#43;xml" />   
+    来控制负样本的&quot;困难程度&rdquo;。</p>
+<p>好奇的是，实现上如何高效地对
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133214.svg&#43;xml" />   
+    和Item Pool中所有负样本计算top-N点积？难道也是拿当前batch中的样本来计算的？另外，万一top-N里头存在相关的会有影响吗？</p>
+<p><strong>由此可以回答开篇的第三个问题</strong> ，通过引入温度参数进行噪声平滑以及生成困难负样本来保证EBR系统的相关性。</p>
+<h2 id="24-系统架构"><strong>2.4 系统架构</strong></h2>
+<p>最后，我们来欣赏下淘宝搜索引擎的系统架构。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133933.jpeg" />   
+     <strong>搜索的整个过程如下：</strong></p>
+<ul>
+<li>用户发起一次请求</li>
+<li>触发多通道检索系统，形成未排序的商品集合
+<ul>
+<li>基于倒排索引的文本匹配</li>
+<li>基于Item的协同过滤</li>
+<li>基于向量的检索</li>
+</ul>
+</li>
+<li>多阶段排序
+<ul>
+<li>粗排</li>
+<li><strong>相关性排序</strong></li>
+<li>精排</li>
+<li>重排</li>
+<li>混排：商品、广告、多模态内容</li>
+</ul>
+</li>
+</ul>
+<p><strong>本文重点在基于向量的检索</strong> ：</p>
+<ul>
+<li><strong>离线</strong> ：使用分布式Tensorflow对过去 <strong>1周内</strong> 的搜索日志数据进行训练， <strong>天级更新</strong> 模型参数。</li>
+<li><strong>部署</strong> ：item tower离线算好所有product的向量，并存在ANN索引系统里，product量级巨大，分片存，共6列，借助层次聚类算法做量化降低存储开销(实际上猜测就是Faiss)；query/user network做实时serving。实际检索的时候，能够实现类似布尔检索系统的高效检索。笔者当时针对Facebook[3]的文章，花了很长的时间做调研和理解，详细地写过一篇ANN检索的底层工程实现细节，感兴趣的可以参考下，语义向量召回之ANN检索：</li>
+</ul>
+<p><a href="https://zshipu.com/t?url=https%3A%2F%2Flink.zhihu.com%2F%3Ftarget%3Dhttps%253A%2F%2Fmp.weixin.qq.com%2Fs%2FGDkY09tKmhEo1WZWmFK9Ug"><strong>语义向量召回之ANN检索</strong> ​ <strong>mp.weixin.qq.com/s/GDkY09tKmhEo1WZWmFK9Ug</strong>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133327.jpeg" />   
+     </a></p>
+<ul>
+<li><strong>性能</strong> ：实时检索9600个item。98%的item在10ms内能检索完，即：98线为10ms。很强的性能了。</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133226.jpeg" />   
+     还有个很重要的相关性模块还没有介绍。开篇提到过，EBR检索系统在 <strong>个性化和模糊匹配方面做的很好</strong> ，但是相关性上缺点也很大。归根结底在于，EBR不是完全匹配的方式，在搜索里，其实就是指不是Term Query。也即，结构化检索，比如品牌，颜色，类型等结构化字段，这些结构化字段能够很大程度上保证相关性。但是EBR却做不到这点。</p>
+<p>比如：用户检索阿迪达斯运动鞋，那么完全匹配查询能够去检索品牌：阿迪达斯，类目：运动鞋；但是EBR可能在embedding空间检索到耐克运动鞋，这显然是不相关的，会影响用户的体验。</p>
+<p>因此，作者在ANN结果的后面，又加了层相关性控制模块，对query进行了查询理解，识别出品牌、类目等意图，然后对item的title中也挖掘出品牌、类目等结构化字段，然后用这些查询理解的意图对item做term query，过滤掉未命中这些结构化字段取值的item。</p>
+<p>作者还提到，Facebook[3]的文章是通过EBR系统来弥补基于完全匹配的检索系统在个性化、模糊匹配上的不足；而淘宝搜索相关性控制模块的出发点相反，是通过基于完全匹配的检索系统来提升EBR系统的 <strong>相关性</strong> 。总之，二者相辅相成。</p>
+<hr>
+<h2 id="3-evaluation"><strong>3. Evaluation</strong></h2>
+<p>离线实验以及实现细节也是工业界文章的核心亮点，值得大家好好品。</p>
+<h2 id="31-settings"><strong>3.1 Settings</strong></h2>
+<ul>
+<li>
+<p><strong>离线指标</strong> ：</p>
+<ul>
+<li></li>
+</ul>
+</li>
+</ul>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272133397svgxml用户点击或者购买的item作为ground-truth去预测top-k-item作者提到在检索阶段用auc做离线指标时和线上的gmv指标无法保持一致而召回指标则可以">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133397.svg&#43;xml" />   
+    。用户点击或者购买的item作为ground truth，去预测Top-K Item。作者提到，在检索阶段，用AUC做离线指标时，和线上的GMV指标无法保持一致，而召回指标则可以。</h2>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272133281svgxml相关性指标top-k结果中有多少个结果和query强相关即相关item的数量比例是否相关的label不是人工标注的而是采用了一个很强的相关性模型在单独的人工标注数据集上的auc能够达到-0915-来打标">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133281.svg&#43;xml" />   
+    。相关性指标，Top-K结果中有多少个结果和query强相关，即：相关item的数量比例。是否相关的label不是人工标注的，而是采用了一个很强的相关性模型(在单独的人工标注数据集上的AUC能够达到 <strong>0.915</strong> )来打标。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133260.svg&#43;xml" />   
+    。衡量EBR检索系统对各个阶段的影响指标。即：预测的Top-K Item中，有多少个 <strong>和query相关的item</strong> 会进入后续的各个排序环节，进入越多，说明相关性保证的越好。</p>
+<ul>
+<li>
+<p><strong>在线指标</strong> ：</p>
+<ul>
+<li></li>
+</ul>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133796.svg&#43;xml" />   
+     = #pay amount.</p>
+<ul>
+<li>
+<p>线上相关性标注指标，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133994.svg&#43;xml" />   
+    展示给用户的item中，和query相关的占比，
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272133588.svg&#43;xml" />   
+    和
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134359.svg&#43;xml" />   
+    ，前者用模型打标，后者外包标注。</p>
+</li>
+<li>
+<p><strong>实现细节</strong> ：</p>
+<ul>
+<li><strong>网络结构：</strong>
+<ul>
+<li>实时行为序列最大长度50，长短期行为序列最大长度都是100，超过的mask掉，使用带mask机制的attention实现即可。</li>
+<li>user tower, item tower, LSTM等结构的隐层维度数为128。</li>
+<li>实时行为中，LSTM结构2层，dropout=0.2，LSTM之间加残差连接，自注意力机制头的数量是8。</li>
+</ul>
+</li>
+<li><strong>训练：</strong>
+<ul>
+<li>batch大小为256。</li>
+<li>困难负样本中，均匀分布a和b的值为0.4，0.6；生成的困难负样本数量为684。</li>
+<li>温度参数
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134927.svg&#43;xml" />   
+    。</li>
+<li>随机初始化所有参数。</li>
+<li>AdaGrad，初始学习率0.1。</li>
+<li>梯度裁剪，当梯度的L2范数超过3时做裁剪。</li>
+</ul>
+</li>
+<li><strong>配置：</strong>
+<ul>
+<li>分布式机器学习平台，20个参数服务器，100个GPU作为worker，配置是Tesla P100。</li>
+<li>训练时间：3500万步，耗时54小时。</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>数据集，</strong></p>
+<p>淘宝真实的搜索行为数据集，2020年12月连续8天的点击和购买日志，过滤掉了作弊用户行为。</p>
+<ul>
+<li><strong>训练集</strong> ：前7天作为训练集，约47亿条（item维度的）</li>
+<li><strong>测试集</strong> ；从第8天中，随机从搜索系统数据中抽100W条数据；从推荐系统数据中抽50W条购买数据。</li>
+</ul>
+</li>
+</ul>
+<p>全量的候选item的数量级是1亿，和线上真实推断时的候选集保持一致。</p>
+<h2 id="32-离线对比实验"><strong>3.2 离线对比实验</strong></h2>
+<ul>
+<li>Baseline：
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134572.svg&#43;xml" />   
+    -DNN，MLP结构，很强的baseline。静态特征，统计特征，序列特征做pooling作为输入。(怎么训练的没说清楚，二分类任务还是本文的训练方法?)</li>
+<li>MGDSPR：本文的方法，如上文所述。作者提到一点，加入统计特征到MGDSPR中，recall指标并没有提升。挺神奇的。可能行为序列信息捕捉地足够好，不需要过多统计特征。</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134290.jpeg" />   
+     提升还是挺大的，尤其是相关性样本的占比，以及进入粗排的相关性item的数量。说明EBR提前考虑了相关性后，在相关性控制模块中不会被过滤太多不相关的ITEM，有更多的相关ITEM进入后续的排序环节。</p>
+<h2 id="33-消融实验"><strong>3.3 消融实验</strong></h2>
+<p>几大组件，唯一没说清楚的是，不使用mgs, trm等时，用的什么做baseline？拼接？</p>
+<ul>
+<li>mgs：2.1.1中提出的多粒度语义单元，对recall和相关性指标都有用。</li>
+<li>trm：2.1.3中的语义表征和个性化行为表征做融合，对recall和相关性指标都有用。</li>
+<li></li>
+</ul>
+<h2 id="httpscdnjsdelivrnetghzshipuimagesv2main2023202312272134246svgxml-23中的温度参数对召回指标负向但是对相关性指标提升非常显著">
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134246.svg&#43;xml" />   
+    ： 2.3中的温度参数。对召回指标负向，但是对相关性指标提升非常显著。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134819.svg&#43;xml" />   
+    ，对召回指标负向，对相关性指标帮助大。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134017.jpeg" />   
+     看了消融实验，对召回指标帮助大的是mgs和trm；对相关性指标帮助大的是温度参数和困难负样本。</p>
+<h2 id="34-online-ab-test"><strong>3.4 Online A/B Test</strong></h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134319.png" />   
+     有挺大的线上指标提升。</p>
+<p>其它的分析实验比较常规，总结下来就是：</p>
+<ul>
+<li>softmax收敛速度比pairwise loss快，recall指标也高不少。</li>
+<li>温度参数和困难负样本对相关性的提升很大。</li>
+</ul>
+<hr>
+<h2 id="4summarization"><strong>4.Summarization</strong></h2>
+<p>总体而言，这篇文章干货很多，细读会发现很多细节。有几大亮点，</p>
+<ul>
+<li><strong>多粒度语义单元</strong> ，对query语义的多粒度挖掘和表征，值得在搜索场景中尝试。</li>
+<li><strong>用户行为序列在搜索场景中的建模方法</strong> ，query attentive而不是target-item attentive以及零向量的引入是最大亮点，长短期融合等也值得实践。</li>
+<li><strong>EBR系统对相关性的保证</strong> ，softmax损失函数+温度参数；在embedding空间生成困难负样本。</li>
+</ul>
+<p><strong>个人认为还有几个疑问没解释清楚：</strong></p>
+<ul>
+<li><strong>多粒度语义单元结构如此复杂</strong> ，里头每个组件都是有效的吗？过于empirically/experimentally实验驱动，而不是问题驱动。</li>
+<li><strong>困难负样本生成的时候</strong> ，如何高效地对所有Item求点积最大的top-N？这里头Top-N是否有可能存在和当前query相关的item，是否会产生负面影响？</li>
+<li><strong>相关性模块</strong> ：EBR和完全匹配的Term Query结果取交集保证相关性，那和直接用完全匹配做召回相比，增益在哪里？我理解这种只可能在 <strong>完全匹配召回的候选集合item</strong> 数量远大于排序候选集合item数量的时候才有效，EBR提前考虑了个性化因素，能够防止满足个性化需求的item无法进入排序阶段。</li>
+<li><strong>实验的一些细节</strong> ，baseline的训练方式没说清楚。消融实验中，不使用那4个组件时，模型用什么方式替代没说清楚。</li>
+</ul>
+<p>​不过总的来说，同以往的EBR文章一样，值得细读和实践！</p>
+<p>这是KDD 21工业界文章的第一篇分享，更多KDD 21 工业界文章参见下文。下期分享见！</p>
+<p><a href="https://zshipu.com/t?url=https%3A%2F%2Fzhuanlan.zhihu.com%2Fp%2F388115800"><strong>蘑菇先生：KDD 21 工业界搜推广nlp论文整理58 赞同 · 2 评论文章</strong>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2023/202312272134335.jpeg" />   
+     </a></p>
+<hr>
+<p><strong>References</strong></p>
+<p>[1] Priyanka Nigam, Yiwei Song, Vijai Mohan, Vihan Lakshman, Weitian Ding, Ankit Shingavi, Choon Hui Teo, Hao Gu, and Bing Yin. 2019. <strong>Semantic product search</strong> . In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining. 2876–2885.</p>
+<p>[2] Han Zhang, Songlin Wang, Kang Zhang, Zhiling Tang, Yunjiang Jiang, Yun Xiao, Weipeng Yan, and Wen-Yun Yang. 2020. <strong>Towards Personalized and Semantic Retrieval: An End-to-End Solution for E-commerce Search via Embedding Learning</strong> . arXiv preprint arXiv:2006.02282 (2020).</p>
+<p>[3] Jui-Ting Huang, Ashish Sharma, Shuying Sun, Li Xia, David Zhang, Philip Pronin, Janani Padmanabhan, Giuseppe Ottaviano, and Linjun Yang. 2020. <strong>Embedding-based retrieval in facebook search</strong> . In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery &amp; Data Mining. 2553–2561.</p>
+<p>[4] Miao Fan, Jiacheng Guo, Shuai Zhu, Shuo Miao, Mingming Sun, and Ping</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E6%B7%98%E5%AE%9D%E6%90%9C%E7%B4%A2%E4%B8%AD%E8%AF%AD%E4%B9%89%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E6%8A%80%E6%9C%AF/">https://index.zshipu.com/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E6%B7%98%E5%AE%9D%E6%90%9C%E7%B4%A2%E4%B8%AD%E8%AF%AD%E4%B9%89%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E6%8A%80%E6%9C%AF/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E5%90%8C%E5%9F%8E%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E5%B9%B3%E5%8F%B0%E6%9E%B6%E6%9E%84%E5%AE%9E%E8%B7%B5/">同城向量检索平台架构实践</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E8%AF%AD%E4%B9%89%E5%90%91%E9%87%8F%E5%8F%AC%E5%9B%9E%E4%B9%8B%E6%A3%80%E7%B4%A2/">语义向量召回之检索</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E7%88%B1%E5%A5%87%E8%89%BA%E8%A7%86%E9%A2%91%E6%8E%A8%E8%8D%90%E9%A2%86%E5%9F%9F%E7%9A%84%E6%A3%80%E7%B4%A2%E5%AE%9E%E8%B7%B5/">爱奇艺视频推荐领域的检索实践</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E9%98%BF%E9%87%8C%E5%A6%88%E5%A6%88%E6%95%B0%E6%8D%AE%E7%A7%91%E5%AD%A6%E7%B3%BB%E5%88%97%E7%AC%AC%E4%B8%80%E7%AF%87%E8%AE%A4%E8%AF%86%E5%9C%A8%E7%BA%BF%E5%AE%9E%E9%AA%8C/">阿里妈妈数据科学系列第一篇认识在线实验</a></li>
+        
+        <li><a href="/geek/post/%E4%BA%92%E8%81%94%E7%BD%91/%E7%A7%8D%E6%96%B9%E6%B3%95%E6%B1%82%E8%A7%A3%E9%9D%A2%E8%AF%95%E4%B8%8D%E8%A6%81%E5%86%8D%E9%97%AE%E6%88%91%E4%BA%86/">种方法求解面试不要再问我了</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2'>向量检索</a></li>
+                
+                <li><a href='/geek/tags/ANN'>ANN</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/netty/netty-code/Netty-%E7%9A%84%E6%9C%AC%E8%B4%A8-%E5%A6%82%E4%BD%95%E6%8F%90%E5%8D%87-NIO-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%95%88%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Netty 的本质  如何提升 NIO 服务端的工作效率？-- 知识铺">Netty 的本质  如何提升 NIO 服务端的工作效率？-- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/%E5%BE%AE%E6%9C%8D%E5%8A%A1/001-%E4%BB%80%E4%B9%88%E6%98%AF%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%89%A9%E5%B1%95%E6%80%A7%E5%92%8C%E9%AB%98%E5%8F%AF%E7%94%A8%E5%8F%AF%E6%89%A9%E5%B1%95%E6%80%A7/" title="001 什么是微服务扩展性和高可用、可扩展性">001 什么是微服务扩展性和高可用、可扩展性</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-send-store/" title="rocketmq-send-store">rocketmq-send-store</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-send-message/" title="rocketmq-send-message">rocketmq-send-message</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-pullmessage/" title="rocketmq-pullmessage">rocketmq-pullmessage</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-pullmessage-processor/" title="rocketmq-pullmessage-processor">rocketmq-pullmessage-processor</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-producer-start/" title="rocketmq-producer-start">rocketmq-producer-start</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-nameserver-broker/" title="rocketmq-nameserver-broker">rocketmq-nameserver-broker</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-mappedfile-detail/" title="rocketmq-mappedfile-detail">rocketmq-mappedfile-detail</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek/post/code/docs/rocketmq/rocketmq-indexfile/" title="rocketmq-indexfile">rocketmq-indexfile</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+    <li><a href="https://index.zshipu.com/geek/categories/flutter/">Flutter (30)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/iOS/">IOS (7)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/unix/">Unix (9)</a></li>
+    
+    <li><a href="https://index.zshipu.com/geek/categories/%E7%AE%97%E6%B3%95/">算法 (3)</a></li>
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek/tags/360%E6%90%9C%E7%B4%A2/">360搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/58%E5%90%8C%E5%9F%8E/">58同城</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/abtest/">Abtest</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AB%E6%B5%8B%E8%AF%95/">AB测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdaBoost/">AdaBoost</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdaDeltaW/">AdaDeltaW</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdamW/">AdamW</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AdvancedFeaturesOfNetty/">AdvancedFeaturesOfNetty</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AFM%E6%A8%A1%E5%9E%8B/">AFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AILab/">AILab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Airbnb/">Airbnb</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AI%E5%B9%B3%E5%8F%B0/">AI平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AKF%E6%9E%B6%E6%9E%84/">AKF架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Alink/">Alink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/android/">Android</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ANN/">ANN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AnnotationFormatterFactory/">AnnotationFormatterFactory</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Announcement/">Announcement</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AOF/">AOF</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AOP/">AOP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/apache/">Apache</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ApacheFlink/">ApacheFlink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AQS/">AQS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/architectureDesign/">ArchitectureDesign</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AresDB/">AresDB</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ASR/">ASR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AUC/">AUC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Augur/">Augur</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Automaton/">Automaton</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/AutoML/">AutoML</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Bagging/">Bagging</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Bandits/">Bandits</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/basic/">Basic</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BERT/">BERT</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BI/">BI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BigGAN/">BigGAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BI%E5%B9%B3%E5%8F%B0/">BI平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/boosting/">Boosting</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/BPR/">BPR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/checkpoint/">Checkpoint</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/clazz/">Clazz</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ClickHouse/">ClickHouse</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/cluster/">Cluster</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CNN/">CNN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/collection/">Collection</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/concurrentCoding/">ConcurrentCoding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ConcurrentProgramming/">ConcurrentProgramming</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Condition/">Condition</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CRF/">CRF</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/css/">Css</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/cto/">Cto</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR/">CTR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR%E6%A8%A1%E5%9E%8B/">CTR模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CTR%E9%A2%84%E4%BC%B0/">CTR预估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CV/">CV</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/CVPR/">CVPR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DDD/">DDD</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DDD%E5%AE%9E%E6%88%98/">DDD实战</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFFM/">DeepFFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFM/">DeepFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DeepFM%E6%A8%A1%E5%9E%8B/">DeepFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DesignPattern/">DesignPattern</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DevOps/">Devops</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Dgraph/">Dgraph</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DIN/">DIN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DKN%E6%A8%A1%E5%9E%8B/">DKN模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DMP%E5%B9%B3%E5%8F%B0/">DMP平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/docs/">Docs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Doris/">Doris</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DPP/">DPP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DRN/">DRN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Druid/">Druid</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DSP/">DSP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/DSSM/">DSSM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Dubbo/">Dubbo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/EE%E9%97%AE%E9%A2%98/">EE问题</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ELK/">ELK</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ELMo/">ELMo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Embedding/">Embedding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/EncodingSpecification/">EncodingSpecification</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Epoll/">Epoll</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ESSM/">ESSM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ETL/">ETL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Faraday/">Faraday</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Feed%E6%B5%81/">Feed流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FFM/">FFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FFM%E6%A8%A1%E5%9E%8B/">FFM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FixedBitSet/">FixedBitSet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FixMatch/">FixMatch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Flink/">Flink</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/flutter/">Flutter</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FM/">FM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FM%E6%A8%A1%E5%9E%8B/">FM模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/format/">Format</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FreeWheel/">FreeWheel</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FST/">FST</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FTRL/">FTRL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/FullGC/">FullGC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/game/">Game</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GAN/">GAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBDT/">GBDT</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBDT&#43;LR%E8%9E%8D%E5%90%88/">GBDT&#43;LR融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GBM/">GBM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GC/">GC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Git/">Git</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/github/">Github</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/gitlab/">Gitlab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GNN/">GNN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/golang/">Golang</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Google/">Google</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/graphql/">Graphql</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GraphScope/">GraphScope</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/GRU4REC/">GRU4REC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Ha3/">Ha3</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/hadoop/">Hadoop</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hbase/">Hbase</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hologres/">Hologres</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Hystrix/">Hystrix</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Iceberg/">Iceberg</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IM/">IM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ImageNet/">ImageNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Impala/">Impala</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IntBlockPool/">IntBlockPool</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IoC/">IoC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IOTechnologyBase/">IOTechnologyBase</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IRGAN/">IRGAN</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IT%E5%8D%9A%E5%A3%AB/">IT博士</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/IT%E7%A7%BB%E6%B0%91/">IT移民</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JanusGraph/">JanusGraph</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JavaScript/">JavaScript</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JDBC/">Jdbc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/JDK/">JDK</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/js/">JS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/kafka/">Kafka</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/KBQA/">KBQA</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/KV%E5%AD%98%E5%82%A8/">KV存储</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/lab/">Lab</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LambdaMART/">LambdaMART</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LDA/">LDA</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LearningExperience/">LearningExperience</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/linUCB%E6%96%B9%E6%B3%95/">LinUCB方法</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Linux/">Linux</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LruCache/">LruCache</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LSTM/">LSTM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/LSTM%E7%BD%91%E7%BB%9C/">LSTM网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Lucence/">Lucence</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/lucene/">Lucene</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/message/">Message</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MKR%E6%A8%A1%E5%9E%8B/">MKR模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MLflow/">MLflow</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MMoE/">MMoE</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Mock/">Mock</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MoE/">MoE</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Monorepo/">Monorepo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/MRR/">MRR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/mvc/">Mvc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Mybatis/">Mybatis</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/mysql/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nacos/">Nacos</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NDCG/">NDCG</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NER/">NER</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty/">Netty</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E4%B8%BB%E8%A6%81%E7%BB%84%E4%BB%B6%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Netty主要组件源码分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E5%A4%9A%E5%8D%8F%E8%AE%AE%E5%BC%80%E5%8F%91/">Netty多协议开发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E6%8A%80%E6%9C%AF%E7%BB%86%E8%8A%82%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">Netty技术细节源码分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Netty%E7%BC%96%E8%A7%A3%E7%A0%81/">Netty编解码</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nexp/">Nexp</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nextjs/">Nextjs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nifi/">Nifi</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NIO/">NIO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NIPS/">NIPS</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/NLP/">NLP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/node2vec/">Node2vec</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/nodejs/">Nodejs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/npm/">Npm</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OCR/">OCR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OKR/">OKR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/olap/">Olap</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/one-hot/">One-Hot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/OPPO/">OPPO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/oss/">Oss</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PageRank/">PageRank</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Parser/">Parser</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PersonalExperience/">PersonalExperience</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Pinot/">Pinot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PlaceholderResolver/">PlaceholderResolver</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Printer/">Printer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/PropertySource/">PropertySource</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Pulsar/">Pulsar</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Push%E7%B3%BB%E7%BB%9F/">Push系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/pytorch/">Pytorch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/QA/">Q&amp;A</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Que2Search/">Que2Search</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Query%E6%89%A9%E5%B1%95/">Query扩展</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Query%E7%90%86%E8%A7%A3/">Query理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/query%E7%BA%A0%E9%94%99/">Query纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/R-Tree/">R-Tree</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/react/">React</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/reactjs/">Reactjs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/reactor/">Reactor</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/region/">Region</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/registry/">Registry</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/remote/">Remote</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RippleNet/">RippleNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RMI/">RMI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ROC/">ROC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/rocketmq/">RocketMQ</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RPC/">Rpc</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/RTree/">RTree</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/select/">Select</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Sentinel/">Sentinel</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Serverless/">Serverless</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SHAP/">SHAP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/sharding/">Sharding</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SIGAI/">SIGAI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SimCLR/">SimCLR</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/skleam/">Skleam</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Softmax/">Softmax</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/solr/">Solr</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/spark/">Spark</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SPI/">SPI</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring5%E6%96%B0%E7%89%B9%E6%80%A7/">Spring5新特性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringBootBatch/">SpringBootBatch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringCloud/">SpringCloud</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringMVC/">SpringMVC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringSecurity/">SpringSecurity</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SpringTransaction/">SpringTransaction</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring%E6%95%B4%E4%BD%93%E8%84%89%E7%BB%9C/">Spring整体脉络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Spring%E6%BA%90%E7%A0%81%E6%95%85%E4%BA%8B%E7%9E%8E%E7%BC%96%E7%89%88/">Spring源码故事（瞎编版）</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/sqllit/">Sqllit</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Stage/">Stage</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/storm/">Storm</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/storybook/">Storybook</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/SVM/">SVM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/tailwind/">Tailwind</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TCP%E7%B2%98%E6%8B%86%E5%8C%85/">TCP粘拆包</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TensorFlow/">TensorFlow</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TFServing/">TFServing</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Tomcat/">Tomcat</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Topk/">Topk</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/trace/">Trace</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Transformer/">Transformer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TurboSearch/">TurboSearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/TX/">TX</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Typora/">Typora</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/UX/">UX</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/vivo/">Vivo</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/vuejs/">Vuejs</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/web/">Web</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/web3/">Web3</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/WebRTC/">WebRTC</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/WideDeep/">Wide&amp;Deep</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Word2vec/">Word2vec</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XDeepFM/">XDeepFM</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XDL/">XDL</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XGBoost/">XGBoost</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/XLNet/">XLNet</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Yoo%E8%A7%86%E9%A2%91/">Yoo视频</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/YoshuaBengio/">YoshuaBengio</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/ZeroSearch/">ZeroSearch</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/Zookeeper/">Zookeeper</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%80%E8%87%B4%E6%80%A7/">一致性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%91%E5%B0%8F%E9%B8%AD%E5%AE%9A%E7%90%86/">丑小鸭定理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%9A%E5%8A%A1/">业务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%9A%E5%8A%A1%E7%BA%BF/">业务线</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AA%E6%80%A7%E5%8C%96%E6%8E%A8%E8%8D%90/">个性化推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AA%E6%80%A7%E5%8C%96%E6%B5%B7%E6%8A%A5/">个性化海报</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E5%85%B3%E6%9D%91/">中关村</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E6%96%87%E5%88%86%E8%AF%8D/">中文分词</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%AD%E6%96%87%E7%BA%A0%E9%94%99/">中文纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B8%BB%E9%A2%98%E5%BB%BA%E6%A8%A1/">主题建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%B9%A6%E7%B1%8D/">书籍</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%9E%B6%E6%9E%84/">事件驱动架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%8B%E5%8A%A1/">事务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%9A%E9%A9%AC%E9%80%8A/">亚马逊</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%A4%E5%8F%89%E9%AA%8C%E8%AF%81/">交叉验证</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BA%BA%E6%9C%BA%E9%97%AE%E7%AD%94/">人机问答</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BE%9B%E5%BA%94%E9%93%BE/">供应链</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BE%9D%E5%AD%98%E5%8F%A5%E6%B3%95%E5%88%86%E6%9E%90/">依存句法分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2/">信息检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E4%BF%A1%E6%81%AF%E6%B5%81%E6%8E%A8%E8%8D%90/">信息流推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%80%92%E6%8E%92%E7%B4%A2%E5%BC%95/">倒排索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%80%92%E6%8E%92%E8%A1%A8/">倒排表</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%81%87%E8%AE%BE%E6%A3%80%E9%AA%8C/">假设检验</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E6%96%87%E7%B4%A2%E5%BC%95/">全文索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E6%B0%91K%E6%AD%8C/">全民K歌</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%A8%E9%93%BE%E8%B7%AF%E5%8E%8B%E6%B5%8B/">全链路压测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%AC%E5%B9%B3%E9%94%81/">公平锁</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%B3%E7%B3%BB/">关系</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%85%B4%E8%B6%A3/">兴趣</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%85%E5%AE%B9%E6%8C%96%E6%8E%98/">内容挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%85%E5%AE%B9%E7%90%86%E8%A7%A3/">内容理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%B3%E7%AD%96%E6%A0%91/">决策树</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%86%B7%E5%90%AF%E5%8A%A8/">冷启动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%87%BA%E8%BD%A8/">出轨</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B1%82%E5%AE%9E%E9%AA%8C/">分层实验</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/">分布式系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/">分布式锁</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%86%E8%AF%8D/">分词</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%88%9B%E4%B8%9A/">创业</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8A%A0%E6%9D%83%E8%9E%8D%E5%90%88/">加权融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%97%E4%BA%AC/">北京</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%BA%E5%9D%97/">区块</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8C%BA%E5%9D%97%E9%93%BE/">区块链</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E5%90%8C%E8%AE%B0%E5%BF%86%E7%BD%91%E7%BB%9C/">协同记忆网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E5%90%8C%E8%BF%87%E6%BB%A4/">协同过滤</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%8F%E6%96%B9%E5%B7%AE/">协方差</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%95%E5%85%83%E6%B5%8B%E8%AF%95/">单元测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%9A%E5%A3%AB/">博士</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8D%9A%E5%A3%ABoffer/">博士offer</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8E%8B%E6%B5%8B/">压测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8E%9F%E5%88%99/">原则</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8C%E5%A1%94%E6%A8%A1%E5%9E%8B/">双塔模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E4%BD%9C%E5%BC%8A/">反作弊</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E6%AC%BA%E8%AF%88/">反欺诈</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%8D%E8%84%86%E5%BC%B1/">反脆弱</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%98%E9%87%8F/">变量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AC%E5%9B%9E/">召回</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AC%E5%9B%9E%E7%8E%87/">召回率</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%8F%AF%E8%A7%A3%E9%87%8A%E6%80%A7/">可解释性</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%88%E7%BA%A6/">合约</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%8E%E5%8E%82%E6%9D%91/">后厂村</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E5%8F%AC%E5%9B%9E/">向量召回</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95/">向量索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%90%B4%E6%81%A9%E8%BE%BE/">吴恩达</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%91%BD%E5%90%8D%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB/">命名实体识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%93%8D%E5%BA%94%E5%BC%8F%E7%BC%96%E7%A8%8B/">响应式编程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%95%86%E6%B1%A4%E7%A7%91%E6%8A%80/">商汤科技</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%9E%E5%BD%92%E6%A8%A1%E5%9E%8B/">回归模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%A0%E6%9E%9C%E5%88%86%E6%9E%90/">因果分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E5%83%8F%E6%A3%80%E7%B4%A2/">图像检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB/">图像识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E6%95%B0%E6%8D%AE%E5%BA%93/">图数据库</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E7%81%B5%E5%B9%B3%E5%8F%B0/">图灵平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E7%89%87%E7%BF%BB%E8%AF%91/">图片翻译</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9B%BE%E8%AE%A1%E7%AE%97/">图计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9C%A8%E7%BA%BF%E5%AD%A6%E4%B9%A0/">在线学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9D%90%E6%A0%87%E5%9B%9E%E5%BD%92/">坐标回归</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9F%BA%E4%BA%8ENetty%E5%BC%80%E5%8F%91%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%8F%8A%E5%AE%A2%E6%88%B7%E7%AB%AF/">基于Netty开发服务端及客户端</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%9F%BA%E7%A1%80%E6%94%AF%E6%8C%81%E5%B1%82/">基础支持层</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A2%9E%E9%87%8F%E5%AD%A6%E4%B9%A0/">增量学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E5%A4%9A/">多多</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E6%A8%A1%E6%80%81/">多模态</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%9A%E7%9B%AE%E6%A0%87%E4%BC%98%E5%8C%96/">多目标优化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/">大数据</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE%E5%BC%80%E5%8F%91/">大数据开发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A4%B4%E6%9D%A1/">头条</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%A5%A5%E5%8D%A1%E5%A7%86%E5%89%83%E5%88%80/">奥卡姆剃刀</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0/">学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%96%99/">学习资料</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%BA%90/">学习资源</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AD%A6%E4%BC%9A%E6%8F%90%E9%97%AE/">学会提问</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E4%BD%93%E8%AF%86%E5%88%AB/">实体识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%8E%A8%E8%8D%90/">实时推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E4%BB%93/">实时数仓</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE/">实时数据</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E6%97%A5%E5%BF%97%E6%94%B6%E9%9B%86/">实时日志收集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E6%97%B6%E8%AE%A1%E7%AE%97/">实时计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%9E%E9%AA%8C%E5%B9%B3%E5%8F%B0/">实验平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AE%B9%E7%81%BE%E4%BD%93%E7%B3%BB%E5%BB%BA%E8%AE%BE/">容灾体系建设</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AF%B9%E6%AF%94%E5%AD%A6%E4%B9%A0/">对比学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%AF%B9%E8%AF%9D%E7%B3%BB%E7%BB%9F/">对话系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E5%9F%8E%E5%B8%82/">小城市</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%B1%B3/">小米</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%B1%B3%E6%90%9C%E7%B4%A2/">小米搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B0%8F%E7%BE%A4%E6%95%88%E5%BA%94/">小群效应</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B7%A5%E4%BD%9C/">工作</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8/">布隆过滤器</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B8%AE%E5%B8%AE/">帮帮</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%B4%E8%BD%BB%E4%BA%BA/">年轻人</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%BF%E5%91%8A/">广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%B9%BF%E5%91%8A%E7%B3%BB%E7%BB%9F/">广告系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BA%8F%E5%88%97%E6%A0%87%E6%B3%A8/">序列标注</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BB%BA%E6%A8%A1%E8%B0%83%E5%8F%82/">建模调参</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%80%E6%BA%90%E6%95%B0%E6%8D%AE%E9%9B%86/">开源数据集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">开源项目</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%82%E6%AD%A5IO/">异步IO</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%A0%E5%98%89%E4%BD%B3/">张嘉佳</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0/">强化学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BD%92%E4%B8%80%E5%8C%96/">归一化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%85%E5%88%86%E7%B1%BB/">待分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E8%BD%AFEXP/">微软EXP</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E5%BE%AE%E8%BD%AF%E4%BA%9A%E6%B4%B2%E7%A0%94%E7%A9%B6%E9%99%A2/">微软亚洲研究院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%80%9D%E7%BB%B4/">思维</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%83%85%E6%84%9F%E5%88%86%E6%9E%90/">情感分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%84%8F%E5%9B%BE%E8%AF%86%E5%88%AB/">意图识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%88%BF%E7%A7%9F/">房租</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8A%80%E6%9C%AF/">技术</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%86%E5%88%86/">拆分</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%9B%E8%81%98/">招聘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8B%BC%E5%A4%9A%E5%A4%9A/">拼多多</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8C%81%E7%BB%AD%E4%BA%A4%E4%BB%98/">持续交付</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8C%81%E7%BB%AD%E9%9B%86%E6%88%90/">持续集成</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8D%9F%E5%A4%B1%E5%87%BD%E6%95%B0/">损失函数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E5%BA%8F/">排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E5%BA%8F%E6%A8%A1%E5%9E%8B/">排序模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%92%E9%98%9F/">排队</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E7%90%86%E7%B3%BB%E7%BB%9F/">推理系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90/">推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90%E7%90%86%E7%94%B1/">推荐理由</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/">推荐系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8E%A8%E9%80%81%E5%B9%B3%E5%8F%B0/">推送平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%8F%90%E9%97%AE%E7%9A%84%E6%99%BA%E6%85%A7/">提问的智慧</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2/">搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E5%B9%BF%E5%91%8A/">搜索广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E/">搜索引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E6%8E%92%E5%BA%8F/">搜索排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E6%9E%B6%E6%9E%84/">搜索架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%90%9C%E7%B4%A2%E7%B3%BB%E7%BB%9F/">搜索系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%94%AF%E6%8C%81%E5%90%91%E9%87%8F/">支持向量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%94%AF%E6%8C%81%E5%90%91%E9%87%8F%E6%9C%BA/">支持向量机</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E4%BB%93%E4%BD%93%E7%B3%BB/">数仓体系</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E4%BB%93%E5%B9%B3%E5%8F%B0/">数仓平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E4%B8%AD%E5%8F%B0/">数据中台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E4%BB%93%E5%BA%93/">数据仓库</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90%E5%B9%B3%E5%8F%B0/">数据分析平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5/">数据同步</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E5%B9%B3%E5%8F%B0/">数据平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%8C%87%E6%A0%87/">数据指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%8C%96%E6%8E%98/">数据挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%B2%BB%E7%90%86/">数据治理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E6%B9%96/">数据湖</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E7%A7%91%E5%AD%A6/">数据科学</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E9%9B%86/">数据集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%95%B0%E6%8D%AE%E9%A9%B1%E5%8A%A8/">数据驱动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E5%AD%97%E8%AF%86%E5%88%AB/">文字识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%91%98/">文摘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E5%88%86%E7%B1%BB/">文本分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E6%83%85%E6%84%9F%E5%88%86%E7%B1%BB/">文本情感分类</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E6%8C%96%E6%8E%98/">文本挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E7%BA%A0%E9%94%99/">文本纠错</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%87%E6%9C%AC%E8%A1%A8%E5%BE%81/">文本表征</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%B0%E9%97%BB%E6%8E%A8%E8%8D%90/">新闻推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%96%B9%E6%B3%95%E8%AE%BA/">方法论</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%A5%E5%BF%97%E6%9E%B6%E6%9E%84/">日志架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%A5%E5%BF%97%E6%A3%80%E7%B4%A2/">日志检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%97%B6%E5%BA%8F%E7%89%B9%E5%BE%81%E6%8C%96%E6%8E%98/">时序特征挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E6%85%A7%E7%89%A9%E6%B5%81/">智慧物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E5%90%88%E7%BA%A6/">智能合约</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E5%AE%A2%E6%9C%8D/">智能客服</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E7%89%A9%E6%B5%81/">智能物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E8%AF%AD%E9%9F%B3/">智能语音</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E9%97%AE%E7%AD%94/">智能问答</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%99%BA%E8%83%BD%E9%A2%84%E8%AD%A6/">智能预警</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%8D%E5%8A%A1/">服务</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%88%B1%E5%A5%BD%E8%80%85/">机器学习爱好者</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E9%9D%A2%E8%AF%95%E9%A2%98/">机器学习面试题</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E7%BF%BB%E8%AF%91/">机器翻译</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E8%A7%86%E8%A7%89/">机器视觉</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9C%BA%E5%99%A8%E9%98%85%E8%AF%BB/">机器阅读</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9D%A1%E4%BB%B6%E9%9A%8F%E6%9C%BA%E5%9C%BA/">条件随机场</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9E%B6%E6%9E%84/">架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE/">标签</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E5%B9%B3%E6%BB%91/">标签平滑</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E8%AF%86%E5%88%AB/">标签识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%87%E7%AD%BE%E9%80%89%E6%8B%A9/">标签选择</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%A1%E6%8B%9B/">校招</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%B7%E6%9C%AC/">样本</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A0%B8%E5%BF%83%E5%A4%84%E7%90%86%E5%B1%82/">核心处理层</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A3%80%E7%B4%A2%E5%BC%95%E6%93%8E/">检索引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A7%BD%E4%BD%8D%E8%AF%86%E5%88%AB/">槽位识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E5%89%AA%E6%9E%9D/">模型剪枝</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E5%8E%8B%E7%BC%A9/">模型压缩</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E8%9E%8D%E5%90%88/">模型融合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E8%AF%84%E4%BC%B0/">模型评估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E9%83%A8%E7%BD%B2/">模型部署</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%9E%8B%E9%A2%84%E4%BC%B0/">模型预估</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%BC%8F%E5%8C%B9%E9%85%8D/">模式匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%A8%A1%E5%BC%8F%E8%AF%86%E5%88%AB/">模式识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%AD%A3%E5%88%99%E5%8C%96/">正则化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B4%8B%E7%A0%81%E5%A4%B4/">洋码头</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B5%81%E6%89%B9%E4%B8%80%E4%BD%93/">流批一体</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6/">深度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E5%85%B4%E8%B6%A3%E7%BD%91%E7%BB%9C/">深度兴趣网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0/">深度学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E6%A0%91%E5%8C%B9%E9%85%8D/">深度树匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B1%E5%BA%A6%E6%A0%91%E6%A3%80%E7%B4%A2/">深度树检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B7%E6%8E%92/">混排</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E6%B7%B7%E6%B2%8C%E5%B7%A5%E7%A8%8B/">混沌工程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%81%AB%E7%84%B0%E5%9B%BE/">火焰图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%83%AD%E7%82%B9%E6%8C%96%E6%8E%98/">热点挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7/">熔断降级</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%88%AC%E8%99%AB/">爬虫</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%88%B1%E5%A5%87%E8%89%BA/">爱奇艺</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%9B%E9%A1%BF-%E8%8E%B1%E5%B8%83%E5%B0%BC%E8%8C%A8/">牛顿-莱布尼茨</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%A9%E6%B5%81/">物流</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E5%B7%A5%E7%A8%8B/">特征工程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E5%B9%B3%E5%8F%B0/">特征平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%89%B9%E5%BE%81%E7%B3%BB%E7%BB%9F/">特征系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%8C%9C%E4%BD%A0%E5%96%9C%E6%AC%A2/">猜你喜欢</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%A8%E6%88%B7%E5%BB%BA%E6%A8%A1/">用户建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%A8%E6%88%B7%E7%94%BB%E5%83%8F/">用户画像</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%94%B5%E5%95%86%E6%90%9C%E7%B4%A2/">电商搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%99%BD%E5%85%94/">白兔</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%99%BE%E5%BA%A6/">百度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9B%B8%E5%85%B3%E7%B3%BB%E6%95%B0/">相关系数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9C%9F%E8%AF%9D/">真话</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A2%E9%87%8F%E8%AF%AD%E4%B9%89/">矢量语义</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E4%B9%8E%E6%9E%B6%E6%9E%84/">知乎架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E5%A2%9E%E5%BC%BA/">知识增强</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%A5%E8%AF%86%E8%92%B8%E9%A6%8F/">知识蒸馏</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E6%96%87%E6%9C%AC%E8%A7%A3%E6%9E%90/">短文本解析</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%A7%86%E9%A2%91/">短视频</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%AF%AD%E6%8A%BD%E5%8F%96/">短语抽取</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%9F%AD%E8%AF%AD%E6%8C%96%E6%8E%98/">短语挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A2%A7%E6%A1%82%E5%9B%AD/">碧桂园</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">神经网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A5%9E%E9%A9%AC%E6%90%9C%E7%B4%A2/">神马搜索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A6%BB%E7%BA%BF%E8%AE%A1%E7%AE%97/">离线计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A7%92%E6%9D%80%E6%9E%B6%E6%9E%84/">秒杀架构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A7%92%E6%9D%80%E7%B3%BB%E7%BB%9F/">秒杀系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%8B%E5%BA%8F%E4%BA%BA%E7%94%9F/">程序人生</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%8B%E5%BA%8F%E5%91%98/">程序员</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7%E8%A7%84%E8%8C%83/">稳定性规范</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%A9%BA%E9%97%B4%E7%B4%A2%E5%BC%95/">空间索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AA%97%E5%8F%A3%E5%87%BD%E6%95%B0/">窗口函数</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AB%AF%E4%B8%8A%E6%99%BA%E8%83%BD/">端上智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AB%AF%E6%99%BA%E8%83%BD/">端智能</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%AE%97%E6%B3%95/">算法</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B1%BB%E5%8D%8F%E5%90%8C%E8%AE%AD%E7%BB%83/">类协同训练</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B1%BB%E7%9B%AE%E8%AF%86%E5%88%AB/">类目识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B2%97%E6%8E%92/">粗排</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%B4%A2%E5%BC%95/">索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BA%BF%E7%A8%8B/">线程</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/">线程池</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BC%93%E5%AD%98/">缓存</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BD%91%E7%BB%9C%E5%9B%BE/">网络图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BD%AE%E4%BF%A1%E5%BA%A6/">置信度</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2/">美团</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2%E5%A4%A7%E8%84%91/">美团大脑</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E7%BE%8E%E5%9B%A2%E7%82%B9%E8%AF%84/">美团点评</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%81%8C%E5%9C%BA/">职场</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%81%94%E9%82%A6%E5%AD%A6%E4%B9%A0/">联邦学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%85%BE%E8%AE%AF%E6%8A%80%E6%9C%AF/">腾讯技术</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">自动化测试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%87%AA%E7%84%B6%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">自然语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%89%B2%E6%83%85%E8%AF%86%E5%88%AB/">色情识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%8A%B1%E6%A4%92%E7%9B%B4%E6%92%AD/">花椒直播</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%8B%9E%E8%B0%B7/">苞谷</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%9A%82%E8%9A%81%E9%87%91%E6%9C%8D/">蚂蚁金服</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%84%E5%88%99%E5%B9%B3%E5%8F%B0/">规则平台</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%84%E5%88%99%E5%BC%95%E6%93%8E/">规则引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%A7%86%E9%A2%91%E6%8E%A8%E8%8D%90/">视频推荐</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A1%E7%AE%97%E5%B9%BF%E5%91%8A/">计算广告</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A4%E7%9F%A5/">认知</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%A8%E8%AE%BA%E5%8C%BA/">讨论区</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%B0%E5%BF%86%E5%BB%BA%E6%A8%A1/">记忆建模</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%B0%E5%BF%86%E7%BD%91%E7%BB%9C/">记忆网络</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AE%BA%E6%96%87/">论文</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%84%E4%BB%B7%E6%8C%87%E6%A0%87/">评价指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%84%E6%B5%8B%E6%8C%87%E6%A0%87/">评测指标</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E5%90%91%E9%87%8F/">词向量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E5%B5%8C%E5%85%A5/">词嵌入</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%8D%E6%9D%83%E9%87%8D/">词权重</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E5%88%86%E5%89%B2/">语义分割</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E5%8C%B9%E9%85%8D/">语义匹配</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E6%A3%80%E7%B4%A2/">语义检索</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E6%A8%A1%E5%9E%8B/">语义模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E4%B9%89%E7%90%86%E8%A7%A3/">语义理解</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E9%9F%B3%E5%86%85%E5%AE%B9%E8%AF%86%E5%88%AB/">语音内容识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">语音识别</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B0%B7%E6%AD%8C%E9%9D%A2%E8%AF%95/">谷歌面试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%8F%B6%E6%96%AF%E4%B8%AA%E6%80%A7%E5%8C%96%E6%8E%92%E5%BA%8F/">贝叶斯个性化排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%A3%B3%E6%89%BE%E6%88%BF/">贝壳找房</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%9D%E5%A3%B3%E6%99%BA%E6%90%9C/">贝壳智搜</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B4%A7%E5%B8%81%E5%8C%96/">货币化</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B5%B7%E6%AD%A5/">起步</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B6%8B%E5%8A%BF%E7%A7%91%E6%8A%80/">趋势科技</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%B7%AF%E5%BE%84%E8%A7%84%E5%88%92/">路径规划</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BD%AF%E5%AE%9E%E5%8A%9B/">软实力</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BE%B9%E7%BC%98%E8%AE%A1%E7%AE%97/">边缘计算</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BE%BE%E6%91%A9%E9%99%A2/">达摩院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0/">迁移学习</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E8%BF%87%E6%8B%9F%E5%90%88/">过拟合</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%80%BB%E8%BE%91%E5%9B%9E%E5%BD%92/">逻辑回归</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%80%BB%E8%BE%91%E6%80%9D%E7%BB%B4/">逻辑思维</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%87%E8%B4%AD/">采购</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E5%8F%A0%E5%AE%9E%E9%AA%8C%E6%A1%86%E6%9E%B6/">重叠实验框架</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E6%8E%92%E5%BA%8F/">重排序</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%8D%E6%9E%84/">重构</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%87%91%E8%9E%8D/">金融</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%B6%E6%B1%A4%E5%8C%99/">银汤匙</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%BE%E8%A1%A8/">链表</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%93%BE%E8%A1%A8%E6%B1%82%E4%BA%A4%E9%9B%86/">链表求交集</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C/">阿里</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E5%A6%88%E5%A6%88/">阿里妈妈</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E5%B0%8F%E8%9C%9C/">阿里小蜜</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%98%BF%E9%87%8C%E8%BE%BE%E6%91%A9%E9%99%A2/">阿里达摩院</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%88%E8%96%87/">陈薇</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%8C%E9%99%8C/">陌陌</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%99%8D%E7%BA%AC%E6%89%93%E5%87%BB/">降纬打击</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9A%8F%E6%9C%BA%E5%8F%98%E9%87%8F/">随机变量</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9B%B6%E6%8B%B7%E8%B4%9D/">零拷贝</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9D%A2%E7%BB%8F/">面经</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%9D%A2%E8%AF%95/">面试</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A1%B9%E7%9B%AE%E7%AE%A1%E7%90%86/">项目管理</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%84%E4%BC%B0%E5%BC%95%E6%93%8E/">预估引擎</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%84%E8%AE%AD%E7%BB%83/">预训练</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%86%E5%9F%9F%E8%AE%BE%E8%AE%A1/">领域设计</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8/">领域驱动</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A3%8E%E6%8E%A7/">风控</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%A3%8E%E6%8E%A7%E7%B3%BB%E7%BB%9F/">风控系统</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E5%8F%AF%E7%94%A8/">高可用</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E6%96%AF%E7%83%AD%E5%9B%BE/">高斯热图</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%AB%98%E7%BB%B4%E6%95%B0%E6%8D%AE%E7%B4%A2%E5%BC%95/">高维数据索引</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%BB%84%E5%B3%A5/">黄峥</a>
+    
+    <a href="https://index.zshipu.com/geek/tags/%E9%BB%91%E7%9B%92%E6%A8%A1%E5%9E%8B/">黑盒模型</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

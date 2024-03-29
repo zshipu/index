@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>「连载二」gRPC Client and Server | 知识铺的博客</title>
+    <meta property="og:title" content="「连载二」gRPC Client and Server - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-09-23T12:30:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-09-23T12:30:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="「连载二」gRPC Client and Server">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/grpc/2018-09-23-client-and-server/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前言">前言</a></li>
+    <li><a href="#安装">安装</a>
+      <ul>
+        <li><a href="#grpc">gRPC</a></li>
+        <li><a href="#protocol-buffers-v3">Protocol Buffers v3</a></li>
+        <li><a href="#protoc-plugin">Protoc Plugin</a></li>
+      </ul>
+    </li>
+    <li><a href="#grpc-1">gRPC</a>
+      <ul>
+        <li><a href="#图示">图示</a></li>
+        <li><a href="#目录结构">目录结构</a></li>
+        <li><a href="#idl">IDL</a></li>
+        <li><a href="#server">Server</a></li>
+        <li><a href="#client">Client</a></li>
+      </ul>
+    </li>
+    <li><a href="#验证">验证</a>
+      <ul>
+        <li><a href="#启动-server">启动 Server</a></li>
+        <li><a href="#启动-client">启动 Client</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">「连载二」gRPC Client and Server</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年9月23日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="前言">前言</h2>
+<p>本章节将使用 Go 来编写 gRPC Server 和 Client，让其互相通讯。在此之上会使用到如下库：</p>
+<ul>
+<li>google.golang.org/grpc</li>
+<li>github.com/golang/protobuf/protoc-gen-go</li>
+</ul>
+<h2 id="安装">安装</h2>
+<h3 id="grpc">gRPC</h3>
+<pre tabindex="0"><code>go get -u google.golang.org/grpc
+</code></pre><h3 id="protocol-buffers-v3">Protocol Buffers v3</h3>
+<pre tabindex="0"><code>wget https://github.com/google/protobuf/releases/download/v3.5.1/protobuf-all-3.5.1.zip
+unzip protobuf-all-3.5.1.zip
+cd protobuf-3.5.1/
+./configure
+make
+make install
+</code></pre><p>检查是否安装成功</p>
+<pre tabindex="0"><code>protoc --version
+</code></pre><p>若出现以下错误，执行 <code>ldconfig</code> 命名就能解决这问题</p>
+<pre tabindex="0"><code>protoc: error while loading shared libraries: libprotobuf.so.15: cannot open shared object file: No such file or directory
+</code></pre><h3 id="protoc-plugin">Protoc Plugin</h3>
+<pre tabindex="0"><code>go get -u github.com/golang/protobuf/protoc-gen-go
+</code></pre><p>安装环境若有问题，可参考我先前的文章 <a href="https://segmentfault.com/a/1190000013339403">《介绍与环境安装》</a> 内有详细介绍，不再赘述</p>
+<h2 id="grpc-1">gRPC</h2>
+<p>本小节开始正式编写 gRPC 相关的程序，一起上车吧 😄</p>
+<h3 id="图示">图示</h3>
+<p>
+        <img class="mx-auto" alt="image" src="/posts/images/415d9544fce1e774e1095ab99b6cc015.png" />   
+    </p>
+<h3 id="目录结构">目录结构</h3>
+<pre tabindex="0"><code>$ tree go-grpc-example
+go-grpc-example
+├── client
+├── proto
+│   └── search.proto
+└── server.go
+</code></pre><h3 id="idl">IDL</h3>
+<h4 id="编写">编写</h4>
+<p>在 proto 文件夹下的 search.proto 文件中，写入如下内容：</p>
+<pre tabindex="0"><code>syntax = &#34;proto3&#34;;
+
+package proto;
+
+service SearchService {
+    rpc Search(SearchRequest) returns (SearchResponse) {}
+}
+
+message SearchRequest {
+    string request = 1;
+}
+
+message SearchResponse {
+    string response = 1;
+}
+</code></pre><h4 id="生成">生成</h4>
+<p>在 proto 文件夹下执行如下命令：</p>
+<pre tabindex="0"><code>$ protoc --go_out=plugins=grpc:. *.proto
+</code></pre><ul>
+<li>plugins=plugin1+plugin2：指定要加载的子插件列表</li>
+</ul>
+<p>我们定义的 proto 文件是涉及了 RPC 服务的，而默认是不会生成 RPC 代码的，因此需要给出 <code>plugins</code> 参数传递给 <code>protoc-gen-go</code>，告诉它，请支持 RPC（这里指定了 gRPC）</p>
+<ul>
+<li>&ndash;go_out=.：设置 Go 代码输出的目录</li>
+</ul>
+<p>该指令会加载 protoc-gen-go 插件达到生成 Go 代码的目的，生成的文件以 .pb.go 为文件后缀</p>
+<ul>
+<li>: （冒号）</li>
+</ul>
+<p>冒号充当分隔符的作用，后跟所需要的参数集。如果这处不涉及 RPC，命令可简化为：</p>
+<pre tabindex="0"><code>$ protoc --go_out=. *.proto
+</code></pre><p>注：建议你看看两条命令生成的 .pb.go 文件，分别有什么区别</p>
+<h4 id="生成后">生成后</h4>
+<p>执行完毕命令后，将得到一个 .pb.go 文件，文件内容如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> SearchRequest <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>	Request              <span style="color:#458;font-weight:bold">string</span>   <span style="color:#d14">`protobuf:&#34;bytes,1,opt,name=request&#34; json:&#34;request,omitempty&#34;`</span>
+</span></span><span style="display:flex;"><span>	XXX_NoUnkeyedLiteral <span style="color:#000;font-weight:bold">struct</span>{} <span style="color:#d14">`json:&#34;-&#34;`</span>
+</span></span><span style="display:flex;"><span>	XXX_unrecognized     []<span style="color:#458;font-weight:bold">byte</span>   <span style="color:#d14">`json:&#34;-&#34;`</span>
+</span></span><span style="display:flex;"><span>	XXX_sizecache        <span style="color:#458;font-weight:bold">int32</span>    <span style="color:#d14">`json:&#34;-&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (m <span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">Reset</span>()         { <span style="color:#000;font-weight:bold">*</span>m = SearchRequest{} }
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (m <span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">String</span>() <span style="color:#458;font-weight:bold">string</span> { <span style="color:#000;font-weight:bold">return</span> proto.<span style="color:#900;font-weight:bold">CompactTextString</span>(m) }
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (<span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">ProtoMessage</span>()    {}
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (<span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">Descriptor</span>() ([]<span style="color:#458;font-weight:bold">byte</span>, []<span style="color:#458;font-weight:bold">int</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> fileDescriptor_search_8b45f79ee13ff6a3, []<span style="color:#458;font-weight:bold">int</span>{<span style="color:#099">0</span>}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (m <span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">GetRequest</span>() <span style="color:#458;font-weight:bold">string</span> {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> m <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">return</span> m.Request
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> <span style="color:#d14">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>通过阅读这一部分代码，可以知道主要涉及如下方面：</p>
+<ul>
+<li>字段名称从小写下划线转换为大写驼峰模式（字段导出）</li>
+<li>生成一组 Getters 方法，能便于处理一些空指针取值的情况</li>
+<li>ProtoMessage 方法实现 proto.Message 的接口</li>
+<li>生成 Rest 方法，便于将 Protobuf 结构体恢复为零值</li>
+<li>Repeated 转换为切片</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> SearchRequest <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>	Request              <span style="color:#458;font-weight:bold">string</span>   <span style="color:#d14">`protobuf:&#34;bytes,1,opt,name=request&#34; json:&#34;request,omitempty&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (<span style="color:#000;font-weight:bold">*</span>SearchRequest) <span style="color:#900;font-weight:bold">Descriptor</span>() ([]<span style="color:#458;font-weight:bold">byte</span>, []<span style="color:#458;font-weight:bold">int</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> fileDescriptor_search_8b45f79ee13ff6a3, []<span style="color:#458;font-weight:bold">int</span>{<span style="color:#099">0</span>}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> SearchResponse <span style="color:#000;font-weight:bold">struct</span> {
+</span></span><span style="display:flex;"><span>	Response             <span style="color:#458;font-weight:bold">string</span>   <span style="color:#d14">`protobuf:&#34;bytes,1,opt,name=response&#34; json:&#34;response,omitempty&#34;`</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (<span style="color:#000;font-weight:bold">*</span>SearchResponse) <span style="color:#900;font-weight:bold">Descriptor</span>() ([]<span style="color:#458;font-weight:bold">byte</span>, []<span style="color:#458;font-weight:bold">int</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> fileDescriptor_search_8b45f79ee13ff6a3, []<span style="color:#458;font-weight:bold">int</span>{<span style="color:#099">1</span>}
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">init</span>() { proto.<span style="color:#900;font-weight:bold">RegisterFile</span>(<span style="color:#d14">&#34;search.proto&#34;</span>, fileDescriptor_search_8b45f79ee13ff6a3) }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">var</span> fileDescriptor_search_8b45f79ee13ff6a3 = []<span style="color:#458;font-weight:bold">byte</span>{
+</span></span><span style="display:flex;"><span>	<span style="color:#998;font-style:italic">// 131 bytes of a gzipped FileDescriptorProto
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>	<span style="color:#099">0x1f</span>, <span style="color:#099">0x8b</span>, <span style="color:#099">0x08</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x02</span>, <span style="color:#099">0xff</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0x29</span>, <span style="color:#099">0x4e</span>, <span style="color:#099">0x4d</span>, <span style="color:#099">0x2c</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x4a</span>, <span style="color:#099">0xce</span>, <span style="color:#099">0xd0</span>, <span style="color:#099">0x2b</span>, <span style="color:#099">0x28</span>, <span style="color:#099">0xca</span>, <span style="color:#099">0x2f</span>, <span style="color:#099">0xc9</span>, <span style="color:#099">0x17</span>, <span style="color:#099">0x62</span>, <span style="color:#099">0x05</span>, <span style="color:#099">0x53</span>, <span style="color:#099">0x4a</span>, <span style="color:#099">0x9a</span>, <span style="color:#099">0x5c</span>, <span style="color:#099">0xbc</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0xc1</span>, <span style="color:#099">0x60</span>, <span style="color:#099">0xe1</span>, <span style="color:#099">0xa0</span>, <span style="color:#099">0xd4</span>, <span style="color:#099">0xc2</span>, <span style="color:#099">0xd2</span>, <span style="color:#099">0xd4</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0x12</span>, <span style="color:#099">0x21</span>, <span style="color:#099">0x09</span>, <span style="color:#099">0x2e</span>, <span style="color:#099">0xf6</span>, <span style="color:#099">0x22</span>, <span style="color:#099">0x08</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x53</span>, <span style="color:#099">0x82</span>, <span style="color:#099">0x51</span>, <span style="color:#099">0x81</span>, <span style="color:#099">0x51</span>, <span style="color:#099">0x83</span>, <span style="color:#099">0x33</span>, <span style="color:#099">0x08</span>, <span style="color:#099">0xc6</span>, <span style="color:#099">0x55</span>, <span style="color:#099">0xd2</span>, <span style="color:#099">0xe1</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0x83</span>, <span style="color:#099">0x29</span>, <span style="color:#099">0x2d</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x2e</span>, <span style="color:#099">0xc8</span>, <span style="color:#099">0xcf</span>, <span style="color:#099">0x2b</span>, <span style="color:#099">0x4e</span>, <span style="color:#099">0x15</span>, <span style="color:#099">0x92</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0xe2</span>, <span style="color:#099">0x28</span>, <span style="color:#099">0x82</span>, <span style="color:#099">0xb2</span>, <span style="color:#099">0xa1</span>, <span style="color:#099">0x8a</span>, <span style="color:#099">0xe1</span>, <span style="color:#099">0x7c</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x23</span>, <span style="color:#099">0x0f</span>, <span style="color:#099">0x98</span>, <span style="color:#099">0xc1</span>, <span style="color:#099">0xc1</span>, <span style="color:#099">0xa9</span>, <span style="color:#099">0x45</span>, <span style="color:#099">0x65</span>, <span style="color:#099">0x99</span>, <span style="color:#099">0xc9</span>, <span style="color:#099">0xa9</span>, <span style="color:#099">0x42</span>, <span style="color:#099">0xe6</span>, <span style="color:#099">0x5c</span>, <span style="color:#099">0x6c</span>, <span style="color:#099">0x10</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x01</span>, <span style="color:#099">0x21</span>, <span style="color:#099">0x11</span>, <span style="color:#099">0x88</span>, <span style="color:#099">0x13</span>, <span style="color:#099">0xf4</span>, <span style="color:#099">0x50</span>, <span style="color:#099">0x2c</span>, <span style="color:#099">0x96</span>, <span style="color:#099">0x12</span>, <span style="color:#099">0x45</span>, <span style="color:#099">0x13</span>, <span style="color:#099">0x85</span>, <span style="color:#099">0x98</span>, <span style="color:#099">0xa3</span>, <span style="color:#099">0xc4</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x90</span>, <span style="color:#099">0xc4</span>, <span style="color:#099">0x06</span>, <span style="color:#099">0x16</span>, <span style="color:#099">0x37</span>, <span style="color:#099">0x06</span>, <span style="color:#099">0x04</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0xff</span>, <span style="color:#099">0xff</span>, <span style="color:#099">0xf3</span>, <span style="color:#099">0xba</span>, <span style="color:#099">0x74</span>, <span style="color:#099">0x95</span>, <span style="color:#099">0xc0</span>,
+</span></span><span style="display:flex;"><span>	<span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>, <span style="color:#099">0x00</span>,
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>而这一部分代码主要是围绕 <code>fileDescriptor</code> 进行，在这里 <code>fileDescriptor_search_8b45f79ee13ff6a3</code> 表示一个编译后的 proto 文件，而每一个方法都包含 Descriptor 方法，代表着这一个方法在 <code>fileDescriptor</code> 中具体的 Message Field</p>
+<h3 id="server">Server</h3>
+<p>这一小节将编写 gRPC Server 的基础模板，完成一个方法的调用。对 server.go 写入如下内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;context&#34;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;log&#34;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;net&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;google.golang.org/grpc&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pb <span style="color:#d14">&#34;github.com/zshipu/go-grpc-example/proto&#34;</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">type</span> SearchService <span style="color:#000;font-weight:bold">struct</span>{}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> (s <span style="color:#000;font-weight:bold">*</span>SearchService) <span style="color:#900;font-weight:bold">Search</span>(ctx context.Context, r <span style="color:#000;font-weight:bold">*</span>pb.SearchRequest) (<span style="color:#000;font-weight:bold">*</span>pb.SearchResponse, <span style="color:#458;font-weight:bold">error</span>) {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">return</span> <span style="color:#000;font-weight:bold">&amp;</span>pb.SearchResponse{Response: r.<span style="color:#900;font-weight:bold">GetRequest</span>() <span style="color:#000;font-weight:bold">+</span> <span style="color:#d14">&#34; Server&#34;</span>}, <span style="color:#000;font-weight:bold">nil</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">const</span> PORT = <span style="color:#d14">&#34;9001&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	server <span style="color:#000;font-weight:bold">:=</span> grpc.<span style="color:#900;font-weight:bold">NewServer</span>()
+</span></span><span style="display:flex;"><span>	pb.<span style="color:#900;font-weight:bold">RegisterSearchServiceServer</span>(server, <span style="color:#000;font-weight:bold">&amp;</span>SearchService{})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	lis, err <span style="color:#000;font-weight:bold">:=</span> net.<span style="color:#900;font-weight:bold">Listen</span>(<span style="color:#d14">&#34;tcp&#34;</span>, <span style="color:#d14">&#34;:&#34;</span><span style="color:#000;font-weight:bold">+</span>PORT)
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		log.<span style="color:#900;font-weight:bold">Fatalf</span>(<span style="color:#d14">&#34;net.Listen err: %v&#34;</span>, err)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	server.<span style="color:#900;font-weight:bold">Serve</span>(lis)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>创建 gRPC Server 对象，你可以理解为它是 Server 端的抽象对象</li>
+<li>将 SearchService（其包含需要被调用的服务端接口）注册到 gRPC Server 的内部注册中心。这样可以在接受到请求时，通过内部的服务发现，发现该服务端接口并转接进行逻辑处理</li>
+<li>创建 Listen，监听 TCP 端口</li>
+<li>gRPC Server 开始 lis.Accept，直到 Stop 或 GracefulStop</li>
+</ul>
+<h3 id="client">Client</h3>
+<p>接下来编写 gRPC Go Client 的基础模板，打开 client/client.go 文件，写入以下内容：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span> main
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span> (
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;context&#34;</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;log&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#d14">&#34;google.golang.org/grpc&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	pb <span style="color:#d14">&#34;github.com/zshipu/go-grpc-example/proto&#34;</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">const</span> PORT = <span style="color:#d14">&#34;9001&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	conn, err <span style="color:#000;font-weight:bold">:=</span> grpc.<span style="color:#900;font-weight:bold">Dial</span>(<span style="color:#d14">&#34;:&#34;</span><span style="color:#000;font-weight:bold">+</span>PORT, grpc.<span style="color:#900;font-weight:bold">WithInsecure</span>())
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		log.<span style="color:#900;font-weight:bold">Fatalf</span>(<span style="color:#d14">&#34;grpc.Dial err: %v&#34;</span>, err)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">defer</span> conn.<span style="color:#900;font-weight:bold">Close</span>()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	client <span style="color:#000;font-weight:bold">:=</span> pb.<span style="color:#900;font-weight:bold">NewSearchServiceClient</span>(conn)
+</span></span><span style="display:flex;"><span>	resp, err <span style="color:#000;font-weight:bold">:=</span> client.<span style="color:#900;font-weight:bold">Search</span>(context.<span style="color:#900;font-weight:bold">Background</span>(), <span style="color:#000;font-weight:bold">&amp;</span>pb.SearchRequest{
+</span></span><span style="display:flex;"><span>		Request: <span style="color:#d14">&#34;gRPC&#34;</span>,
+</span></span><span style="display:flex;"><span>	})
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> err <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>		log.<span style="color:#900;font-weight:bold">Fatalf</span>(<span style="color:#d14">&#34;client.Search err: %v&#34;</span>, err)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;resp: %s&#34;</span>, resp.<span style="color:#900;font-weight:bold">GetResponse</span>())
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>创建与给定目标（服务端）的连接交互</li>
+<li>创建 SearchService 的客户端对象</li>
+<li>发送 RPC 请求，等待同步响应，得到回调后返回响应结果</li>
+<li>输出响应结果</li>
+</ul>
+<h2 id="验证">验证</h2>
+<h3 id="启动-server">启动 Server</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>$ <span style="color:#0086b3">pwd</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">$GOPATH</span>/github.com/zshipu/go-grpc-example
+</span></span><span style="display:flex;"><span>$ go run server.go
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="启动-client">启动 Client</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>$ <span style="color:#0086b3">pwd</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">$GOPATH</span>/github.com/zshipu/go-grpc-example/client
+</span></span><span style="display:flex;"><span>$ go run client.go
+</span></span><span style="display:flex;"><span>2018/09/23 11:06:23 resp: gRPC Server
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="总结">总结</h2>
+<p>在本章节，我们对 Protobuf、gRPC Client/Server 分别都进行了介绍。希望你结合文中讲述内容再写一个 Demo 进行深入了解，肯定会更棒 🤔</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/grpc/2018-09-23-client-and-server/">https://index.zshipu.com/go/posts/go/grpc/2018-09-23-client-and-server/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/grpc/2018-09-22-install/">「连载一」gRPC及相关介绍</a></li>
+        
+        <li><a href="/go/posts/go/tools/2018-09-15-go-tool-pprof/">Go 大杀器之性能剖析 PProf</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-09-01-nginx/">「连载十七」用Nginx部署Go应用</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-08-26-makefile/">「番外」请入门 Makefile</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-07-07-font/">「连载十六」在图片上绘制文字</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/grpc'>grpc</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

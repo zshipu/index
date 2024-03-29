@@ -1,0 +1,671 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Go 并发：一些有趣的现象和要避开的 “坑” | 知识铺的博客</title>
+    <meta property="og:title" content="Go 并发：一些有趣的现象和要避开的 “坑” - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2020-12-10T00:25:59&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2020-12-10T00:25:59&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Go 并发：一些有趣的现象和要避开的 “坑”">
+        
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/go-concurrent-lock/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#案例一">案例一</a>
+      <ul>
+        <li><a href="#演示代码">演示代码</a></li>
+        <li><a href="#输出结果">输出结果</a></li>
+        <li><a href="#分析原因">分析原因</a></li>
+        <li><a href="#发现问题">发现问题</a></li>
+      </ul>
+    </li>
+    <li><a href="#案例二">案例二</a>
+      <ul>
+        <li><a href="#演示代码-1">演示代码</a></li>
+        <li><a href="#输出结果-1">输出结果</a></li>
+        <li><a href="#分析原因-1">分析原因</a></li>
+        <li><a href="#发现问题-1">发现问题</a></li>
+      </ul>
+    </li>
+    <li><a href="#案例三">案例三</a>
+      <ul>
+        <li><a href="#演示代码-2">演示代码</a></li>
+        <li><a href="#输出结果-2">输出结果</a></li>
+        <li><a href="#分析原因-2">分析原因</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go 并发：一些有趣的现象和要避开的 “坑”</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2020年12月10日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>大家好，我是知识铺。</p>
+<p>最近在看 Go 并发相关的内容，发现还是有不少细节容易让人迷迷糊糊的，一个不小心就踏入深坑里，且指不定要在上线跑了一些数据后才能发现，那可真是太人崩溃了。</p>
+<p>今天来分享几个案例，希望大家在编码时能够避开这几个 “坑”。</p>
+<h2 id="案例一">案例一</h2>
+<h3 id="演示代码">演示代码</h3>
+<p>第一个案例来自 @鸟窝 大佬在极客时间的分享，代码如下：</p>
+<pre tabindex="0"><code>func main() {
+	count := 0
+	wg := sync.WaitGroup{}
+	wg.Add(10)
+	for i := 0; i &lt; 10; i++ {
+		go func() {
+			defer wg.Done()
+			for j := 0; j &lt; 100000; j++ {
+				count++
+			}
+		}()
+	}
+	wg.Wait()
+
+	fmt.Println(count)
+}
+</code></pre><p>思考一下，最后输出的 <code>count</code> 变量的值是多少？是不是一百万？</p>
+<h3 id="输出结果">输出结果</h3>
+<p>在上述代码中，我们通过 <code>for-loop </code> 循环起 <code>goroutine</code> 进行自增，并使用了 <code>sync.WaitGroup</code> 来保证所有的 goroutine 都执行完毕才输出最终的结果值。</p>
+<p>最终的输出结果如下：</p>
+<pre tabindex="0"><code>// 第一次执行
+638853
+
+// 第二次执行
+654473
+
+// 第三次执行
+786193
+</code></pre><p>输出的结果值不是恒定的，也就是每次输出的都不一样，且基本不会达到想象中的一百万。</p>
+<h3 id="分析原因">分析原因</h3>
+<p>其原因在于 <code>count++</code> 并不是一个原子操作，在汇编上就包含了好几个动作，如下：</p>
+<pre tabindex="0"><code>MOVQ &#34;&#34;.count(SB), AX 
+LEAQ 1(AX), CX 
+MOVQ CX, &#34;&#34;.count(SB)
+</code></pre><p>因为可能会同时存在多个 goroutine 同时读取到 <code>count</code> 的值为 1212，并各自自增 1，再将其写回。</p>
+<p>与此同时也会有其他的 goroutine 可能也在其自增时读到了值，形成了互相覆盖的情况，这是一种并发访问共享数据的错误。</p>
+<h3 id="发现问题">发现问题</h3>
+<p>这类竞争问题可以通过 Go 语言所提供的的 race 检测（<a href="https://blog.golang.org/race-detector">Go race detector</a>）来进行分析和发现：</p>
+<pre tabindex="0"><code>$ go run -race main.go 
+==================
+WARNING: DATA RACE
+Read at 0x00c0000c6008 by goroutine 13:
+  main.main.func1()
+      /Users/zshipu/go-application/awesomeProject/main.go:28 +0x78
+
+Previous write at 0x00c0000c6008 by goroutine 7:
+  main.main.func1()
+      /Users/zshipu/go-application/awesomeProject/main.go:28 +0x91
+
+Goroutine 13 (running) created at:
+  main.main()
+      /Users/zshipu/go-application/awesomeProject/main.go:25 +0xe4
+
+Goroutine 7 (running) created at:
+  main.main()
+      /Users/zshipu/go-application/awesomeProject/main.go:25 +0xe4
+==================
+...
+489194
+Found 3 data race(s)
+exit status 66
+</code></pre><p>编译器会通过探测所有的内存访问，监听其内存地址的访问（读或写）。在应用运行时就能够发现对共享变量的访问和操作，进而发现问题并打印出相关的警告信息。</p>
+<p>需要注意的一点是，<code>go run -race</code> 是运行时检测，并不是编译时。且 race 存在明确的性能开销，通常是正常程序的十倍，因此不要想不开在生产环境打开这个配置，很容易翻车。</p>
+<h2 id="案例二">案例二</h2>
+<h3 id="演示代码-1">演示代码</h3>
+<p>第二个案例来自知识铺在脑子的分享，代码如下：</p>
+<pre tabindex="0"><code>func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+	for i := 0; i &lt; 5; i++ {
+		go func(i int) {
+			defer wg.Done()
+			fmt.Println(i)
+		}(i)
+	}
+	wg.Wait()
+}
+</code></pre><p>思考一下，最后输出的结果是什么？值都是 4 吗？输出是稳定有序的吗？</p>
+<h3 id="输出结果-1">输出结果</h3>
+<p>在上述代码中，我们通过 <code>for-loop</code> 循环起了多个 <code>goroutine</code>，并将变量 <code>i</code> 作为形参传递给了 <code>goroutine</code>，最后在 <code>goroutine</code> 内输出了变量 <code>i</code>。</p>
+<p>最终的输出结果如下：</p>
+<pre tabindex="0"><code>// 第一次输出
+0
+1
+2
+4
+3
+
+// 第二次输出
+4
+0
+1
+2
+3
+</code></pre><p>显然，从结果上来看，输出的值都是无序且不稳定的，值更不是 4。这到底是为什么？</p>
+<h3 id="分析原因-1">分析原因</h3>
+<p>其原因在于，即使所有的 <code>goroutine</code> 都创建完了，但 <code>goroutine</code> 不一定已经开始运行了。</p>
+<p>也就是等到 <code>goroutine</code> 真正去执行输出时，变量 <code>i</code> （值拷贝）可能已经不是创建时的值了。</p>
+<p>其整个程序扭转实质上分为了多个阶段，也就是各自运行的时间线并不同，可以其拆分为：</p>
+<ul>
+<li>
+<p>先创建：<code>for-loop</code> 循环创建 <code>goroutine</code>。</p>
+</li>
+<li>
+<p>再调度：协程<code>goroutine</code> 开始调度执行。</p>
+</li>
+<li>
+<p>才执行：开始执行 <code>goroutine</code> 内的输出。</p>
+</li>
+</ul>
+<p>同时 <code>goroutine</code> 的调度存在一定的随机性（建议了解一下 GMP 模型），那么其输出的结果就势必是无序且不稳定的。</p>
+<h3 id="发现问题-1">发现问题</h3>
+<p>这时候你可能会想，那前面提到的 <code>go run -race</code> 能不能发现这个问题呢。如下：</p>
+<pre tabindex="0"><code>$ go run -race main.go
+0
+1
+2
+3
+4
+</code></pre><p>没有出现警告，显然是不能的，因为其本质上并不是并发访问共享数据的错误，且会导致程序变成了串行，从而蒙蔽了你的双眼。</p>
+<h2 id="案例三">案例三</h2>
+<h3 id="演示代码-2">演示代码</h3>
+<p>第三个案例来自知识铺在梦里的分享，代码如下：</p>
+<pre tabindex="0"><code>func main() {
+	wg := sync.WaitGroup{}
+	wg.Add(5)
+	for i := 0; i &lt; 5; i++ {
+		go func() {
+			defer wg.Done()
+			fmt.Println(i)
+		}()
+	}
+	wg.Wait()
+}
+</code></pre><p>思考一下，最后输出的结果是什么？值都是 4 吗？会像案例二一样乱窜吗？</p>
+<h3 id="输出结果-2">输出结果</h3>
+<p>在上述代码中，与案例二大体没有区别，主要是变量 <code>i</code> 没有作为形参传入。</p>
+<p>最终的输出结果如下：</p>
+<pre tabindex="0"><code>// 第一次输出
+5
+5
+5
+5
+5
+</code></pre><p>初步从输出的结果上来看都是 5，这时候就会有人迷糊了，为什么不是 4 呢？</p>
+<p>不少人会因不是 4 而陷入了迷惑，但千万不要被一两次的输出迷惑了心智，认为铁定就是 5 了。可以再动手多输出几次，如下：</p>
+<pre tabindex="0"><code>// 多输出几次
+5
+3
+5
+5
+5
+</code></pre><p>最终会发现&hellip;输出结果存在随机性，输出结果并不是 100% 都是 5，更不用提 4 了。这到底是为什么呢？</p>
+<h3 id="分析原因-2">分析原因</h3>
+<p>其原因与案例二其实非常接近，理论上理解了案例二也就能解决案例三。</p>
+<p>其本质还是创建 <code>goroutine</code> 与真正执行 <code>fmt.Println</code> 并不同步。因此很有可能在你执行 <code>fmt.Println</code> 时，循环 <code>for-loop</code> 已经运行完毕，因此变量 <code>i</code> 的值最终变成了 5。</p>
+<p>那么相反，其也有可能没运行完，存在随机性。写个 test case 就能发现明显的不同。</p>
+<h2 id="总结">总结</h2>
+<p>在本文中，我分享了几个近期看到次数最频繁的一些并发上的小 “坑”，希望对你有所帮助。同时你也可以回想一下，在你编写 Go 并发程序有没有也遇到过什么问题？</p>
+<p>同时你也可以回想一下，在你编写 Go 并发程序有没有也遇到过什么问题？</p>
+<p>欢迎大家一起讨论交流。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/">https://index.zshipu.com/go/posts/go/go-concurrent-lock/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/go2-errors/">先睹为快，Go2 Error 的挣扎之路</a></li>
+        
+        <li><a href="/go/posts/go/gophercon2020-errors/">重磅：Go errors 将不会有任何进一步的改进计划</a></li>
+        
+        <li><a href="/go/posts/go/go16-preview/">为什么 Go 的泛型一拖再拖？</a></li>
+        
+        <li><a href="/go/posts/go/go11/">Go 语言今年 11 岁，何去何从，现状到底如何？</a></li>
+        
+        <li><a href="/go/posts/go/reflect/">解密 Go 语言之反射 reflect</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

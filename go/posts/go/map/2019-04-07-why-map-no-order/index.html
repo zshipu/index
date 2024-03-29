@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>为什么遍历 Go map 是无序的 | 知识铺的博客</title>
+    <meta property="og:title" content="为什么遍历 Go map 是无序的 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2019-04-07T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2019-04-07T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="为什么遍历 Go map 是无序的">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/map/2019-04-07-why-map-no-order/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#前言">前言</a></li>
+    <li><a href="#看一下汇编">看一下汇编</a></li>
+    <li><a href="#看一下转换后">看一下转换后</a></li>
+    <li><a href="#看一下源码">看一下源码</a>
+      <ul>
+        <li><a href="#runtimemapiterinit">runtime.mapiterinit</a></li>
+        <li><a href="#runtimemapiternext">runtime.mapiternext</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">为什么遍历 Go map 是无序的</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2019年4月7日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="image" src="http://wx2.sinaimg.cn/large/006fVPCvly1g1s1ah84k8j30k70dvaac.jpg" />   
+    </p>
+<p>有的小伙伴没留意过 Go map 输出顺序，以为它是稳定的有序的；有的小伙伴知道是无序的，但却不知道为什么？有的却理解错误？今天我们将通过本文，揭开 <code>for range map</code> 的 “神秘” 面纱，看看它内部实现到底是怎么样的，输出顺序到底是怎么样？</p>
+<h2 id="前言">前言</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">main</span>() {
+</span></span><span style="display:flex;"><span>	m <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">make</span>(<span style="color:#000;font-weight:bold">map</span>[<span style="color:#458;font-weight:bold">int32</span>]<span style="color:#458;font-weight:bold">string</span>)
+</span></span><span style="display:flex;"><span>	m[<span style="color:#099">0</span>] = <span style="color:#d14">&#34;zshipu1&#34;</span>
+</span></span><span style="display:flex;"><span>	m[<span style="color:#099">1</span>] = <span style="color:#d14">&#34;zshipu2&#34;</span>
+</span></span><span style="display:flex;"><span>	m[<span style="color:#099">2</span>] = <span style="color:#d14">&#34;zshipu3&#34;</span>
+</span></span><span style="display:flex;"><span>	m[<span style="color:#099">3</span>] = <span style="color:#d14">&#34;zshipu4&#34;</span>
+</span></span><span style="display:flex;"><span>	m[<span style="color:#099">4</span>] = <span style="color:#d14">&#34;zshipu5&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">for</span> k, v <span style="color:#000;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">range</span> m {
+</span></span><span style="display:flex;"><span>		log.<span style="color:#900;font-weight:bold">Printf</span>(<span style="color:#d14">&#34;k: %v, v: %v&#34;</span>, k, v)
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>假设运行这段代码，输出结果是按顺序？还是无序输出呢？</p>
+<pre tabindex="0"><code>2019/04/03 23:27:29 k: 3, v: zshipu4
+2019/04/03 23:27:29 k: 4, v: zshipu5
+2019/04/03 23:27:29 k: 0, v: zshipu1
+2019/04/03 23:27:29 k: 1, v: zshipu2
+2019/04/03 23:27:29 k: 2, v: zshipu3
+</code></pre><p>从输出结果上来讲，是非固定顺序输出的，也就是每次都不一样（标题也讲了）。但这是为什么呢？</p>
+<p>首先<strong>建议你先自己想想原因</strong>。其次我在面试时听过一些说法。有人说因为是哈希的所以就是无（乱）序等等说法。当时我是有点 ？？？</p>
+<p>这也是这篇文章出现的原因，希望大家可以一起研讨一下，理清这个问题 ：）</p>
+<h2 id="看一下汇编">看一下汇编</h2>
+<pre tabindex="0"><code>    ...
+	0x009b 00155 (main.go:11)	LEAQ	type.map[int32]string(SB), AX
+	0x00a2 00162 (main.go:11)	PCDATA	$2, $0
+	0x00a2 00162 (main.go:11)	MOVQ	AX, (SP)
+	0x00a6 00166 (main.go:11)	PCDATA	$2, $2
+	0x00a6 00166 (main.go:11)	LEAQ	&#34;&#34;..autotmp_3+24(SP), AX
+	0x00ab 00171 (main.go:11)	PCDATA	$2, $0
+	0x00ab 00171 (main.go:11)	MOVQ	AX, 8(SP)
+	0x00b0 00176 (main.go:11)	PCDATA	$2, $2
+	0x00b0 00176 (main.go:11)	LEAQ	&#34;&#34;..autotmp_2+72(SP), AX
+	0x00b5 00181 (main.go:11)	PCDATA	$2, $0
+	0x00b5 00181 (main.go:11)	MOVQ	AX, 16(SP)
+	0x00ba 00186 (main.go:11)	CALL	runtime.mapiterinit(SB)
+	0x00bf 00191 (main.go:11)	JMP	207
+	0x00c1 00193 (main.go:11)	PCDATA	$2, $2
+	0x00c1 00193 (main.go:11)	LEAQ	&#34;&#34;..autotmp_2+72(SP), AX
+	0x00c6 00198 (main.go:11)	PCDATA	$2, $0
+	0x00c6 00198 (main.go:11)	MOVQ	AX, (SP)
+	0x00ca 00202 (main.go:11)	CALL	runtime.mapiternext(SB)
+	0x00cf 00207 (main.go:11)	CMPQ	&#34;&#34;..autotmp_2+72(SP), $0
+	0x00d5 00213 (main.go:11)	JNE	193
+	...
+</code></pre><p>我们大致看一下整体过程，重点处理 Go map 循环迭代的是两个 runtime 方法，如下：</p>
+<ul>
+<li>runtime.mapiterinit</li>
+<li>runtime.mapiternext</li>
+</ul>
+<p>但你可能会想，明明用的是 <code>for range</code> 进行循环迭代，怎么出现了这两个函数，怎么回事？</p>
+<h2 id="看一下转换后">看一下转换后</h2>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">var</span> hiter map_iteration_struct
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">for</span> <span style="color:#900;font-weight:bold">mapiterinit</span>(<span style="color:#000;font-weight:bold">type</span>, <span style="color:#000;font-weight:bold">range</span>, <span style="color:#000;font-weight:bold">&amp;</span>hiter); hiter.key <span style="color:#000;font-weight:bold">!=</span> <span style="color:#000;font-weight:bold">nil</span>; <span style="color:#900;font-weight:bold">mapiternext</span>(<span style="color:#000;font-weight:bold">&amp;</span>hiter) {
+</span></span><span style="display:flex;"><span>    index_temp = <span style="color:#000;font-weight:bold">*</span>hiter.key
+</span></span><span style="display:flex;"><span>    value_temp = <span style="color:#000;font-weight:bold">*</span>hiter.val
+</span></span><span style="display:flex;"><span>    index = index_temp
+</span></span><span style="display:flex;"><span>    value = value_temp
+</span></span><span style="display:flex;"><span>    original body
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>实际上编译器对于 slice 和 map 的循环迭代有不同的实现方式，并不是 <code>for</code> 一扔就完事了，还做了一些附加动作进行处理。而上述代码就是 <code>for range map</code> 在编译器展开后的伪实现</p>
+<h2 id="看一下源码">看一下源码</h2>
+<h3 id="runtimemapiterinit">runtime.mapiterinit</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">mapiterinit</span>(t <span style="color:#000;font-weight:bold">*</span>maptype, h <span style="color:#000;font-weight:bold">*</span>hmap, it <span style="color:#000;font-weight:bold">*</span>hiter) {
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>	it.t = t
+</span></span><span style="display:flex;"><span>	it.h = h
+</span></span><span style="display:flex;"><span>	it.B = h.B
+</span></span><span style="display:flex;"><span>	it.buckets = h.buckets
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> t.bucket.kind<span style="color:#000;font-weight:bold">&amp;</span>kindNoPointers <span style="color:#000;font-weight:bold">!=</span> <span style="color:#099">0</span> {
+</span></span><span style="display:flex;"><span>		h.<span style="color:#900;font-weight:bold">createOverflow</span>()
+</span></span><span style="display:flex;"><span>		it.overflow = h.extra.overflow
+</span></span><span style="display:flex;"><span>		it.oldoverflow = h.extra.oldoverflow
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	r <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">uintptr</span>(<span style="color:#900;font-weight:bold">fastrand</span>())
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">if</span> h.B &gt; <span style="color:#099">31</span><span style="color:#000;font-weight:bold">-</span>bucketCntBits {
+</span></span><span style="display:flex;"><span>		r <span style="color:#000;font-weight:bold">+=</span> <span style="color:#0086b3">uintptr</span>(<span style="color:#900;font-weight:bold">fastrand</span>()) <span style="color:#000;font-weight:bold">&lt;&lt;</span> <span style="color:#099">31</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	it.startBucket = r <span style="color:#000;font-weight:bold">&amp;</span> <span style="color:#900;font-weight:bold">bucketMask</span>(h.B)
+</span></span><span style="display:flex;"><span>	it.offset = <span style="color:#0086b3">uint8</span>(r <span style="color:#000;font-weight:bold">&gt;&gt;</span> h.B <span style="color:#000;font-weight:bold">&amp;</span> (bucketCnt <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>))
+</span></span><span style="display:flex;"><span>	it.bucket = it.startBucket
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>	<span style="color:#900;font-weight:bold">mapiternext</span>(it)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>通过对 <code>mapiterinit</code> 方法阅读，可得知其主要用途是在 map 进行遍历迭代时<strong>进行初始化动作</strong>。共有三个形参，用于读取当前哈希表的类型信息、当前哈希表的存储信息和当前遍历迭代的数据</p>
+<h4 id="为什么">为什么</h4>
+<p>咱们关注到源码中 <code>fastrand</code> 的部分，这个方法名，是不是迷之眼熟。没错，它是一个生成随机数的方法。再看看上下文：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic">// decide where to start
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>r <span style="color:#000;font-weight:bold">:=</span> <span style="color:#0086b3">uintptr</span>(<span style="color:#900;font-weight:bold">fastrand</span>())
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">if</span> h.B &gt; <span style="color:#099">31</span><span style="color:#000;font-weight:bold">-</span>bucketCntBits {
+</span></span><span style="display:flex;"><span>	r <span style="color:#000;font-weight:bold">+=</span> <span style="color:#0086b3">uintptr</span>(<span style="color:#900;font-weight:bold">fastrand</span>()) <span style="color:#000;font-weight:bold">&lt;&lt;</span> <span style="color:#099">31</span>
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>it.startBucket = r <span style="color:#000;font-weight:bold">&amp;</span> <span style="color:#900;font-weight:bold">bucketMask</span>(h.B)
+</span></span><span style="display:flex;"><span>it.offset = <span style="color:#0086b3">uint8</span>(r <span style="color:#000;font-weight:bold">&gt;&gt;</span> h.B <span style="color:#000;font-weight:bold">&amp;</span> (bucketCnt <span style="color:#000;font-weight:bold">-</span> <span style="color:#099">1</span>))
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic">// iterator state
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>it.bucket = it.startBucket
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在这段代码中，它生成了随机数。用于决定从哪里开始循环迭代。更具体的话就是根据随机数，选择一个桶位置作为起始点进行遍历迭代</p>
+<p>因此每次重新 <code>for range map</code>，你见到的结果都是不一样的。那是因为它的起始位置根本就不固定！</p>
+<h3 id="runtimemapiternext">runtime.mapiternext</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">func</span> <span style="color:#900;font-weight:bold">mapiternext</span>(it <span style="color:#000;font-weight:bold">*</span>hiter) {
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">for</span> ; i &lt; bucketCnt; i<span style="color:#000;font-weight:bold">++</span> {
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>		k <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">add</span>(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(b), dataOffset<span style="color:#000;font-weight:bold">+</span><span style="color:#0086b3">uintptr</span>(offi)<span style="color:#000;font-weight:bold">*</span><span style="color:#0086b3">uintptr</span>(t.keysize))
+</span></span><span style="display:flex;"><span>		v <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">add</span>(unsafe.<span style="color:#900;font-weight:bold">Pointer</span>(b), dataOffset<span style="color:#000;font-weight:bold">+</span>bucketCnt<span style="color:#000;font-weight:bold">*</span><span style="color:#0086b3">uintptr</span>(t.keysize)<span style="color:#000;font-weight:bold">+</span><span style="color:#0086b3">uintptr</span>(offi)<span style="color:#000;font-weight:bold">*</span><span style="color:#0086b3">uintptr</span>(t.valuesize))
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">if</span> (b.tophash[offi] <span style="color:#000;font-weight:bold">!=</span> evacuatedX <span style="color:#000;font-weight:bold">&amp;&amp;</span> b.tophash[offi] <span style="color:#000;font-weight:bold">!=</span> evacuatedY) <span style="color:#000;font-weight:bold">||</span>
+</span></span><span style="display:flex;"><span>			!(t.reflexivekey <span style="color:#000;font-weight:bold">||</span> alg.<span style="color:#900;font-weight:bold">equal</span>(k, k)) {
+</span></span><span style="display:flex;"><span>			<span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span>			it.key = k
+</span></span><span style="display:flex;"><span>			it.value = v
+</span></span><span style="display:flex;"><span>		} <span style="color:#000;font-weight:bold">else</span> {
+</span></span><span style="display:flex;"><span>			rk, rv <span style="color:#000;font-weight:bold">:=</span> <span style="color:#900;font-weight:bold">mapaccessK</span>(t, h, k)
+</span></span><span style="display:flex;"><span>			<span style="color:#000;font-weight:bold">if</span> rk <span style="color:#000;font-weight:bold">==</span> <span style="color:#000;font-weight:bold">nil</span> {
+</span></span><span style="display:flex;"><span>				<span style="color:#000;font-weight:bold">continue</span> <span style="color:#998;font-style:italic">// key has been deleted
+</span></span></span><span style="display:flex;"><span><span style="color:#998;font-style:italic"></span>			}
+</span></span><span style="display:flex;"><span>			it.key = rk
+</span></span><span style="display:flex;"><span>			it.value = rv
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		it.bucket = bucket
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">if</span> it.bptr <span style="color:#000;font-weight:bold">!=</span> b {
+</span></span><span style="display:flex;"><span>			it.bptr = b
+</span></span><span style="display:flex;"><span>		}
+</span></span><span style="display:flex;"><span>		it.i = i <span style="color:#000;font-weight:bold">+</span> <span style="color:#099">1</span>
+</span></span><span style="display:flex;"><span>		it.checkBucket = checkBucket
+</span></span><span style="display:flex;"><span>		<span style="color:#000;font-weight:bold">return</span>
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	b = b.<span style="color:#900;font-weight:bold">overflow</span>(t)
+</span></span><span style="display:flex;"><span>	i = <span style="color:#099">0</span>
+</span></span><span style="display:flex;"><span>	<span style="color:#000;font-weight:bold">goto</span> next
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在上小节中，咱们已经选定了起始桶的位置。接下来就是通过 <code>mapiternext</code> 进行<strong>具体的循环遍历动作</strong>。该方法主要涉及如下：</p>
+<ul>
+<li>从已选定的桶中开始进行遍历，寻找桶中的下一个元素进行处理</li>
+<li>如果桶已经遍历完，则对溢出桶 <code>overflow buckets</code> 进行遍历处理</li>
+</ul>
+<p>通过对本方法的阅读，可得知其对 buckets 的<strong>遍历规则</strong>以及对于扩容的一些处理（这不是本文重点。因此没有具体展开）</p>
+<h2 id="总结">总结</h2>
+<p>在本文开始，咱们先提出核心讨论点：“为什么 Go map 遍历输出是不固定顺序？”。而通过这一番分析，原因也很简单明了。就是 <code>for range map</code> 在开始处理循环逻辑的时候，就做了随机播种&hellip;</p>
+<p>你想问为什么要这么做？当然是官方有意为之，因为 Go 在早期（1.0）的时候，虽是稳定迭代的，但从结果来讲，其实是无法保证每个 Go 版本迭代遍历规则都是一样的。而这将会导致可移植性问题。因此，改之。也请不要依赖&hellip;</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://blog.golang.org/go-maps-in-action">Go maps in action</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/map/2019-04-07-why-map-no-order/">https://index.zshipu.com/go/posts/go/map/2019-04-07-why-map-no-order/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/map/2019-03-24-map-assign/">深入理解 Go map：赋值和扩容迁移</a></li>
+        
+        <li><a href="/go/posts/go/map/2019-03-05-map-access/">深入理解 Go map：初始化和访问元素</a></li>
+        
+        <li><a href="/go/posts/go/slice/2019-01-06-why-slice-max/">Go Slice 最大容量大小是怎么来的</a></li>
+        
+        <li><a href="/go/posts/go/pkg/2018-12-15-unsafe/">有点不安全却又一亮的 Go unsafe.Pointer</a></li>
+        
+        <li><a href="/go/posts/go/slice/2018-12-11-slice/">深入理解 Go Slice</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90'>源码分析</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

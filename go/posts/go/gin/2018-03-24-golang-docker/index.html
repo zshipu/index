@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>「连载九」将Golang应用部署到Docker | 知识铺的博客</title>
+    <meta property="og:title" content="「连载九」将Golang应用部署到Docker - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-03-24T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-03-24T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="「连载九」将Golang应用部署到Docker">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/gin/2018-03-24-golang-docker/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#涉及知识点">涉及知识点</a></li>
+    <li><a href="#本文目标">本文目标</a></li>
+    <li><a href="#docker">Docker</a></li>
+    <li><a href="#golang">Golang</a>
+      <ul>
+        <li><a href="#一编写-dockerfile">一、编写 Dockerfile</a></li>
+        <li><a href="#二构建镜像">二、构建镜像</a></li>
+        <li><a href="#三验证镜像">三、验证镜像</a></li>
+        <li><a href="#四创建并运行一个新容器">四、创建并运行一个新容器</a></li>
+      </ul>
+    </li>
+    <li><a href="#mysql">Mysql</a>
+      <ul>
+        <li><a href="#一拉取镜像">一、拉取镜像</a></li>
+        <li><a href="#二创建并运行一个新容器">二、创建并运行一个新容器</a></li>
+      </ul>
+    </li>
+    <li><a href="#golang--mysql">Golang + Mysql</a>
+      <ul>
+        <li><a href="#一删除镜像">一、删除镜像</a></li>
+        <li><a href="#二修改配置文件">二、修改配置文件</a></li>
+        <li><a href="#三重新构建镜像">三、重新构建镜像</a></li>
+        <li><a href="#四创建并运行一个新容器-1">四、创建并运行一个新容器</a></li>
+      </ul>
+    </li>
+    <li><a href="#关联">关联</a></li>
+    <li><a href="#运行">运行</a></li>
+    <li><a href="#结果">结果</a></li>
+    <li><a href="#review">Review</a>
+      <ul>
+        <li><a href="#思考">思考</a></li>
+        <li><a href="#创建超小的-golang-镜像">创建超小的 Golang 镜像</a></li>
+        <li><a href="#mysql-挂载数据卷">Mysql 挂载数据卷</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">「连载九」将Golang应用部署到Docker</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年3月24日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <h2 id="涉及知识点">涉及知识点</h2>
+<ul>
+<li>Go + Docker</li>
+</ul>
+<h2 id="本文目标">本文目标</h2>
+<p>将我们的 <code>go-gin-example</code> 应用部署到一个 Docker 里，你需要先准备好如下东西：</p>
+<ul>
+<li>你需要安装好 <code>docker</code>。</li>
+<li>如果上外网比较吃力，需要配好镜像源。</li>
+</ul>
+<h2 id="docker">Docker</h2>
+<p>在这里简单介绍下 Docker，建议深入学习</p>
+<p>
+        <img class="mx-auto" alt="image" src="https://timgsa.baidu.com/timg?image&amp;quality=80&amp;size=b9999_10000&amp;sec=1521800047226&amp;di=28b2764fccca8a943aea7d79ad8aed98&amp;imgtype=0&amp;src=http%3A%2F%2Fwww.cww.net.cn%2FupLoadFile%2F2014%2F6%2F13%2F201461382247734.png" />   
+    </p>
+<p>Docker 是一个开源的轻量级容器技术，让开发者可以打包他们的应用以及应用运行的上下文环境到一个可移植的镜像中，然后发布到任何支持 Docker 的系统上运行。 通过容器技术，在几乎没有性能开销的情况下，Docker 为应用提供了一个隔离运行环境</p>
+<ul>
+<li>简化配置</li>
+<li>代码流水线管理</li>
+<li>提高开发效率</li>
+<li>隔离应用</li>
+<li>快速、持续部署</li>
+</ul>
+<hr>
+<p>接下来我们正式开始对项目进行 <code>docker</code> 的所需处理和编写，每一个大标题为步骤大纲</p>
+<h2 id="golang">Golang</h2>
+<h3 id="一编写-dockerfile">一、编写 Dockerfile</h3>
+<p>在 <code>go-gin-example</code> 项目根目录创建 Dockerfile 文件，写入内容</p>
+<pre tabindex="0"><code>FROM golang:latest
+
+ENV GOPROXY https://goproxy.cn,direct
+WORKDIR $GOPATH/src/github.com/zshipu/go-gin-example
+COPY . $GOPATH/src/github.com/zshipu/go-gin-example
+RUN go build .
+
+EXPOSE 8000
+ENTRYPOINT [&#34;./go-gin-example&#34;]
+</code></pre><h4 id="作用">作用</h4>
+<p><code>golang:latest</code> 镜像为基础镜像，将工作目录设置为 <code>$GOPATH/src/go-gin-example</code>，并将当前上下文目录的内容复制到 <code>$GOPATH/src/go-gin-example</code> 中</p>
+<p>在进行 <code>go build</code> 编译完毕后，将容器启动程序设置为 <code>./go-gin-example</code>，也就是我们所编译的可执行文件</p>
+<p>注意 <code>go-gin-example</code> 在 <code>docker</code> 容器里编译，并没有在宿主机现场编译</p>
+<h4 id="说明">说明</h4>
+<p>Dockerfile 文件是用于定义 Docker 镜像生成流程的配置文件，文件内容是一条条指令，每一条指令构建一层，因此每一条指令的内容，就是描述该层应当如何构建；这些指令应用于基础镜像并最终创建一个新的镜像</p>
+<p>你可以认为用于快速创建自定义的 Docker 镜像</p>
+<p><strong>1、 FROM</strong></p>
+<p>指定基础镜像（必须有的指令，并且必须是第一条指令）</p>
+<p><strong>2、 WORKDIR</strong></p>
+<p>格式为 <code>WORKDIR</code> &lt;工作目录路径&gt;</p>
+<p>使用 <code>WORKDIR</code> 指令可以来<strong>指定工作目录</strong>（或者称为当前目录），以后各层的当前目录就被改为指定的目录，如果目录不存在，<code>WORKDIR</code> 会帮你建立目录</p>
+<p><strong>3、COPY</strong></p>
+<p>格式：</p>
+<pre><code>COPY &lt;源路径&gt;... &lt;目标路径&gt;
+COPY [&quot;&lt;源路径1&gt;&quot;,... &quot;&lt;目标路径&gt;&quot;]
+</code></pre>
+<p><code>COPY</code> 指令将从构建上下文目录中 &lt;源路径&gt; 的文件/目录<strong>复制</strong>到新的一层的镜像内的 &lt;目标路径&gt; 位置</p>
+<p><strong>4、RUN</strong></p>
+<p>用于执行命令行命令</p>
+<p>格式：<code>RUN</code> &lt;命令&gt;</p>
+<p><strong>5、EXPOSE</strong></p>
+<p>格式为 <code>EXPOSE</code> &lt;端口 1&gt; [&lt;端口 2&gt;&hellip;]</p>
+<p><code>EXPOSE</code> 指令是<strong>声明运行时容器提供服务端口，这只是一个声明</strong>，在运行时并不会因为这个声明应用就会开启这个端口的服务</p>
+<p>在 Dockerfile 中写入这样的声明有两个好处</p>
+<ul>
+<li>帮助镜像使用者理解这个镜像服务的守护端口，以方便配置映射</li>
+<li>运行时使用随机端口映射时，也就是 <code>docker run -P</code> 时，会自动随机映射 <code>EXPOSE</code> 的端口</li>
+</ul>
+<p><strong>6、ENTRYPOINT</strong></p>
+<p><code>ENTRYPOINT</code> 的格式和 <code>RUN</code> 指令格式一样，分为两种格式</p>
+<ul>
+<li><code>exec</code> 格式：</li>
+</ul>
+<pre tabindex="0"><code>&lt;ENTRYPOINT&gt; &#34;&lt;CMD&gt;&#34;
+</code></pre><ul>
+<li><code>shell</code> 格式：</li>
+</ul>
+<pre tabindex="0"><code>ENTRYPOINT [ &#34;curl&#34;, &#34;-s&#34;, &#34;http://ip.cn&#34; ]
+</code></pre><p><code>ENTRYPOINT</code> 指令是<strong>指定容器启动程序及参数</strong></p>
+<h3 id="二构建镜像">二、构建镜像</h3>
+<p><code>go-gin-example</code> 的项目根目录下<strong>执行</strong> <code>docker build -t gin-blog-docker .</code></p>
+<p>该命令作用是创建/构建镜像，<code>-t</code> 指定名称为 <code>gin-blog-docker</code>，<code>.</code> 构建内容为当前上下文目录</p>
+<pre tabindex="0"><code>$ docker build -t gin-blog-docker .
+Sending build context to Docker daemon 96.39 MB
+Step 1/6 : FROM golang:latest
+ ---&gt; d632bbfe5767
+Step 2/6 : WORKDIR $GOPATH/src/github.com/zshipu/go-gin-example
+ ---&gt; 56294f978c5d
+Removing intermediate container e112997b995d
+Step 3/6 : COPY . $GOPATH/src/github.com/zshipu/go-gin-example
+ ---&gt; 3b60960120cf
+Removing intermediate container 63e310b3f60c
+Step 4/6 : RUN go build .
+ ---&gt; Running in 52648a431450
+go: downloading github.com/gin-gonic/gin v1.3.0
+go: downloading github.com/go-ini/ini v1.32.1-0.20180214101753-32e4be5f41bb
+go: downloading github.com/swaggo/gin-swagger v1.0.1-0.20190110070702-0c6fcfd3c7f3
+...
+ ---&gt; 7bfbeb301fea
+Removing intermediate container 52648a431450
+Step 5/6 : EXPOSE 8000
+ ---&gt; Running in 98f5b387d1bb
+ ---&gt; b65bd4076c65
+Removing intermediate container 98f5b387d1bb
+Step 6/6 : ENTRYPOINT ./go-gin-example
+ ---&gt; Running in c4f6cdeb667b
+ ---&gt; d8a109c7697c
+Removing intermediate container c4f6cdeb667b
+Successfully built d8a109c7697c
+</code></pre><h3 id="三验证镜像">三、验证镜像</h3>
+<p>查看所有的镜像，确定刚刚构建的 <code>gin-blog-docker</code> 镜像是否存在</p>
+<pre tabindex="0"><code>$ docker images
+REPOSITORY              TAG                 IMAGE ID            CREATED              SIZE
+gin-blog-docker         latest              d8a109c7697c        About a minute ago   946 MB
+docker.io/golang        latest              d632bbfe5767        8 days ago           779 MB
+...
+</code></pre><h3 id="四创建并运行一个新容器">四、创建并运行一个新容器</h3>
+<p>执行命令 <code>docker run -p 8000:8000 gin-blog-docker</code></p>
+<pre tabindex="0"><code>$ docker run -p 8000:8000 gin-blog-docker
+dial tcp 127.0.0.1:3306: connect: connection refused
+[GIN-debug] [WARNING] Running in &#34;debug&#34; mode. Switch to &#34;release&#34; mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+...
+Actual pid is 1
+</code></pre><p>运行成功，你以为大功告成了吗？</p>
+<p>你想太多了，仔细看看控制台的输出了一条错误 <code>dial tcp 127.0.0.1:3306: connect: connection refused</code></p>
+<p>我们研判一下，发现是 <code>Mysql</code> 的问题，接下来第二项我们将解决这个问题</p>
+<h2 id="mysql">Mysql</h2>
+<h3 id="一拉取镜像">一、拉取镜像</h3>
+<p>从 <code>Docker</code> 的公共仓库 <code>Dockerhub</code> 下载 <code>MySQL</code> 镜像（国内建议配个镜像）</p>
+<pre tabindex="0"><code>$ docker pull mysql
+</code></pre><h3 id="二创建并运行一个新容器">二、创建并运行一个新容器</h3>
+<p>运行 <code>Mysql</code> 容器，并设置执行成功后返回容器 ID</p>
+<pre tabindex="0"><code>$ docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=rootroot -d mysql
+8c86ac986da4922492934b6fe074254c9165b8ee3e184d29865921b0fef29e64
+</code></pre><h4 id="连接-mysql">连接 Mysql</h4>
+<p>初始化的 <code>Mysql</code> 应该如图</p>
+<p>
+        <img class="mx-auto" alt="image" src="https://i.loli.net/2018/03/23/5ab4caab04cf1.png" />   
+    </p>
+<h2 id="golang--mysql">Golang + Mysql</h2>
+<h3 id="一删除镜像">一、删除镜像</h3>
+<p>由于原本的镜像存在问题，我们需要删除它，此处有几种做法</p>
+<ul>
+<li>删除原本有问题的镜像，重新构建一个新镜像</li>
+<li>重新构建一个不同 <code>name</code>、<code>tag</code> 的新镜像</li>
+</ul>
+<p>删除原本的有问题的镜像，<code>-f</code> 是强制删除及其关联状态</p>
+<p>若不执行 <code>-f</code>，你需要执行 <code>docker ps -a</code> 查到所关联的容器，将其 <code>rm</code> 解除两者依赖关系</p>
+<pre tabindex="0"><code>$ docker rmi -f gin-blog-docker
+Untagged: gin-blog-docker:latest
+Deleted: sha256:d8a109c7697c3c2d9b4de7dbb49669d10106902122817b6467a031706bc52ab4
+Deleted: sha256:b65bd4076c65a3c24029ca4def3b3f37001ff7c9eca09e2590c4d29e1e23dce5
+Deleted: sha256:7bfbeb301fea9d8912a4b7c43e4bb8b69bdc57f0b416b372bfb6510e476a7dee
+Deleted: sha256:3b60960120cf619181c1762cdc1b8ce318b8c815e056659809252dd321bcb642
+Deleted: sha256:56294f978c5dfcfa4afa8ad033fd76b755b7ecb5237c6829550741a4d2ce10bc
+</code></pre><h3 id="二修改配置文件">二、修改配置文件</h3>
+<p>将项目的配置文件 <code>conf/app.ini</code>，内容修改为</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ini" data-lang="ini"><span style="display:flex;"><span><span style="color:#998;font-style:italic">#debug or release</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">RUN_MODE</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">debug</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[app]</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">PAGE_SIZE</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">10</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">JWT_SECRET</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">233</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[server]</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">HTTP_PORT</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">8000</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">READ_TIMEOUT</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">60</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">WRITE_TIMEOUT</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">60</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[database]</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">TYPE</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">mysql</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">USER</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">root</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">PASSWORD</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">rootroot</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">HOST</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">mysql:3306</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">NAME</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">blog</span>
+</span></span><span style="display:flex;"><span><span style="color:#008080">TABLE_PREFIX</span> <span style="color:#000;font-weight:bold">=</span> <span style="color:#d14">blog_</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="三重新构建镜像">三、重新构建镜像</h3>
+<p>重复先前的步骤，回到 <code>gin-blog</code> 的项目根目录下<strong>执行</strong> <code>docker build -t gin-blog-docker .</code></p>
+<h3 id="四创建并运行一个新容器-1">四、创建并运行一个新容器</h3>
+<h2 id="关联">关联</h2>
+<p>Q：我们需要将 <code>Golang</code> 容器和 <code>Mysql</code> 容器关联起来，那么我们需要怎么做呢？</p>
+<p>A：增加命令 <code>--link mysql:mysql</code> 让 <code>Golang</code> 容器与 <code>Mysql</code> 容器互联；通过 <code>--link</code>，<strong>可以在容器内直接使用其关联的容器别名进行访问</strong>，而不通过 IP，但是<code>--link</code>只能解决单机容器间的关联，在分布式多机的情况下，需要通过别的方式进行连接</p>
+<h2 id="运行">运行</h2>
+<p>执行命令 <code>docker run --link mysql:mysql -p 8000:8000 gin-blog-docker</code></p>
+<pre tabindex="0"><code>$ docker run --link mysql:mysql -p 8000:8000 gin-blog-docker
+[GIN-debug] [WARNING] Running in &#34;debug&#34; mode. Switch to &#34;release&#34; mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+...
+Actual pid is 1
+</code></pre><h2 id="结果">结果</h2>
+<p>检查启动输出、接口测试、数据库内数据，均正常；我们的 <code>Golang</code> 容器和 <code>Mysql</code> 容器成功关联运行，大功告成 :)</p>
+<hr>
+<h2 id="review">Review</h2>
+<h3 id="思考">思考</h3>
+<p>虽然应用已经能够跑起来了</p>
+<p>但如果对 <code>Golang</code> 和 <code>Docker</code> 有一定的了解，我希望你能够想到至少 2 个问题</p>
+<ul>
+<li>为什么 <code>gin-blog-docker</code> 占用空间这么大？（可用 <code>docker ps -as | grep gin-blog-docker</code> 查看）</li>
+<li><code>Mysql</code> 容器直接这么使用，数据存储到哪里去了？</li>
+</ul>
+<h3 id="创建超小的-golang-镜像">创建超小的 Golang 镜像</h3>
+<p>Q：第一个问题，为什么这么镜像体积这么大？</p>
+<p>A：<code>FROM golang:latest</code> 拉取的是官方 <code>golang</code> 镜像，包含 Golang 的编译和运行环境，外加一堆 GCC、build 工具，相当齐全</p>
+<p>这是有问题的，<strong>我们可以不在 Golang 容器中现场编译的</strong>，压根用不到那些东西，我们只需要一个能够运行可执行文件的环境即可</p>
+<h4 id="构建-scratch-镜像">构建 Scratch 镜像</h4>
+<p>Scratch 镜像，简洁、小巧，基本是个空镜像</p>
+<h5 id="一修改-dockerfile">一、修改 Dockerfile</h5>
+<pre tabindex="0"><code>FROM scratch
+
+WORKDIR $GOPATH/src/github.com/zshipu/go-gin-example
+COPY . $GOPATH/src/github.com/zshipu/go-gin-example
+
+EXPOSE 8000
+CMD [&#34;./go-gin-example&#34;]
+</code></pre><h5 id="二编译可执行文件">二、编译可执行文件</h5>
+<pre tabindex="0"><code>CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o go-gin-example .
+</code></pre><p>编译所生成的可执行文件会依赖一些库，并且是动态链接。在这里因为使用的是 <code>scratch</code> 镜像，它是空镜像，因此我们需要将生成的可执行文件静态链接所依赖的库</p>
+<h5 id="三构建镜像">三、构建镜像</h5>
+<pre tabindex="0"><code>$ docker build -t gin-blog-docker-scratch .
+Sending build context to Docker daemon 133.1 MB
+Step 1/5 : FROM scratch
+ ---&gt;
+Step 2/5 : WORKDIR $GOPATH/src/github.com/zshipu/go-gin-example
+ ---&gt; Using cache
+ ---&gt; ee07e166a638
+Step 3/5 : COPY . $GOPATH/src/github.com/zshipu/go-gin-example
+ ---&gt; 1489a0693d51
+Removing intermediate container e3e9efc0fe4d
+Step 4/5 : EXPOSE 8000
+ ---&gt; Running in b5630de5544a
+ ---&gt; 6993e9f8c944
+Removing intermediate container b5630de5544a
+Step 5/5 : CMD ./go-gin-example
+ ---&gt; Running in eebc0d8628ae
+ ---&gt; 5310bebeb86a
+Removing intermediate container eebc0d8628ae
+Successfully built 5310bebeb86a
+</code></pre><p>注意，假设你的 Golang 应用没有依赖任何的配置等文件，是可以直接把可执行文件给拷贝进去即可，其他都不必关心</p>
+<p>这里可以有好几种解决方案</p>
+<ul>
+<li>依赖文件统一管理挂载</li>
+<li>go-bindata 一下</li>
+</ul>
+<p>&hellip;</p>
+<p>因此这里如果<strong>解决了文件依赖的问题</strong>后，就不需要把目录给 <code>COPY</code> 进去了</p>
+<h5 id="四运行">四、运行</h5>
+<pre tabindex="0"><code>$ docker run --link mysql:mysql -p 8000:8000 gin-blog-docker-scratch
+[GIN-debug] [WARNING] Running in &#34;debug&#34; mode. Switch to &#34;release&#34; mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /auth                     --&gt; github.com/zshipu/go-gin-example/routers/api.GetAuth (3 handlers)
+...
+</code></pre><p>成功运行，程序也正常接收请求</p>
+<p>接下来我们再看看占用大小，执行 <code>docker ps -as</code> 命令</p>
+<pre tabindex="0"><code>$ docker ps -as
+CONTAINER ID        IMAGE                     COMMAND                  ...         SIZE
+9ebdba5a8445        gin-blog-docker-scratch   &#34;./go-gin-example&#34;       ...     0 B (virtual 132 MB)
+427ee79e6857        gin-blog-docker           &#34;./go-gin-example&#34;       ...     0 B (virtual 946 MB)
+</code></pre><p>从结果而言，占用大小以<code>Scratch</code>镜像为基础的容器完胜，完成目标</p>
+<h3 id="mysql-挂载数据卷">Mysql 挂载数据卷</h3>
+<p>倘若不做任何干涉，在每次启动一个 <code>Mysql</code> 容器时，数据库都是空的。另外容器删除之后，数据就丢失了（还有各类意外情况），非常糟糕！</p>
+<h4 id="数据卷">数据卷</h4>
+<p>数据卷 是被设计用来持久化数据的，它的生命周期独立于容器，Docker 不会在容器被删除后自动删除 数据卷，并且也不存在垃圾回收这样的机制来处理没有任何容器引用的 数据卷。如果需要在删除容器的同时移除数据卷。可以在删除容器的时候使用 <code>docker rm -v</code> 这个命令</p>
+<p>数据卷 是一个可供一个或多个容器使用的特殊目录，它绕过 UFS，可以提供很多有用的特性：</p>
+<ul>
+<li>
+<p>数据卷 可以在容器之间共享和重用</p>
+</li>
+<li>
+<p>对 数据卷 的修改会立马生效</p>
+</li>
+<li>
+<p>对 数据卷 的更新，不会影响镜像</p>
+</li>
+<li>
+<p>数据卷 默认会一直存在，即使容器被删除</p>
+</li>
+</ul>
+<blockquote>
+<p>注意：数据卷 的使用，类似于 Linux 下对目录或文件进行 mount，镜像中的被指定为挂载点的目录中的文件会隐藏掉，能显示看的是挂载的 数据卷。</p>
+</blockquote>
+<h4 id="如何挂载">如何挂载</h4>
+<p>首先创建一个目录用于存放数据卷；示例目录 <code>/data/docker-mysql</code>，注意 <code>--name</code> 原本名称为 <code>mysql</code> 的容器，需要将其删除 <code>docker rm</code></p>
+<pre tabindex="0"><code>$ docker run --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=rootroot -v /data/docker-mysql:/var/lib/mysql -d mysql
+54611dbcd62eca33fb320f3f624c7941f15697d998f40b24ee535a1acf93ae72
+</code></pre><p>创建成功，检查目录 <code>/data/docker-mysql</code>，下面多了不少数据库文件</p>
+<h4 id="验证">验证</h4>
+<p>接下来交由你进行验证，目标是创建一些测试表和数据，然后删除当前容器，重新创建的容器，数据库数据也依然存在（当然了数据卷指向要一致）</p>
+<p>我已验证完毕，你呢？</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/gin/2018-03-24-golang-docker/">https://index.zshipu.com/go/posts/go/gin/2018-03-24-golang-docker/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/gin/2018-03-18-swagger/">「连载八」为它加上Swagger</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-03-15-reload-http/">「连载七」优雅的重启服务</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-15-log/">「连载六」编写一个简单的文件日志</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-14-jwt/">「连载五」使用 JWT 进行身份校验</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-02-13-api-03/">「连载四」Gin搭建Blog API&#39;s （三）</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+                <li><a href='/go/tags/gin'>gin</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

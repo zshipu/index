@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Go1.16 新特性：详解内存管理机制的变更，你需要了解 | 知识铺的博客</title>
+    <meta property="og:title" content="Go1.16 新特性：详解内存管理机制的变更，你需要了解 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2021-02-11T16:13:20&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2021-02-11T16:13:20&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Go1.16 新特性：详解内存管理机制的变更，你需要了解">
+        
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/go1.16-3/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#灵魂拷问">灵魂拷问</a></li>
+    <li><a href="#madvise-爱与恨">madvise 爱与恨</a></li>
+    <li><a href="#所带来的影响">所带来的影响</a>
+      <ul>
+        <li><a href="#go112-以前">Go1.12 以前</a></li>
+        <li><a href="#go112-go115">Go1.12-Go1.15</a></li>
+      </ul>
+    </li>
+    <li><a href="#带来的副作用">带来的副作用</a></li>
+    <li><a href="#go116峰回路转">Go1.16：峰回路转</a></li>
+    <li><a href="#总结">总结</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Go1.16 新特性：详解内存管理机制的变更，你需要了解</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2021年2月11日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>大家好，我是正在学习如何蒸鱼的知识铺。</p>
+<p>在前面 Go1.16 特性介绍的文章中我们有提到，从 v1.16 起，Go 在 Linux 下的默认内存管理策略会从<code>MADV_FREE</code> 改回 <code>MADV_DONTNEED</code> 策略。</p>
+<p>这时候可能至少分两拨小伙伴，分别是：</p>
+<ul>
+<li>知道是什么，被这个问题 “折磨“ 过的，瞬间眼前一亮。</li>
+<li>不知道是什么，出现了各种疑惑了，这说的都是些什么。</li>
+</ul>
+<h2 id="灵魂拷问">灵魂拷问</h2>
+<p>你有没有以下的疑问，或者是否清楚：</p>
+<ul>
+<li>文中所说的 <code>MADV_FREE</code> 是什么？</li>
+<li>文中所说的 <code>MADV_DONTNEED</code> 是什么？</li>
+<li>为什么特指 Go 语言的 Linux 环境？</li>
+<li>为什么是说从 <code>MADV_FREE</code>改回 <code>MADV_DONTNEED</code>？</li>
+</ul>
+<p>在今天这篇文章中我们都将进一步的展开和说明，让我们一同来了解这个改来改去的内存机制到底是何物。</p>
+<h2 id="madvise-爱与恨">madvise 爱与恨</h2>
+<p>在 Linux 系统中，在 Go Runtime 中通过系统调用 <code>madvise(addr, length, advise)</code> 方法，能够告诉内核如何处理从 addr 开始的 length 字节。</p>
+<p>重点之一就是 ”如何处理“，在 Linux 下 Go 语言中目前支持两种策略，分别是：</p>
+<ul>
+<li>MADV_FREE：内核会在进程的页表中将这些页标记为“未分配”，从而进程的 RSS 就会变小。OS 后续可以将对应的物理页分配给其他进程。</li>
+<li>MADV_DONTNEED：内核只会在页表中将这些进程页面标记为可回收，在需要的时候才回收这些页面。</li>
+</ul>
+<h2 id="所带来的影响">所带来的影响</h2>
+<p>Go 语言官方恰好就在 2019 年的 Go1.12 做了如下调整。</p>
+<ul>
+<li>Go1.12 以前。</li>
+<li>Go.12-Go1.15.</li>
+</ul>
+<h3 id="go112-以前">Go1.12 以前</h3>
+<p>Go Runtime 在 Linux 上默认使用的是 <code>MADV_DONTNEED</code> 策略。</p>
+<pre tabindex="0"><code>  // 没有任何奇奇怪怪的判断
+	madvise(v, n, _MADV_DONTNEED)
+</code></pre><p>从整体效果来看，进程 RSS 可以下降的比较快，但从性能效率上来看差点。</p>
+<h3 id="go112-go115">Go1.12-Go1.15</h3>
+<p>当前 Linux 内核版本 &gt;=4.5 时，Go Runtime 在 Linux 上默认使用了性能更为高效的 MADV_FREE 策略。</p>
+<pre tabindex="0"><code>	var advise uint32
+	if debug.madvdontneed != 0 {
+		advise = _MADV_DONTNEED
+	} else {
+		advise = atomic.Load(&amp;adviseUnused)
+	}
+	if errno := madvise(v, n, int32(advise)); advise == _MADV_FREE &amp;&amp; errno != 0 {
+		// MADV_FREE was added in Linux 4.5. Fall back to MADV_DONTNEED if it is
+		// not supported.
+		atomic.Store(&amp;adviseUnused, _MADV_DONTNEED)
+		madvise(v, n, _MADV_DONTNEED)
+	}
+</code></pre><p>从整体效果来看，进程RSS 不会立刻下降，要等到系统有内存压力了才会释放占用，RSS 才会下降。</p>
+<h2 id="带来的副作用">带来的副作用</h2>
+<p>故事往往不是那么的美好，显然在 Go1.12 起针对 <code>madvise</code> 的 <code>MADV_FREE</code> 策略的调整非常 “片面”。</p>
+<p>
+        <img class="mx-auto" alt="来自社区小伙伴" src="https://static01.imgkr.com/temp/5b82f6e181bd406db94e31bca3a4b2ab.png" />   
+    </p>
+<p>结合社区里所遇到的案例可得知，该次调整带来了许多问题：</p>
+<ul>
+<li><strong>引发用户体验的问题</strong>：Go issues 上总是出现以为内存泄露，但其实只是未满足条件，内存没有马上释放的案例。</li>
+<li><strong>混淆统计信息和监控工具的情况</strong>：在 Grafana 等监控上，发现容器进程内存较高，释放很慢，告警了，很慌。</li>
+<li><strong>导致与内存使用有关联的个别管理系统集成不良</strong>：例如 Kubernetes HPA ，或者自定义了扩缩容策略这类模式，难以评估。</li>
+<li><strong>挤压同主机上的其他应用资源</strong>：并不是所有的 Go 程序都一定独立跑在单一主机中，自然就会导致同一台主机上的其他应用受到挤压，这是难以评估的。</li>
+</ul>
+<p>从社区反馈来看是问题多多，弊大于利。</p>
+<p>官方本想着想着性能更好一些，但是在现实场景中引发了不少的新问题，甚至有提到和 Android 流程管理不兼容的情况。</p>
+<p>有种 “捡了芝麻，丢了西瓜” 的感觉。</p>
+<h2 id="go116峰回路转">Go1.16：峰回路转</h2>
+<p>既然社区反馈的问题何其多，有没有人提呢？有，超级多。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://imgkr2.cn-bj.ufileos.com/75ee9ea5-a12c-4de1-806f-eeb85f80e61f.png?UCloudPublicKey=TOKEN_8d8b72be-579a-4e83-bfd0-5f6ce1546f13&amp;Signature=%252BqN8BOgO5kZXIUhuHy1QyxOOZ30%253D&amp;Expires=1612673513" />   
+    </p>
+<p>多到提出修改回 <code>MADV_DONTNEED</code> 的 issues 仅花了 1-2 天的时间就讨论完毕。</p>
+<p>很快得出结论且合并 CL 关闭 issues 了。</p>
+<p>Go1.16 修改内容如下：</p>
+<pre tabindex="0"><code>func parsedebugvars() {
+	// defaults
+	debug.cgocheck = 1
+	debug.invalidptr = 1
+	if GOOS == &#34;linux&#34; {
+		debug.madvdontneed = 1
+	}
+  ...
+}
+</code></pre><p>直接指定回了 <code>debug.madvdontneed = 1</code>，简单粗暴。</p>
+<h2 id="总结">总结</h2>
+<p>在本篇文章中，我们针对 Go 语言在 Linux 下的 <code>madvise</code> 方法的策略调整进行了历史介绍和说明，同时针对其调整所带来的的副作用及应对措施进行了一一介绍。</p>
+<p>本次变更很好的印证了，牵一发动全身的说法。大家在后续应用这块时也要多加注意。</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="https://github.com/golang/go/issues/42330">runtime: default to MADV_DONTNEED on Linux</a></li>
+<li><a href="https://www.v2ex.com/t/666257?p=1">踩坑记： go 服务内存暴涨</a></li>
+<li><a href="https://ms2008.github.io/2019/06/30/golang-madvfree/">Go 1.12 关于内存释放的一个改进</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/go1.16-3/">https://index.zshipu.com/go/posts/go/go1.16-3/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/go1.16-2/">Go1.16 新特性：快速上手 Go embed</a></li>
+        
+        <li><a href="/go/posts/go/go1.16-1/">Go1.16 即将正式发布，以下变更你需要知道</a></li>
+        
+        <li><a href="/go/posts/go/go-error2panic/">Go 错误处理：用 panic 取代 err != nil 的模式</a></li>
+        
+        <li><a href="/go/posts/go/go-concurrent-lock/">Go 并发：一些有趣的现象和要避开的 “坑”</a></li>
+        
+        <li><a href="/go/posts/go/go2-errors/">先睹为快，Go2 Error 的挣扎之路</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

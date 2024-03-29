@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>用 Go 来了解一下 Redis 通讯协议 | 知识铺的博客</title>
+    <meta property="og:title" content="用 Go 来了解一下 Redis 通讯协议 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2018-06-07T12:00:00&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2018-06-07T12:00:00&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="用 Go 来了解一下 Redis 通讯协议">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/go/posts/go/talk/2018-06-07-go-redis-protocol/">
+    <link rel="shortcut icon" href='/go/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/go/css/normalize.css'>
+    <link rel="stylesheet" href='/go/css/style.css'>
+
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/go/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="" href="https://index.zshipu.com/go/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/go/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/go/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#介绍">介绍</a></li>
+    <li><a href="#协议">协议</a>
+      <ul>
+        <li><a href="#请求协议">请求协议</a></li>
+        <li><a href="#回复">回复</a></li>
+      </ul>
+    </li>
+    <li><a href="#实践">实践</a>
+      <ul>
+        <li><a href="#与-redis-服务器交互">与 Redis 服务器交互</a></li>
+        <li><a href="#请求">请求</a></li>
+        <li><a href="#回复-1">回复</a></li>
+      </ul>
+    </li>
+    <li><a href="#小结">小结</a></li>
+    <li><a href="#参考">参考</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">用 Go 来了解一下 Redis 通讯协议</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2018年6月7日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="clear" style="display: none">
+            <div class="toc-article">
+                <div class="toc-title">文章目录</div>
+            </div>
+        </div>
+        
+        <div class="post-content">
+            <p>Go、PHP、Java&hellip; 都有那么多包来支撑你使用 Redis，那你是否有想过</p>
+<p>有了服务端，有了客户端，他们俩是怎样通讯，又是基于什么通讯协议做出交互的呢？</p>
+<h2 id="介绍">介绍</h2>
+<p>基于我们的目的，本文主要讲解和实践 Redis 的通讯协议</p>
+<p>Redis 的客户端和服务端是通过 TCP 连接来进行数据交互， 服务器默认的端口号为 6379</p>
+<p>客户端和服务器发送的命令或数据一律以 \r\n （CRLF）结尾（这是一条约定）</p>
+<h2 id="协议">协议</h2>
+<p>在 Redis 中分为<strong>请求</strong>和<strong>回复</strong>，而请求协议又分为新版和旧版，新版统一请求协议在 Redis 1.2 版本中引入，最终在 Redis 2.0 版本成为 Redis 服务器通信的标准方式</p>
+<p>本文是基于新版协议来实现功能，不建议使用旧版（1.2 挺老旧了）。如下是新协议的各种范例：</p>
+<h3 id="请求协议">请求协议</h3>
+<p>1、 格式示例</p>
+<pre tabindex="0"><code>*&lt;参数数量&gt; CR LF
+$&lt;参数 1 的字节数量&gt; CR LF
+&lt;参数 1 的数据&gt; CR LF
+...
+$&lt;参数 N 的字节数量&gt; CR LF
+&lt;参数 N 的数据&gt; CR LF
+</code></pre><p>在该协议下所有发送至 Redis 服务器的参数都是二进制安全（binary safe）的</p>
+<p>2、打印示例</p>
+<pre tabindex="0"><code>*3
+$3
+SET
+$5
+mykey
+$7
+myvalue
+</code></pre><p>3、实际协议值</p>
+<pre tabindex="0"><code>&#34;*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n&#34;
+</code></pre><p>这就是 Redis 的请求协议规范，按照范例1编写客户端逻辑，最终发送的是范例3，相信你已经有大致的概念了，Redis 的协议非常的简洁易懂，这也是好上手的原因之一，你可以想想协议这么定义的好处在哪？</p>
+<h3 id="回复">回复</h3>
+<p>Redis 会根据你请求协议的不同（执行的命令结果也不同），返回多种不同类型的回复。在这个回复“协议”中，可以通过检查第一个字节，确定这个回复是什么类型，如下：</p>
+<ul>
+<li>状态回复（status reply）的第一个字节是 &ldquo;+&rdquo;</li>
+<li>错误回复（error reply）的第一个字节是 &ldquo;-&rdquo;</li>
+<li>整数回复（integer reply）的第一个字节是 &ldquo;:&rdquo;</li>
+<li>批量回复（bulk reply）的第一个字节是 &ldquo;$&rdquo;</li>
+<li>多条批量回复（multi bulk reply）的第一个字节是 &ldquo;*&rdquo;</li>
+</ul>
+<p>有了回复的头部标识，结尾的 CRLF，你可以大致猜想出回复“协议”是怎么样的，但是实践才能得出真理，斎知道怕是你很快就忘记了 😀</p>
+<h2 id="实践">实践</h2>
+<h3 id="与-redis-服务器交互">与 Redis 服务器交互</h3>
+<pre tabindex="0"><code>package main
+
+import (
+	&#34;log&#34;
+	&#34;net&#34;
+	&#34;os&#34;
+
+	&#34;github.com/zshipu/redis-protocol-example/protocol&#34;
+)
+
+const (
+	Address = &#34;127.0.0.1:6379&#34;
+	Network = &#34;tcp&#34;
+)
+
+func Conn(network, address string) (net.Conn, error) {
+	conn, err := net.Dial(network, address)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func main() {
+        // 读取入参
+	args := os.Args[1:]
+	if len(args) &lt;= 0 {
+		log.Fatalf(&#34;Os.Args &lt;= 0&#34;)
+	}
+    
+        // 获取请求协议
+	reqCommand := protocol.GetRequest(args)
+	
+	// 连接 Redis 服务器
+	redisConn, err := Conn(Network, Address)
+	if err != nil {
+		log.Fatalf(&#34;Conn err: %v&#34;, err)
+	}
+	defer redisConn.Close()
+    
+        // 写入请求内容
+	_, err = redisConn.Write(reqCommand)
+	if err != nil {
+		log.Fatalf(&#34;Conn Write err: %v&#34;, err)
+	}
+    
+        // 读取回复
+	command := make([]byte, 1024)
+	n, err := redisConn.Read(command)
+	if err != nil {
+		log.Fatalf(&#34;Conn Read err: %v&#34;, err)
+	}
+    
+        // 处理回复
+	reply, err := protocol.GetReply(command[:n])
+	if err != nil {
+		log.Fatalf(&#34;protocol.GetReply err: %v&#34;, err)
+	}
+    
+        // 处理后的回复内容
+	log.Printf(&#34;Reply: %v&#34;, reply)
+	// 原始的回复内容
+	log.Printf(&#34;Command: %v&#34;, string(command[:n]))
+}
+</code></pre><p>在这里我们完成了整个 Redis 客户端和服务端交互的流程，分别如下：</p>
+<p>1、读取命令行参数：获取执行的 Redis 命令</p>
+<p>2、获取请求协议参数</p>
+<p>3、连接 Redis 服务器，获取连接句柄</p>
+<p>4、将请求协议参数写入连接：发送请求的命令行参数</p>
+<p>5、从连接中读取返回的数据：读取先前请求的回复数据</p>
+<p>6、根据回复“协议”内容，处理回复的数据集</p>
+<p>7、输出处理后的回复内容及原始回复内容</p>
+<h3 id="请求">请求</h3>
+<pre tabindex="0"><code>func GetRequest(args []string) []byte {
+	req := []string{
+		&#34;*&#34; + strconv.Itoa(len(args)),
+	}
+
+	for _, arg := range args {
+		req = append(req, &#34;$&#34;+strconv.Itoa(len(arg)))
+		req = append(req, arg)
+	}
+
+	str := strings.Join(req, &#34;\r\n&#34;)
+	return []byte(str + &#34;\r\n&#34;)
+}
+</code></pre><p>通过对 Redis 的请求协议的分析，可得出它的规律，先加上标志位，计算参数总数量，再循环合并各个参数的字节数量、值就可以了</p>
+<h3 id="回复-1">回复</h3>
+<pre tabindex="0"><code>func GetReply(reply []byte) (interface{}, error) {
+	replyType := reply[0]
+	switch replyType {
+	case StatusReply:
+		return doStatusReply(reply[1:])
+	case ErrorReply:
+		return doErrorReply(reply[1:])
+	case IntegerReply:
+		return doIntegerReply(reply[1:])
+	case BulkReply:
+		return doBulkReply(reply[1:])
+	case MultiBulkReply:
+		return doMultiBulkReply(reply[1:])
+	default:
+		return nil, nil
+	}
+}
+
+func doStatusReply(reply []byte) (string, error) {
+	if len(reply) == 3 &amp;&amp; reply[1] == &#39;O&#39; &amp;&amp; reply[2] == &#39;K&#39; {
+		return OkReply, nil
+	}
+
+	if len(reply) == 5 &amp;&amp; reply[1] == &#39;P&#39; &amp;&amp; reply[2] == &#39;O&#39; &amp;&amp; reply[3] == &#39;N&#39; &amp;&amp; reply[4] == &#39;G&#39; {
+		return PongReply, nil
+	}
+
+	return string(reply), nil
+}
+
+func doErrorReply(reply []byte) (string, error) {
+	return string(reply), nil
+}
+
+func doIntegerReply(reply []byte) (int, error) {
+	pos := getFlagPos(&#39;\r&#39;, reply)
+	result, err := strconv.Atoi(string(reply[:pos]))
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
+}
+
+...
+</code></pre><p>在这里我们对所有回复类型进行了分发，不同的回复标志位对应不同的处理方式，在这里需求注意几项问题，如下：</p>
+<p>1、当请求的值不存在，会将特殊值 -1 用作回复</p>
+<p>2、服务器发送的所有字符串都由 CRLF 结尾</p>
+<p>3、多条批量回复是可基于批量回复的，要注意理解</p>
+<p>4、无内容的多条批量回复是存在的</p>
+<p>最重要的是，对不同回复的规则的把控，能够让你更好的理解 Redis 的请求、回复的交互过程 👌</p>
+<h2 id="小结">小结</h2>
+<p>写这篇文章的起因，是因为常常在使用 Redis 时，只是用，你不知道它是基于什么样的通讯协议来通讯，这样的感觉是十分难受的</p>
+<p>通过本文的讲解，我相信你已经大致了解 Redis 客户端是怎么样和服务端交互，也清楚了其所用的通讯原理，希望能够对你有所帮助！</p>
+<p>最后，如果想详细查看代码，右拐项目地址：https://github.com/zshipu/redis-protocol-example</p>
+<p>如果对你有所帮助，欢迎点个 Star 👍</p>
+<h2 id="参考">参考</h2>
+<ul>
+<li><a href="http://doc.redisfans.com/topic/protocol.html">通信协议</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/go/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/go/posts/go/talk/2018-06-07-go-redis-protocol/">https://index.zshipu.com/go/posts/go/talk/2018-06-07-go-redis-protocol/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/go/posts/go/gin/2018-06-02-application-redis/">「连载十三」优化你的应用结构和实现Redis缓存</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-05-27-config-upload/">「连载十二」优化配置结构及实现图片上传</a></li>
+        
+        <li><a href="/go/posts/go/talk/2018-05-21-go-fake-useragent/">Go 的 fake-useragent 了解一下</a></li>
+        
+        <li><a href="/go/posts/go/gin/2018-04-29-cron/">「连载十一」Cron定时任务</a></li>
+        
+        <li><a href="/go/posts/go/crawler/2018-04-28-go2018/">了解一下Golang的市场行情</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/go/tags/go'>go</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/go/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/go/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/go/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/go/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-3/" title="Go1.16 新特性：详解内存管理机制的变更，你需要了解">Go1.16 新特性：详解内存管理机制的变更，你需要了解</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-2/" title="Go1.16 新特性：快速上手 Go embed">Go1.16 新特性：快速上手 Go embed</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go1.16-1/" title="Go1.16 即将正式发布，以下变更你需要知道">Go1.16 即将正式发布，以下变更你需要知道</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/generics-proposal/" title="快报：正式提案将泛型特性加入 Go 语言">快报：正式提案将泛型特性加入 Go 语言</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2021-ecug/" title="推荐一个牛逼的技术社区！">推荐一个牛逼的技术社区！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/news/2020-top100/" title="吐血整理 | 快速了解全球软件案例（Top100）">吐血整理 | 快速了解全球软件案例（Top100）</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-error2panic/" title="Go 错误处理：用 panic 取代 err != nil 的模式">Go 错误处理：用 panic 取代 err != nil 的模式</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go-concurrent-lock/" title="Go 并发：一些有趣的现象和要避开的 “坑”">Go 并发：一些有趣的现象和要避开的 “坑”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/go2-errors/" title="先睹为快，Go2 Error 的挣扎之路">先睹为快，Go2 Error 的挣扎之路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/go/posts/go/gophercon2020-errors/" title="重磅：Go errors 将不会有任何进一步的改进计划">重磅：Go errors 将不会有任何进一步的改进计划</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/go/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/go/tags/ecug/">Ecug</a>
+    
+    <a href="https://index.zshipu.com/go/tags/gin/">Gin</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go/">Go</a>
+    
+    <a href="https://index.zshipu.com/go/tags/go-modules/">Go-Modules</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc/">Grpc</a>
+    
+    <a href="https://index.zshipu.com/go/tags/grpc-gateway/">Grpc-Gateway</a>
+    
+    <a href="https://index.zshipu.com/go/tags/kubernetes/">Kubernetes</a>
+    
+    <a href="https://index.zshipu.com/go/tags/prometheus/">Prometheus</a>
+    
+    <a href="https://index.zshipu.com/go/tags/protobuf/">Protobuf</a>
+    
+    <a href="https://index.zshipu.com/go/tags/top100/">Top100</a>
+    
+    <a href="https://index.zshipu.com/go/tags/untagged/">Untagged</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86/">服务治理</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B3%9B%E5%9E%8B/">泛型</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E5%AF%86/">深度解密</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90/">源码分析</a>
+    
+    <a href="https://index.zshipu.com/go/tags/%E7%A8%8B%E5%BA%8F%E5%91%98%E7%9A%84%E8%87%AA%E6%88%91%E4%BF%AE%E5%85%BB/">程序员的自我修养</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/go/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
