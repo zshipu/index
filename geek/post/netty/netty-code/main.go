@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/option"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -17,9 +20,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -356,6 +356,11 @@ func replaceAurl(markdown string) string {
 			// 返回替换后的字符串
 			return fmt.Sprintf("[%s](%s)", text, url)
 		}
+		if strings.Contains(url, "cdn.jsdelivr.net") {
+			fmt.Println("local img url:" + url)
+			// 返回替换后的字符串
+			return fmt.Sprintf("[%s](%s)", text, url)
+		}
 
 		// 替换 URL
 		url = newURL + url
@@ -520,8 +525,19 @@ func PicGoUploadLocal(imagePathparm, currentDir string) (string, error) {
 	return uploadResp.Result[0], nil
 }
 
+func extractUrl(s string) string {
+	index := strings.Index(s, " ")
+	if index <= 0 {
+		return s
+	}
+	return s[:index]
+}
+
 // PicGoUpload 上传图片到PicGo并返回新的URL
 func PicGoUpload(imagePath string) (string, error) {
+	if len(imagePath) > 0 {
+		imagePath = extractUrl(imagePath)
+	}
 	// 构造请求体
 	requestBody, err := json.Marshal(map[string][]string{
 		"list": {imagePath},
@@ -681,7 +697,7 @@ func InitTime() bool {
 	now := time.Now()
 
 	// 计算前一天的时间
-	yesterday := now.AddDate(0, 0, -1)
+	yesterday := now.AddDate(0, 0, 0)
 
 	// 格式化时间输出
 	fmt.Println("Yesterday at this time was:", yesterday.Format("2006-01-02 15:04:05"))
@@ -844,6 +860,25 @@ type DifyResult struct {
 	Tags  string `json:"tags"`
 }
 
+func extractJSON(input string) []string {
+	var jsonMatches []string
+	stack := make([]int, 0)
+
+	for i, r := range input {
+		if r == '{' {
+			stack = append(stack, i)
+		} else if r == '}' {
+			if len(stack) > 0 {
+				start := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+				jsonMatches = append(jsonMatches, input[start:i+1])
+			}
+		}
+	}
+
+	return jsonMatches
+}
+
 func getKeysDify(content string) (DifyResult, error) {
 
 	// Replace {api_key} with your actual Dify API key
@@ -856,8 +891,12 @@ func getKeysDify(content string) (DifyResult, error) {
 		Inputs: map[string]interface{}{
 			"": "",
 		},
-		Query: content + "  请总结标题并提取5个关键词，输出json格式，如：{\"title\":\"标题\",\"tags\":\"云服务, 金融科技, AI技术, 企业服务, 稳步增长\"}，结果只能有json结构，不需要多出任意其他字符，导致提供给外部的json结构校验失败。" +
-			"无论何时都不能出现下面这种代码块标识符： ```json  和 ``` ,结果只保留最纯粹的json结构。 ", //请提取5个关键词，返回逗号拼接的字符串
+		Query: content + ` 
+请根据上面内容
+1.总结标题并提取3个关键词
+2.必须是严格的JSON格式
+3.JSON格式如：{\"title\":\"标题\",\"tags\":\"云服务, 金融科技, AI技术\"}
+`,
 		ResponseMode: "blocking",
 		User:         "Sunny",
 	}
@@ -894,8 +933,7 @@ func getKeysDify(content string) (DifyResult, error) {
 	}
 
 	msg := string(body)
-	msg = strings.Replace(msg, "```json", "", -1)
-	msg = strings.Replace(msg, "```", "", -1)
+
 	// Parse the JSON response
 	var response DifyResponse
 	err2 := json.Unmarshal([]byte(msg), &response)
@@ -905,9 +943,30 @@ func getKeysDify(content string) (DifyResult, error) {
 	}
 
 	// Print only the answer
-	fmt.Println("Answer:", response.Answer)
+	fmt.Println("Answer1:", response.Answer)
 
-	err3 := json.Unmarshal([]byte(response.Answer), &result)
+	answer := response.Answer
+
+	answer = strings.Replace(answer, "\n", "       ", -1)
+	answer = strings.Replace(answer, "```json", "", -1)
+	answer = strings.Replace(answer, "```", "", -1)
+	answer = strings.Replace(answer, " \"image.png\"", "", -1)
+	answer = strings.Replace(answer, "http://", "http:##", -1)
+	answer = strings.Replace(answer, "https://", "https:##", -1)
+
+	fmt.Println("Answer2:", answer)
+
+	// 提取JSON结构
+	jsonMatches := extractJSON(answer)
+
+	if len(jsonMatches) <= 0 {
+		return result, errors.New("json 不完整")
+	}
+	answer = jsonMatches[0]
+
+	fmt.Println("Answer3:", answer)
+
+	err3 := json.Unmarshal([]byte(answer), &result)
 	if err3 != nil {
 		fmt.Println("Error parsing JSON:", err3)
 		return result, err3
