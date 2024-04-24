@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/generative-ai-go/genai"
-	"google.golang.org/api/option"
 	"io/fs"
 	"io/ioutil"
 	"log"
@@ -20,6 +18,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/option"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -697,7 +698,8 @@ func InitTime() bool {
 	now := time.Now()
 
 	// 计算前一天的时间
-	yesterday := now.AddDate(0, 0, 0)
+	//yesterday := now.AddDate(0, 0, 0)
+	yesterday := now.Add(-time.Duration(8) * time.Hour)
 
 	// 格式化时间输出
 	fmt.Println("Yesterday at this time was:", yesterday.Format("2006-01-02 15:04:05"))
