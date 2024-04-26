@@ -1,0 +1,1409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>MySQL死锁问题详解及解决方案 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="MySQL死锁问题详解及解决方案 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-04-24T11:00:05&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="MySQL死锁问题详解及解决方案 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240424/MySQL%E6%AD%BB%E9%94%81%E9%97%AE%E9%A2%98%E8%AF%A6%E8%A7%A3%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#尼恩说在前面">尼恩说在前面</a></li>
+    <li><a href="#本文目录">本文目录</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+    <li><a href="#1-什么是mysql死锁">1 什么是mysql死锁？</a></li>
+    <li><a href="#2-从操作的粒度进行的mysql锁的分类">2 从操作的粒度进行的mysql锁的分类</a>
+      <ul>
+        <li><a href="#表级锁">表级锁：</a></li>
+        <li><a href="#行级锁">行级锁：</a></li>
+        <li><a href="#页级锁">页级锁：</a></li>
+      </ul>
+    </li>
+    <li><a href="#3-从操作的类型进行的mysql锁的分类">3 从操作的类型进行的mysql锁的分类</a>
+      <ul>
+        <li><a href="#读锁s锁">读锁（S锁）</a></li>
+        <li><a href="#写锁x锁">写锁（X锁）</a></li>
+        <li><a href="#意向锁">意向锁</a></li>
+      </ul>
+    </li>
+    <li><a href="#4-从操作的性能进行的mysql锁的分类">4 从操作的性能进行的mysql锁的分类</a></li>
+    <li><a href="#5-innodb存储引擎三种行锁模式">5 InnoDB存储引擎三种行锁模式</a>
+      <ul>
+        <li><a href="#51-记录锁record-locks">5.1 记录锁(Record Locks)</a></li>
+        <li><a href="#52-间隙锁gap-locks">5.2 间隙锁(Gap Locks)</a></li>
+        <li><a href="#53-行锁临键锁next-key-locks">5.3 行锁：临键锁(Next-Key Locks)</a></li>
+      </ul>
+    </li>
+    <li><a href="#6-事务隔离级别和锁的关系">6 事务隔离级别和锁的关系</a>
+      <ul>
+        <li><a href="#61-数据库事务的隔离级别">6.1 数据库事务的隔离级别</a></li>
+        <li><a href="#62-事务隔离级别和锁的关系">6.2 事务隔离级别和锁的关系</a></li>
+      </ul>
+    </li>
+    <li><a href="#7-死锁产生原因和解决方案">7 死锁产生原因和解决方案</a>
+      <ul>
+        <li><a href="#71-查看innodb行锁争用情况">7.1 查看Innodb行锁争用情况</a></li>
+        <li><a href="#72-详细介绍-死锁的概念">7.2 详细介绍 死锁的概念</a></li>
+        <li><a href="#73-表级锁死锁">7.3 表级锁死锁</a></li>
+        <li><a href="#74-行级锁死锁">7.4 行级锁死锁</a></li>
+      </ul>
+    </li>
+    <li><a href="#8innodb预防死锁策略">8：InnoDB预防死锁策略</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+    <li><a href="#9-死锁案例分析">9 ：死锁案例分析</a>
+      <ul>
+        <li><a href="#91-案例一拆借款">9.1 案例一：拆借款</a></li>
+        <li><a href="#92-案例二有则插入无则更新">9.2 案例二：有则插入无则更新</a></li>
+        <li><a href="#93-案例三-死锁日志分析">9.3 案例三 死锁日志分析</a></li>
+      </ul>
+    </li>
+    <li><a href="#10-死锁产生的前提和建议">10 ：死锁产生的前提和建议</a></li>
+    <li><a href="#11线上发生了死锁应该如何具体操作">11：线上发生了死锁，应该如何具体操作？</a>
+      <ul>
+        <li><a href="#111-监控死锁">11.1 监控死锁</a></li>
+        <li><a href="#112-终止死锁事务">11.2 终止死锁事务</a></li>
+        <li><a href="#113-重试事务">11.3 重试事务</a></li>
+        <li><a href="#114-防止死锁再次发生">11.4 防止死锁再次发生</a></li>
+      </ul>
+    </li>
+    <li><a href="#说在最后有问题找老架构取经">说在最后：有问题找老架构取经</a></li>
+    <li><a href="#部分历史案例">部分历史案例</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">MySQL死锁问题详解及解决方案 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年4月24日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h2 id="尼恩说在前面">尼恩说在前面</h2>
+<p>在40岁老架构师 尼恩的<strong>读者交流群</strong>(50+)中，最近有小伙伴拿到了一线企业如 字节、得物、阿里、滴滴、极兔、有赞、希音、百度、网易、美团、蚂蚁、得物的面试资格，遇到很多很重要的面试题：</p>
+<blockquote>
+<p>MySQL死锁什么时候发生，如何解决？</p>
+<p>如何解决MySQL中的死锁问题？</p>
+</blockquote>
+<p>最近有小伙伴在面试字节，都到了这个的面试题。</p>
+<p>小伙伴没回答好，支支吾吾的说了几句，面试官不满意，面试挂了。</p>
+<p>所以，尼恩给大家做一下系统化、体系化的梳理，帮大家展示一下大家雄厚的 “技术肌肉”，<strong>让面试官爱到 “不能自已、口水直流”</strong>，然后实现”offer直提”。</p>
+<p>当然，这道面试题，以及参考答案，也会收入咱们的 《尼恩Java面试宝典PDF》V175版本，供后面的小伙伴参考，提升大家的 3高 架构、设计、开发水平。</p>
+<blockquote>
+<p>《尼恩 架构笔记》《尼恩高并发三部曲》《尼恩Java面试宝典》的PDF，请到文末公号【技术自由圈】获取</p>
+</blockquote>
+<h2 id="本文目录">本文目录</h2>
+<p><strong>- 尼恩说在前面</strong></p>
+<p><strong><strong>-</strong> 1 什么是mysql死锁？</strong></p>
+<p><strong><strong>-</strong> 2 从操作的粒度进行的mysql锁的分类</strong></p>
+<p> - 表级锁：</p>
+<p> - 行级锁：</p>
+<p> - 页级锁：</p>
+<p><strong><strong><strong>-</strong></strong> 3 从操作的类型进行的mysql锁的分类</strong></p>
+<p> - 读锁（S锁）</p>
+<p> - 写锁（X锁）</p>
+<p> - 意向锁</p>
+<p><strong><strong><strong><strong>-</strong></strong></strong> 4 从操作的性能进行的mysql锁的分类</strong></p>
+<p><strong><strong><strong><strong>-</strong></strong></strong> 5 InnoDB存储引擎三种行锁模式</strong></p>
+<p> - 5.1 记录锁(Record Locks)</p>
+<p> - 5.2 间隙锁(Gap Locks)</p>
+<p> - 5.3 行锁：临键锁(Next-Key Locks)</p>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 6 事务隔离级别和锁的关系</strong></p>
+<p> - 6.1 数据库事务的隔离级别</p>
+<p> - 6.2 事务隔离级别和锁的关系</p>
+<p><strong><strong><strong><strong><strong><strong>-</strong></strong></strong></strong></strong> 7 死锁产生原因和解决方案</strong></p>
+<p> - 7.1 查看Innodb行锁争用情况</p>
+<p> - 7.2 详细介绍 死锁的概念</p>
+<p> - 7.3 表级锁死锁</p>
+<h5 id="-a产生原因">    -a）产生原因:</h5>
+<h5 id="-b解决方案">    -b）解决方案：</h5>
+<p> - 7.4 行级锁死锁</p>
+<h5 id="-a-产生原因1">    -a) 产生原因1：</h5>
+<h5 id="-b-产生原因2">    -b) 产生原因2：</h5>
+<h5 id="-c-产生原因3每个事务只有一个sql但是有些情况还是会发生死锁">    -c) 产生原因3：每个事务只有一个SQL,但是有些情况还是会发生死锁.</h5>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 8：InnoDB预防死锁策略</strong></p>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 9 ：死锁案例分析</strong></p>
+<p> - 9.1 案例一：拆借款</p>
+<p> - 9.2 案例二：有则插入无则更新</p>
+<p> - 9.3 案例三 死锁日志分析</p>
+<h5 id="-场景1">    -场景1:</h5>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 10 ：死锁产生的前提和建议</strong></p>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 11：线上发生了死锁，应该如何具体操作？</strong></p>
+<p> - 11.1 监控死锁</p>
+<p> - 11.2 终止死锁事务</p>
+<p> - 11.3 重试事务</p>
+<p> - 11.4 防止死锁再次发生</p>
+<p><strong><strong><strong><strong><strong>-</strong></strong></strong></strong> 说在最后：有问题找老架构取经</strong></p>
+<h2 id="1-什么是mysql死锁">1 什么是mysql死锁？</h2>
+<p>死锁是指两个或多个事务在执行过程中，因争夺锁资源而造成的相互等待的现象，若无外力干涉它们都将无法继续执行。</p>
+<p>通俗来说，就是两个或多个事务在等待对方释放锁，从而造成僵持不下，使得整个系统陷入停滞状态。</p>
+<h2 id="2-从操作的粒度进行的mysql锁的分类">2 从操作的粒度进行的mysql锁的分类</h2>
+<p>从操作的粒度可分为表级锁、行级锁和页级锁。</p>
+<h3 id="表级锁">表级锁：</h3>
+<p>每次操作<strong>锁住整张表</strong>。<strong>锁定粒度大</strong>，发生锁冲突的概率最高，<strong>并发度最低</strong>。</p>
+<p>应用在MyISAM、InnoDB、BDB 等存储引擎中。</p>
+<p>表锁的特点：</p>
+<ul>
+<li>
+<p>开销小，加锁快</p>
+</li>
+<li>
+<p>不会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度大，发生锁冲突的概率最高，并发度最低</p>
+</li>
+</ul>
+<h3 id="行级锁">行级锁：</h3>
+<p>每次操作锁住<strong>一行数据</strong>。<strong>锁定粒度最小</strong>，发生锁冲突的概率最低，<strong>并发度最高</strong>。</p>
+<p>应用在InnoDB 存储引擎中。</p>
+<p>行锁的特点：</p>
+<ul>
+<li>
+<p>开销大，加锁慢</p>
+</li>
+<li>
+<p>会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度小，发生锁冲突的概率最低，并发度最高</p>
+</li>
+</ul>
+<h3 id="页级锁">页级锁：</h3>
+<p>每次锁定相邻的一组记录，锁定粒度界于<strong>表锁和行锁</strong>之间，开销和加锁时间界于表锁和行锁之间，并发度一般。</p>
+<p>页锁的特点：</p>
+<ul>
+<li>
+<p>开销和加锁时间介于表锁和行锁之间</p>
+</li>
+<li>
+<p>会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度介于表锁和行锁之间，并发度一般</p>
+</li>
+</ul>
+<h2 id="3-从操作的类型进行的mysql锁的分类">3 从操作的类型进行的mysql锁的分类</h2>
+<p>从操作的类型可分为读锁和写锁。</p>
+<h3 id="读锁s锁">读锁（S锁）</h3>
+<p>读锁（S锁）：共享锁,针对同一份数据,多个读操作可以同时进行而不会互相影响。</p>
+<p>S锁：事务A对记录添加了S锁，可以对记录进行读操作，不能做修改，其他事务可以对该记录追加S锁，但是不能追加X锁，要追加X锁，需要等记录的S锁全部释放。</p>
+<h3 id="写锁x锁">写锁（X锁）</h3>
+<p><strong>写锁</strong>（X锁）：排他锁,当前写操作没有完成前,它会阻断其他写锁和读锁</p>
+<p>X锁：事务A对记录添加了X锁，可以对记录进行读和修改操作，其他事务不能对记录做读和修改操作。</p>
+<h3 id="意向锁">意向锁</h3>
+<ul>
+<li>
+<p>IS: 意向共享锁，表级锁，已加S锁的表，肯定会有IS锁，反过来，有IS锁的表，不一定会有S锁</p>
+</li>
+<li>
+<p>IX: 意向排它锁，表级锁，已加X锁的表，肯定会有IX锁，反过来，有IX锁的表，不一定会有X锁</p>
+</li>
+</ul>
+<h2 id="4-从操作的性能进行的mysql锁的分类">4 从操作的性能进行的mysql锁的分类</h2>
+<p>从操作的性能可分为乐观锁和悲观锁。</p>
+<ul>
+<li>
+<p><strong>乐观锁</strong>：一般的实现方式是对记录数据版本进行比对，在数据更新提交的时候才会进行冲突检测，如果发现冲突了，则提示错误信息。</p>
+</li>
+<li>
+<p><strong>悲观锁</strong>：在对一条数据修改的时候，为了避免同时被其他人修改，在修改数据之前先锁定，再修改的控制方式。共享锁和排他锁是悲观锁的不同实现，但都属于悲观锁范畴。</p>
+</li>
+</ul>
+<h2 id="5-innodb存储引擎三种行锁模式">5 InnoDB存储引擎三种行锁模式</h2>
+<p>InnoDB引擎行锁是通过对索引数据页上的记录加锁实现的，</p>
+<p>主要实现算法有 3 种：<strong>Record Lock、Gap Lock 和 Next-key Lock</strong>,</p>
+<p>也就是InnoDB的三种行锁模式。</p>
+<ul>
+<li>
+<p><strong>RecordLock锁</strong>(行锁)：锁定单个行记录的锁。（RecordLock锁 是记录锁，RC、RR隔离级别都支持）</p>
+</li>
+<li>
+<p><strong>GapLock锁</strong>：间隙锁，锁定索引记录间隙(不包括记录本身)，确保索引记录的间隙不变。（GapLock是范围锁，RR隔离级别支持。RC隔离级别不支持）</p>
+</li>
+<li>
+<p><strong>Next-key Lock 锁</strong>(临键锁)：记录锁和间隙锁组合，同时锁住数据，并且锁住数据前后范围。（记录锁+范围锁，RR隔离级别支持。RC隔离级别不支持）</p>
+</li>
+</ul>
+<h3 id="51-记录锁record-locks">5.1 记录锁(Record Locks)</h3>
+<p>（1）记录锁, 仅仅锁住索引记录的一行，在单条索引记录上加锁。</p>
+<p>（2）record lock锁住的永远是索引，而非记录本身，即使该表上没有任何索引，那么innodb会在后台创建一个隐藏的聚集主键索引，那么锁住的就是这个隐藏的聚集主键索引。</p>
+<p>所以说当一条sql没有走任何索引时，那么将会在每一条聚合索引后面加X锁，这个类似于表锁，但原理上和表锁应该是完全不同的。</p>
+<h3 id="52-间隙锁gap-locks">5.2 间隙锁(Gap Locks)</h3>
+<p>（1）区间锁, 仅仅锁住一个索引区间（开区间，不包括双端端点）。</p>
+<p>（2）在索引记录之间的间隙中加锁，或者是在某一条索引记录之前或者之后加锁，并不包括该索引记录本身。</p>
+<p>（3）间隙锁可用于防止幻读，保证索引间的不会被插入数据</p>
+<p>比如在 100、10000中，间隙锁的可能值有 (∞, 100)，(100, 10000)，(10000, ∞)，</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WPGXxtAgTwIt8eAFJaibZicuMS6OWPImzo1I6QGBLcjkSKtx4D7dSRJTiaTeXKtg4SIbM5xT6X5ticoFw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<h3 id="53-行锁临键锁next-key-locks">5.3 行锁：临键锁(Next-Key Locks)</h3>
+<p>（1）record lock + gap lock, 左开右闭区间。</p>
+<p>（2）默认情况下，innodb使用next-key locks来锁定记录。select … for update </p>
+<p>（3）但当查询的索引含有唯一属性的时候，Next-Key Lock 会进行优化，将其降级为Record Lock，即仅锁住索引本身，不是范围。 </p>
+<p>（4）Next-Key Lock在不同的场景中会退化:</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WPGXxtAgTwIt8eAFJaibZicuMcG2ynjntnWYZmiaDIT2Dw7YcMYKcMu78a4txvCaJNWWybNRb0sNXSWw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>比如在 100、10000中，临键锁(Next-Key Locks)的可能有 (∞, 100]，(100, 10000] , 40岁老架构师尼恩提示，这里的关键是左开右闭</p>
+<blockquote>
+<p>具体的讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h2 id="6-事务隔离级别和锁的关系">6 事务隔离级别和锁的关系</h2>
+<h3 id="61-数据库事务的隔离级别">6.1 数据库事务的隔离级别</h3>
+<p>先来回顾一下，数据库事务的隔离级别，目前数据库事务的隔离级别一共有 4 种，由低到高分别为：</p>
+<p><strong>事务的四个隔离级别：</strong></p>
+<ul>
+<li>
+<p><strong>未提交读（READ UNCOMMITTED）</strong>：所有事务都可以看到其他事务未提交的修改。一般很少使用；</p>
+</li>
+<li>
+<p><strong>读已提交（READ COMMITTED）</strong>：Oracle默认隔离级别，事务之间只能看到彼此已提交的变更修改；</p>
+</li>
+<li>
+<p><strong>可重复读（REPEATABLE READ）</strong>：MySQL默认隔离级别，同一事务中的多次查询会看到相同的数据行；可以解决不可重复读，但可能出现幻读；</p>
+</li>
+<li>
+<p><strong>可串行化（SERIALIZABLE）</strong>：最高的隔离级别，事务串行的执行，前一个事务执行完，后面的事务会执行。读取每条数据都会加锁，会导致大量的超时和锁争用问题；</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WPGXxtAgTwIt8eAFJaibZicuMic3diabnDkGV5KwcbVZ1lu0c7kfKIzN9kdUo48bHf4tdiaaD7Pqe04GMw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>数据库一般默认的隔离级别为 读已提交 RC ，比如 Oracle，</p>
+<p>也有一些数据的默认隔离级别为 可重复读 RR，比如 Mysql。</p>
+<p>&ldquo;可重复读&rdquo;（Repeatable Read）这个级别确保了对同一字段的多次读取结果是一致的，除非数据是被本身事务自己所修改。</p>
+<p>RR它能够防止脏读、不可重复读，但可能会遇到幻读的情况。</p>
+<p>参考 文章：</p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247485634&amp;idx=1&amp;sn=12b0c0b632d02fa997029538e03de4c6&amp;scene=21#wechat_redirect">Mysql如何实现RR级隔离时，不会幻读？</a></p>
+<p>MySQL默认的Repeatable Read隔离级别，被改成了RC , 具体请参考 《尼恩Java 面试宝典》 MYSQL 专题：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WPGXxtAgTwIt8eAFJaibZicuMZ0SgOzgMTfd7zsOTiawtoRibqWicg83MCoVrgMkIpWjIP0A7RWg0Gian5A/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>一般而言，数据库的读已提交（READ COMMITTED）能够满足业务绝大部分场景了。</p>
+<h3 id="62-事务隔离级别和锁的关系">6.2 事务隔离级别和锁的关系</h3>
+<ol>
+<li>
+<p>事务隔离级别是SQL92定制的标准，相当于事务并发控制的整体解决方案，本质上是对锁和MVCC使用的封装，隐藏了底层细节。</p>
+</li>
+<li>
+<p>锁是数据库实现并发控制的基础，事务隔离性是采用锁来实现，对相应操作加不同的锁，就可以防止其他事务同时对数据进行读写操作。</p>
+</li>
+<li>
+<p>对用户来讲，首先选择使用隔离级别，当选用的隔离级别不能解决并发问题或需求时，才有必要在开发中手动的设置锁。</p>
+<p>MySQL 默认隔离级别：可重复读， 一般建议改为 RC 读已提交</p>
+<p>Oracle、SQLServer默认隔离级别：读已提交</p>
+</li>
+</ol>
+<h2 id="7-死锁产生原因和解决方案">7 死锁产生原因和解决方案</h2>
+<p>InnoDB与MyISAM的最大不同有两点</p>
+<ul>
+<li>
+<p>支持事务</p>
+</li>
+<li>
+<p>采用行锁</p>
+</li>
+</ul>
+<p>行级锁和表级锁本来就有许多不同之处，另外，事务的引入也带来了一些问题 ，比如 死锁。</p>
+<h3 id="71-查看innodb行锁争用情况">7.1 查看Innodb行锁争用情况</h3>
+<p>通过<code>show status like 'innodb_row_lock_%';</code> 命令可以查询<code>MySQL</code>整体的锁状态，如下：</p>
+<ul>
+<li>
+<p><code>Innodb_row_lock_current_waits</code>：当前正在阻塞等待锁的事务数量。</p>
+</li>
+<li>
+<p><code>Innodb_row_lock_time</code>：<code>MySQL</code>启动到现在，所有事务总共阻塞等待的总时长。</p>
+</li>
+<li>
+<p><code>Innodb_row_lock_time_avg</code>：平均每次事务阻塞等待锁时，其平均阻塞时长。</p>
+</li>
+<li>
+<p><code>Innodb_row_lock_time_max</code>：<code>MySQL</code>启动至今，最长的一次阻塞时间。</p>
+</li>
+<li>
+<p><code>Innodb_row_lock_waits</code>：<code>MySQL</code>启动到现在，所有事务总共阻塞等待的总次数。</p>
+</li>
+</ul>
+<h3 id="72-详细介绍-死锁的概念">7.2 详细介绍 死锁的概念</h3>
+<p>什么是死锁DeadLock？：</p>
+<p>是指两个或两个以上的进程在执行过程中, 因<strong>争夺资源</strong>而造成的一种<strong>互相等待</strong>的现象,</p>
+<p>若无外力作用，它们都将无法推进下去.</p>
+<p>此时称系统处于死锁状态或系统产生了死锁，这些永远在互相等待的进程称为死锁进程。</p>
+<p><strong>一个的形象举例：</strong></p>
+<p>假设有两个事务 A 和 B，它们同时试图获取对方持有的资源，但又都在<strong>等待对方释放资源</strong>，导致了僵持不下的局面。</p>
+<p>举个例子，假设有两个人 A 和 B，他们同时想要通过一扇门进入一个房间，但这扇门只能由一人单独打开。</p>
+<p>现在，尴尬了 ：</p>
+<ul>
+<li>
+<p>A 想要进入房间1，但门被 B 挡住了，所以 A 无法进入，于是 A 抓住了 B 的右手，不让 B 打开房间2的门。</p>
+</li>
+<li>
+<p>B 想要进入房间2，但门被 A 挡住了，所以 B 无法进入，于是 B 抓住了 A 的左手，不让 A 打开房间1的门。</p>
+</li>
+</ul>
+<p>现在的情况是：</p>
+<ul>
+<li>
+<p>A 等待着 B 放开 B 的左手，以便自己能打开门进入房间，</p>
+<p>B 等待着 A 放开A的右手，以便自己能够进入房间。</p>
+</li>
+</ul>
+<p>这就形成了死锁，因为两个人都在 对方放开资源，而对方又不愿意放开自己所持有的资源，导致了<strong>相互等待</strong>，最终无法继续执行下去。</p>
+<h3 id="73-表级锁死锁">7.3 表级锁死锁</h3>
+<h5 id="a产生原因">a）产生原因:</h5>
+<ul>
+<li>
+<p>用户A先访问表1（锁住了表1），然后再访问表2；</p>
+</li>
+<li>
+<p>用户B先访问表2（锁住了表2），然后再企图访问表1；</p>
+<p>用户A和用户B加锁的顺序如下：</p>
+</li>
+<li>
+<p>用户A&ndash;》表1（表锁）&ndash;》表2（表锁）</p>
+</li>
+<li>
+<p>用户B&ndash;》表2（表锁）&ndash;》表1（表锁）</p>
+<p>这时， 出现了二者的相互争抢：</p>
+</li>
+<li>
+<p>用户A由于用户B已经锁住表2，它必须<strong>等待用户B释放表2才能继续</strong>，</p>
+</li>
+<li>
+<p><strong>同样用户B要等用户A释放表1才能继续</strong></p>
+</li>
+</ul>
+<p>这就死锁就产生了。如下图所示：</p>
+<h5 id="b解决方案">b）解决方案：</h5>
+<p>这种死锁比较常见，是由于程序的BUG产生的，除了调整的程序的逻辑没有其它的办法。</p>
+<p>仔细分析程序的逻辑，对于数据库的多表操作时，尽量按照<strong>相同的顺序</strong>进行处理，</p>
+<p>尽量避免同时<strong>锁定两个资源</strong>，如操作A和B两张表时，总是按先A后B的顺序处理， 必须同时锁定两个资源时，要保证在任何时刻都应该按照相同的顺序来锁定资源。</p>
+<h3 id="74-行级锁死锁">7.4 行级锁死锁</h3>
+<h5 id="a-产生原因1">a) 产生原因1：</h5>
+<p>如果在事务中执行了一条没有索引条件的查询，引发全表扫描，<strong>行锁 膨胀 为表锁</strong>（ 或者等价于 表级锁），</p>
+<p>多个这样的 <strong>锁表事务</strong> 执行后，就很容易产生死锁和阻塞，最终应用系统会越来越慢，发生阻塞或 死锁。</p>
+<p>解决方案1：</p>
+<p>SQL语句中不要使用太复杂的关联多表的查询；</p>
+<p>使用explain“执行计划&quot;对SQL语句进行分析，对于有全表扫描和全表锁定的SQL语句，建立相应的索引进行优化。</p>
+<h5 id="b-产生原因2">b) 产生原因2：</h5>
+<p>两个事务分别想拿到对方持有的锁，互相等待，于是产生死锁。</p>
+<h5 id="c-产生原因3每个事务只有一个sql但是有些情况还是会发生死锁">c) 产生原因3：每个事务只有一个SQL,但是有些情况还是会发生死锁.</h5>
+<p>假设有下面的一个表 t1</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;create table t1(&lt;br&gt;    id int(32) not null,&lt;br&gt;    name varchar(50) not null,&lt;br&gt;    reg_time int(32) not null,&lt;br&gt;    city varchar(50) ,&lt;br&gt;    primary key (`name`),&lt;br&gt;    index index_name(`name`),&lt;br&gt;    index index_reg_time(`reg_time`)&lt;br&gt;);&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>事务1, 假设有下面的一个 session1 会话</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;update t1 set city = &#34;香港&#34;  where name=&#34;aaa&#34;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>首先， session1 从name 非聚族索引索引出发 , 读到的 [aaa, 1], [aaa, 4] , 会加name索引上的记录[aaa, 1], [aaa, 4] 两个 记录的X锁,</p>
+<p>然后，session1 会加聚簇索引上的记录X锁, 聚簇索引上 加锁顺序为先[1] 记录, 后[4] 记录</p>
+<p>事务2 假设有下面的一个 session2 会话</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;Select * from t1  where reg_time&amp;gt;=1000 for update&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>session2 从reg_time 非聚族索引索引出发 , 读到的 [1000, 4], [1100, 3] , [1200,1], [1300, 2] ,</p>
+<p>首先，session2 会加reg_time索引上的记录 [1000, 4], [1100, 3] , [1200,1], [1300, 2] 四个 记录的X锁,</p>
+<p>然后，session2 而且会加聚簇索引上的记录X锁, 聚簇索引上 加锁顺序为 [4] 、[3] 、[2] 、[1] ，其中 先[4] 记录, 后[1] 记录</p>
+<p>session2 加聚簇索引上的记录X锁时，发现跟session1的加锁顺序正好相反，</p>
+<p>两个Session恰好都持有了第一把锁，请求加第二 把锁，死锁就发生了。</p>
+<p><strong>解决方案:</strong> 如上面的原因2和原因3, 对索引加锁顺序的不一致很可能会导致死锁，所以如果可以，</p>
+<p>尽量以<strong>相同的顺序来访问索引记录和表</strong>。</p>
+<p>在程序以批量方式处理数据的时候，如果事先对数据排序，保证<strong>每个线程按固定的顺序</strong>来处理记录，也可以大大降低出现死锁的可能；</p>
+<p>通过统一的锁定顺序，可以有效地避免不同事务之间的锁定顺序不一致导致的死锁问题。</p>
+<blockquote>
+<p>具体的讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h2 id="8innodb预防死锁策略">8：InnoDB预防死锁策略</h2>
+<p><code>InnoDB</code>引擎内部(或者说是所有的数据库内部)，有多种锁类型：事务锁(<code>行锁</code>、<code>表锁</code>)，<code>Mutex</code>(保护内部的共享变量操作)、<code>RWLock</code>(又称之为<code>Latch</code>，保护内部的页面读取与修改)。</p>
+<p>InnoDB每个页面为16K，读取一个页面时，需要对页面加S锁(共享锁)，更新一个页面时，需要对页面加上X锁(排他锁)。</p>
+<p>任何情况下，操作一个页面，都会对页面加锁，页面锁加上之后，页面内存储的索引记录才不会被并发修改。</p>
+<p>因此，为了修改一条记录，InnoDB内部如何处理：</p>
+<ul>
+<li>
+<p>根据给定的查询条件，找到对应的记录所在页面；</p>
+</li>
+<li>
+<p>对页面加上X锁(RWLock)，然后在页面内寻找满足条件的记录；</p>
+</li>
+<li>
+<p>在持有页面锁的情况下，对满足条件的记录加事务锁(行锁：根据记录是否满足查询条件，记录是否已经被删除，分别对应于上面提到的3种加锁策略之一)；</p>
+</li>
+</ul>
+<p>相对于事务锁，页面锁是一个<strong>短期持有的锁</strong>，而事务锁(行锁、表锁)是<strong>长期持有的锁</strong>。</p>
+<h4 id="innodb预防死锁策略">InnoDB预防死锁策略</h4>
+<p>因此，为了防止页面锁与事务锁之间产生死锁，InnoDB做了死锁预防的策略：</p>
+<ul>
+<li>
+<p>持有事务锁(行锁、表锁)，可以等待<strong>获取页面锁</strong>；</p>
+</li>
+<li>
+<p>但反之，持有页面锁，不能等待持有事务锁。</p>
+</li>
+</ul>
+<p>根据死锁预防策略，在持有页面锁，加行锁的时候，如果行锁需要等待，<strong>则释放页面锁</strong>，然后等待行锁。</p>
+<p>此时，行锁获取没有任何锁保护，因此加上行锁之后，记录可能已经被并发修改。因此，此时要重新加回页面锁，重新判断记录的状态，重新在页面锁的保护下，对记录加锁。</p>
+<p>如果此时记录未被并发修改，那么第二次加锁能够很快完成，因为已经持有了相同模式的锁。但是，如果记录已经被并发修改，那么，就有可能导致死锁问题。</p>
+<p>在数据库系统中，死锁的检测和解决通常是通过**锁管理器（Lock Manager）**来实现的。</p>
+<ul>
+<li>
+<p>当一个事务请求某个数据页的锁时，锁管理器会检查当前锁的状态以及其他事务是否持有或等待相同的锁。</p>
+</li>
+<li>
+<p>如果存在潜在的死锁风险，系统会通过死锁检测算法来检测并解决死锁。其中，常用的死锁检测算法包括等待图（Wait-for graph）算法和超时算法。</p>
+</li>
+</ul>
+<p>在数据库系统的实现中，锁管理器会维护一个锁表（Lock Table），用于记录当前数据页的锁状态以及事务之间的关系。</p>
+<p>当一个事务请求锁时，锁管理器会根据锁定顺序来判断是否存在死锁风险，并根据具体情况采取相应的措施，比如阻塞等待或者回滚事务。</p>
+<p>在数据库系统的源代码级别，锁管理器通常是数据库引擎的一部分，具体实现方式会根据不同的数据库系统而有所不同。例如，MySQL、PostgreSQL、Oracle等数据库系统都有自己的锁管理器实现，通常会涉及到并发控制、事务管理等核心模块的代码。</p>
+<p>总之，在MySQL 5.5.5及以上版本中，MySQL的默认存储引擎是InnoDB。该存储引擎使用的是行级锁，在某种情况下会产生死锁问题，所以InnoDB存储引擎采用了一种叫作等待图(wait-for graph)的方法来自动检测死锁，如果发现死锁，就会自动回滚一个事务</p>
+<h2 id="9-死锁案例分析">9 ：死锁案例分析</h2>
+<p>为了帮助大家了解mysql的死锁，下面有三个和死锁有关的案例：</p>
+<h3 id="91-案例一拆借款">9.1 案例一：拆借款</h3>
+<p>需求：投资人将投资的钱，拆成几份随机分配给借款人。</p>
+<p>第一个版本的业务逻辑：投资人投资后，将金额随机分为几份，然后随机从借款人表里面选几个，然后通过一条条select for update 去更新借款人表里面的余额等。</p>
+<p>例如两个用户同时投资，</p>
+<ul>
+<li>
+<p>A用户金额随机分为2份，分给借款人小明，小亮，</p>
+</li>
+<li>
+<p>B用户金额随机分为2份，分给借款人小亮，小明</p>
+</li>
+</ul>
+<p>由于加锁的顺序不一样，死锁当然很快就出现了。</p>
+<p>如果改进呢？对于这个问题的改进很简单，直接把所有分配到的借款人直接一次锁住就行了。</p>
+<p>Select * from xxx where id in (xx,xx,xx) for update</p>
+<p>在in里面的列表值mysql是会自动从小到大排序，加锁也是一条条从小到大加的锁。</p>
+<p>例如（以下会话id为主键）：</p>
+<p>Session1:</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;br&gt;&lt;span&gt;mysql&amp;gt; select * from t3 where id in (8,9) for update;&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;| id | course | name | ctime               |&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;|  8 | WA     | f    | 2016-03-02 11:36:30 |&lt;br&gt;|  9 | JX     | f    | 2016-03-01 11:36:30 |&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;rows in set (0.04 sec)&lt;br&gt;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>Session2:</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;br&gt;&lt;span&gt;select * from t3 where id in (10,8,6) for update;&lt;br&gt;锁等待中……&lt;br&gt;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>其实这个时候id=10这条记录没有被锁住的，但id=6的记录已经被锁住了，锁的等待在id=8（被Session1 锁住）的这里</p>
+<p>Session3:</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; select * from t3 where id=6 for update;&lt;br&gt;锁等待中&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>可以看到id=6被Session2 锁住，锁等待中</p>
+<p>Session4:</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; select * from t3 where id=10 for update;&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;| id | course | name | ctime               |&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;| 10 | JB     | g    | 2016-03-10 11:45:05 |&lt;br&gt;+----+--------+------+---------------------+&lt;br&gt;row in set (0.00 sec)&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>在其它session中id=6是加不了锁的，但是id=10是可以加上锁的， 说明id=10这条记录没有被Session2锁住 。</p>
+<h3 id="92-案例二有则插入无则更新">9.2 案例二：有则插入无则更新</h3>
+<p>在开发中，经常会做这类的判断需求：</p>
+<ul>
+<li>
+<p>根据字段值查询（有索引），如果不存在，则插入；</p>
+</li>
+<li>
+<p>否则更新。</p>
+</li>
+</ul>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;以id为主键为例，目前还没有id=22的行&lt;br&gt;&lt;br&gt;Session1:&lt;br&gt;select * from t3 where id=22 for update;&lt;br&gt;Empty set (0.00 sec)&lt;br&gt;&lt;br&gt;session2:&lt;br&gt;select * from t3 where id=23  for update;&lt;br&gt;Empty set (0.00 sec)&lt;br&gt;&lt;br&gt;Session1:&lt;br&gt;insert into t3 values(22,&#39;ac&#39;,&#39;a&#39;,now());&lt;br&gt;锁等待中……&lt;br&gt;&lt;br&gt;Session2:&lt;br&gt;insert into t3 values(23,&#39;bc&#39;,&#39;b&#39;,now());&lt;br&gt;ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ul>
+<li>
+<p>当对存在的行 进行锁的时候(主键)，mysql就只有行锁。</p>
+</li>
+<li>
+<p>当对未存在的行进行锁的时候(即使条件为主键)，mysql是会锁住一段范围（有gap锁），也就是间隙锁(Gap Locks)</p>
+</li>
+</ul>
+<p>间隙锁(Gap Locks) 锁住的范围为：(无穷小或小于表中锁住id的最大值，无穷大或大于表中锁住id的最小值)</p>
+<ul>
+<li>
+<p>如果表中目前有已有的id为（11 ， 12），那么就锁住（12，无穷大）</p>
+</li>
+<li>
+<p>如果表中目前已有的id为（11 ， 30），那么就锁住（11，30）</p>
+</li>
+</ul>
+<p>对于这种死锁的解决办法是：</p>
+<p>insert into t3(xx,xx) on duplicate key update <code>xx</code>=&lsquo;XX&rsquo;;</p>
+<p>用mysql特有的语法来解决此问题。<strong>因为insert语句对于主键来说，插入的行不管有没有存在，都会只有行锁</strong></p>
+<h3 id="93-案例三-死锁日志分析">9.3 案例三 死锁日志分析</h3>
+<p>数据准备</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;--创建表 t2&lt;br&gt;create table t2(&lt;br&gt;  id int primary key,&lt;br&gt;&amp;nbsp; name varchar(50),&lt;br&gt;  age int&lt;br&gt;);&lt;br&gt;--插入数据&lt;br&gt;insert into t2 values(1,&#39;lisi&#39;,11),(2,&#39;zhangsan&#39;,22),(3,&#39;wangwu&#39;,33);&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>数据库隔离级别查看</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; select @@tx_isolation;&lt;br&gt;+-----------------+&lt;br&gt;| @@tx_isolation |&lt;br&gt;+-----------------+&lt;br&gt;| REPEATABLE-READ |&lt;br&gt;+-----------------+&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>查看加锁信息</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;-- information_schema.innodb_trx: 当前出现的锁&lt;br&gt;select * from information_schema.innodb_locks;&lt;br&gt;-- information_schema.innodb_trx: 当前运行的所有事务&lt;br&gt;select * from information_schema.innodb_trx;&lt;br&gt;-- information_schema.innodb_lock_waits: 锁等待的对应关系&lt;br&gt;select * from information_schema.innodb_lock_waits;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>查看InnoDB状态 ( 包含最近的死锁日志信息 )</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;show engine innodb status;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p><strong>案例分析</strong></p>
+<p>这里我们进行细致的分析，两个事物每执行一条SQL，</p>
+<p>可以查看下innodb锁状态及锁等待信息以及当前innodb事务列表信息，</p>
+<p>最后可以通过 show engine innodb status 查看最近的死锁日志信息.</p>
+<h4 id="场景1">场景1:</h4>
+<ol>
+<li>事务1, 执行begin开始事务执行一条SQL,查询 id=1 的数据</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; begin;&lt;br&gt;Query OK, 0 rows affected (0.00 sec)&lt;br&gt;mysql&amp;gt; select * from t2 where id = 1 for update;&lt;br&gt;+----+------+------+&lt;br&gt;| id | name | age |&lt;br&gt;+----+------+------+&lt;br&gt;| &amp;nbsp;1 | lisi | &amp;nbsp;11 |&lt;br&gt;+----+------+------+&lt;br&gt;1 row in set (0.00 sec)&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>分析加锁过程:</p>
+<ol>
+<li>
+<p>事务1进行首先申请IX锁 (意向排它锁,因为是for update)</p>
+</li>
+<li>
+<p>然后申请X锁进行查询是否存在 id = 1 的记录</p>
+</li>
+<li>
+<p>存在该记录,因为id字段是唯一索引,所以添加的是 Record Lock</p>
+</li>
+<li>
+<p>查看 information_schema.innodb_trx表,发现存在事务1 的信息</p>
+</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;select trx_id &#39;事务id&#39;,trx_state &#39;事务状态&#39;,&lt;br&gt;       trx_started &#39;事务开始时间&#39;,trx_weight &#39;事务权重&#39;,&lt;br&gt;&amp;nbsp;      trx_mysql_thread_id &#39;事务线程ID&#39;,&lt;br&gt;&amp;nbsp;      trx_tables_locked &#39;事务拥有多少个锁&#39;,&lt;br&gt;&amp;nbsp;      trx_lock_memory_bytes &#39;事务锁住的内存大小&#39;,&lt;br&gt;&amp;nbsp;      trx_rows_locked &#39;事务锁住的行数&#39;,&lt;br&gt;&amp;nbsp;      trx_rows_modified &#39;事务更改的行数&#39;&lt;br&gt;  from information_schema.innodb_trx;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="3">
+<li>执行事务2的 delete语句, 删除成功,因为id=3的数据并没有被加锁</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; delete from t2 where id = 3; -- 删除成功&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="4">
+<li>事务1对 id=3 的记录进行修改操作,发生阻塞. 因为id=3的数据的X锁已经被事务2拿到,其他事务的操 作只能被阻塞.</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; begin;&lt;br&gt;Query OK, 0 rows affected (0.00 sec)&lt;br&gt;mysql&amp;gt; select * from t2 where id = 1 for update;&lt;br&gt;+----+------+------+&lt;br&gt;| id | name | age |&lt;br&gt;+----+------+------+&lt;br&gt;| &amp;nbsp;1 | lisi | &amp;nbsp;11 |&lt;br&gt;+----+------+------+&lt;br&gt;1 row in set (0.00 sec)&lt;br&gt;mysql&amp;gt; update t2 set name = &#39;aaa&#39; where id = 3;&lt;br&gt;-- 阻塞&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="5">
+<li>查看当前锁信息</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;-- 查看当前锁信息&lt;br&gt;select&lt;br&gt;lock_id &#39;锁ID&#39;,&lt;br&gt;&amp;nbsp;lock_trx_id &#39;拥有锁的事务ID&#39;,&lt;br&gt;&amp;nbsp;lock_mode &#39;锁模式&#39;,&lt;br&gt;&amp;nbsp;lock_type &#39;锁类型&#39; ,&lt;br&gt;&amp;nbsp;lock_table &#39;被锁的索引&#39;,&lt;br&gt;&amp;nbsp;lock_space &#39;被锁的表空间号&#39;,&lt;br&gt;&amp;nbsp;lock_page &#39;被锁的页号&#39;,&lt;br&gt;&amp;nbsp;lock_rec &#39;被锁的记录号&#39;,&lt;br&gt;&amp;nbsp;lock_data &#39;被锁的数据&#39;&lt;br&gt;from information_schema.innodb_locks;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>lock_rec=4 表示是对唯一索引进行的加锁. lock_mode= X 表示这里加的是X锁.</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;-- 查看锁等待的对应关系&lt;br&gt;select requesting_trx_id &#39;请求锁的事务ID&#39;,&lt;br&gt;&amp;nbsp;      requested_lock_id &#39;请求锁的锁ID&#39;,&lt;br&gt;&amp;nbsp;      blocking_trx_id &#39;当前拥有锁的事务ID&#39;,&lt;br&gt;&amp;nbsp;      blocking_lock_id &#39;当前拥有锁的锁ID&#39;&lt;br&gt;   from information_schema.innodb_lock_waits;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="6">
+<li>事务2 执行删除操作,删除 id = 1的数据成功.</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; begin;&lt;br&gt;Query OK, 0 rows affected (0.00 sec)&lt;br&gt;&lt;br&gt;mysql&amp;gt; delete from t2 where id = 3;&lt;br&gt;Query OK, 1 row affected (0.00 sec)&lt;br&gt;&lt;br&gt;mysql&amp;gt; delete from t2 where id = 1;&lt;br&gt;Query OK, 1 row affected (0.00 sec)&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="7">
+<li>但是事务1已经检测到了死锁的发生</li>
+</ol>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;mysql&amp;gt; update t2 set name = &#39;aaa&#39; where id = 3;&lt;br&gt;ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction&lt;br&gt;&lt;br&gt;--事务1 commit,更新操作失败&lt;br&gt;mysql&amp;gt; commit;&lt;br&gt;Query OK, 0 rows affected (0.00 sec)&lt;br&gt;&lt;br&gt;mysql&amp;gt; select * from test_dead;&lt;br&gt;-- ERROR 1146 (42S02): Table &#39;test_lock.test_dead&#39; doesn&#39;t exist&lt;br&gt;&lt;br&gt;mysql&amp;gt; select * from t2;&lt;br&gt;+----+----------+------+&lt;br&gt;| id | name     | age  |&lt;br&gt;+----+----------+------+&lt;br&gt;|  1 | lisi     |   11 |&lt;br&gt;|  2 | zhangsan |   22 |&lt;br&gt;+----+----------+------+&lt;br&gt;2 rows in set (0.00 sec)&lt;br&gt;&lt;br&gt;-- 事务2 commit ,删除操作成功&lt;br&gt;mysql&amp;gt; commit;&lt;br&gt;&lt;br&gt;mysql&amp;gt; select * from t2;&lt;br&gt;+----+----------+------+&lt;br&gt;| id | name     | age  |&lt;br&gt;+----+----------+------+&lt;br&gt;|  1 | lisi     |   11 |&lt;br&gt;|  2 | zhangsan |   22 |&lt;br&gt;+----+----------+------+&lt;br&gt;2 rows in set (0.00 sec)&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><ol start="8">
+<li>查看死锁日志</li>
+</ol>
+<ul>
+<li>
+<p>ACTIVE 309秒 sec : 表示事务活动时间</p>
+</li>
+<li>
+<p>starting index read : 表示读取索引</p>
+</li>
+<li>
+<p>tables in use 1: 表示有一张表被使用了</p>
+</li>
+<li>
+<p>LOCK WAIT 3 lock struct(s): 表示该事务的锁链表的长度为3,每个链表节点代表该事务持有的一个锁结构，包括表锁，记录锁以及 autoinc 锁等.</p>
+</li>
+<li>
+<p>heap size 1136 : 为事务分配的锁堆内存大小</p>
+</li>
+<li>
+<p>3 row lock(s): 表示当前事务持有的行锁个数/gap锁的个数</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;LATEST DETECTED DEADLOCK&lt;br&gt;------------------------&lt;br&gt;2022-04-04 06:22:01 0x7fa66b39d700&lt;br&gt;*** (1) TRANSACTION: 事务1&lt;br&gt;TRANSACTION 16472, ACTIVE 309 sec starting index read&lt;br&gt;-- 事务编号 16472,活跃秒数 309,starting index read 表示事务状态为根据索引读取数据.&lt;br&gt;&lt;br&gt;mysql tables in use 1, locked 1  &lt;br&gt;-- 表示有一张表被使用了 ,locked 1 表示表上有一个表锁,对于DML语句为LOCK_IX&lt;br&gt;&lt;br&gt;LOCK WAIT 3 lock struct(s), heap size 1136, 3 row lock(s)&lt;br&gt;MySQL thread id 20, OS thread handle 140352739985152, query id 837 localhost root updating&lt;br&gt;&lt;br&gt;update t2 set name = &#39;aaa&#39; where id = 3 &lt;br&gt;--当前正在等待锁的SQL语句.&lt;br&gt;&lt;br&gt;*** (1) WAITING FOR THIS LOCK TO BE GRANTED:&lt;br&gt;RECORD LOCKS space id 248 page no 3 n bits 72 index PRIMARY of table `test_lock`.`t2` trx id 16472 lock_mode X locks rec but not gap waiting&lt;br&gt;Record lock, heap no 4 PHYSICAL RECORD: n_fields 5; compact format; info bits 32&lt;br&gt; 0: len 4; hex 80000003; asc     ;;&lt;br&gt; 1: len 6; hex 000000004059; asc     @Y;;&lt;br&gt; 2: len 7; hex 4100000193256b; asc A    %k;;&lt;br&gt; 3: len 6; hex 77616e677775; asc wangwu;;&lt;br&gt; 4: len 4; hex 80000021; asc    !;;&lt;br&gt;&lt;br&gt;*** (2) TRANSACTION:&lt;br&gt;TRANSACTION 16473, ACTIVE 300 sec starting index read&lt;br&gt;mysql tables in use 1, locked 1&lt;br&gt;3 lock struct(s), heap size 1136, 2 row lock(s), undo log entries 1&lt;br&gt;MySQL thread id 19, OS thread handle 140352740251392, query id 838 localhost root updating&lt;br&gt;delete from t2 where id = 1&lt;br&gt;*** (2) HOLDS THE LOCK(S):&lt;br&gt;RECORD LOCKS space id 248 page no 3 n bits 72 index PRIMARY of table `test_lock`.`t2` trx id 16473 lock_mode X locks rec but not gap&lt;br&gt;Record lock, heap no 4 PHYSICAL RECORD: n_fields 5; compact format; info bits 32&lt;br&gt; 0: len 4; hex 80000003; asc     ;;&lt;br&gt; 1: len 6; hex 000000004059; asc     @Y;;&lt;br&gt; 2: len 7; hex 4100000193256b; asc A    %k;;&lt;br&gt; 3: len 6; hex 77616e677775; asc wangwu;;&lt;br&gt; 4: len 4; hex 80000021; asc    !;;&lt;br&gt;&lt;br&gt;*** (2) WAITING FOR THIS LOCK TO BE GRANTED:&lt;br&gt;RECORD LOCKS space id 248 page no 3 n bits 72 index PRIMARY of table `test_lock`.`t2` trx id 16473 lock_mode X locks rec but not gap waiting&lt;br&gt;Record lock, heap no 2 PHYSICAL RECORD: n_fields 5; compact format; info bits 0&lt;br&gt; 0: len 4; hex 80000001; asc     ;;&lt;br&gt; 1: len 6; hex 00000000403d; asc     @=;;&lt;br&gt; 2: len 7; hex b0000001240110; asc     $  ;;&lt;br&gt; 3: len 4; hex 6c697369; asc lisi;;&lt;br&gt; 4: len 4; hex 8000000b; asc     ;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><blockquote>
+<p>具体的演示过程，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="10-死锁产生的前提和建议">10 ：死锁产生的前提和建议</h2>
+<p><strong>前提</strong>：</p>
+<ul>
+<li>
+<p><strong>互斥</strong>：不能共享</p>
+</li>
+<li>
+<p><strong>持有并等待</strong>：当前事务保持至少一个资源，同时在等待获取其他资源。</p>
+</li>
+<li>
+<p>**不可剥夺 **：已获得的资源不能被强制释放，只能由获取该资源的事务主动释放。</p>
+</li>
+<li>
+<p>**循环等待：**系统中若干事务之间形成了一个循环等待资源的链。</p>
+<p><strong>死锁的关键在于：两个(或以上)的Session加锁的顺序不一致。</strong></p>
+<p><strong>那么对应的解决死锁问题的关键就是：让不同的session加锁有次序</strong></p>
+</li>
+</ul>
+<p><strong>建议：</strong></p>
+<ul>
+<li>
+<p><strong>一致性排序</strong>：</p>
+<p>对索引<strong>加锁顺序</strong>的不一致很可能会导致死锁, 所以如果可以, 尽量以<strong>相同的顺序</strong>来访问索引记录和表.</p>
+<p>在程序以批量方式处理数据的时候, 如果事先对数据排序, 保证每个线程按固定的顺序来处理记录, 也可以大大降低出现死锁的可能.</p>
+</li>
+<li>
+<p><strong>间隙锁</strong></p>
+<p>往往是程序中导致死锁的真凶, 由于默认情况下 MySQL 的隔离级别是 RR(Repeatable Read，可重复读),所以如果能确定幻读和不可重复读对应用的影响不大, 可以考虑将隔离级别改成 RC, 可以避免 Gap 锁导致的死锁.</p>
+</li>
+<li>
+<p>为表添加<strong>合理的索引</strong>, 如果不走索引将会为表的每一行记录加锁, 死锁的概率就会大大增大.</p>
+</li>
+<li>
+<p><strong>避免大事务</strong>, 尽量将<strong>大事务拆成多个小事务</strong>来处理.</p>
+<p>因为大事务占用资源多, 耗时长, 与其他事务冲突的概率也会变高.</p>
+</li>
+<li>
+<p>避免在同一时间点<strong>运行多个对同一表</strong>进行读写的脚本, 特别注意加锁且操作数据量比较大的语句.</p>
+</li>
+<li>
+<p><strong>超时和重试机制</strong>：<strong>设置锁等待超时参数</strong>，</p>
+<p>innodb_lock_wait_timeout，在并发访问比较高的情况下，如果大量事务因无法立即获得所需的锁而挂起，会占用大量计算机资源，造成严重性能问题，甚至拖跨数据库。</p>
+<p>我们通过设置合适的锁等待超时阈值，可以避免这种情况发生。</p>
+</li>
+</ul>
+<h2 id="11线上发生了死锁应该如何具体操作">11：线上发生了死锁，应该如何具体操作？</h2>
+<p>数据库的死锁是指不同的事务在获取资源时相互等待，导致无法继续执行的情况。</p>
+<p>MySQL中可能发生死锁的情况包括事务同时更新多个表、事务嵌套、索引顺序不一致以及不同事务同时更新相同的索引等。</p>
+<p>虽然数据库有死锁的预防策略，以及自动的处理措施。但是，在线上很多场景下， 数据的的死锁预防策略和回滚策略 ， 通常达不到预期的效果。</p>
+<p>如果线上发生了死锁，我们应该采取以下步骤进行处理：</p>
+<h3 id="111-监控死锁">11.1 监控死锁</h3>
+<p>通过数据库的监控工具或命令查看是否存在死锁情况，了解死锁的具体情况，包括死锁的事务和死锁的资源。</p>
+<p><strong>step1：查看当前正在等待锁的事务</strong></p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;&lt;span&gt;SELECT&lt;/span&gt; * &lt;span&gt;FROM&lt;/span&gt; INFORMATION_SCHEMA.INNODB_LOCK_WAITS;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>运行以上SQL语句，可以查看当前正在等待锁的事务列表。</p>
+<p>根据返回结果，可以分析哪些事务在等待哪些锁，以及等待锁的具体类型。</p>
+<p><strong>step2：查看当前持有的锁信息</strong></p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;&lt;span&gt;SELECT&lt;/span&gt; * &lt;span&gt;FROM&lt;/span&gt; INFORMATION_SCHEMA.INNODB_LOCKS;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>运行以上SQL语句，可以查看当前数据库中的锁信息。</p>
+<p>通过分析返回结果，可以了解哪些锁正在被持有，以及锁的持有者和锁的类型。</p>
+<p><strong>step3：查看当前的死锁信息</strong></p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;&lt;span&gt;SHOW&lt;/span&gt; &lt;span&gt;ENGINE&lt;/span&gt; &lt;span&gt;INNODB&lt;/span&gt; &lt;span&gt;STATUS&lt;/span&gt;;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>运行以上SQL语句，可以显示当前的InnoDB存储引擎的状态信息。</p>
+<p>其中包括死锁检测结果。如果存在死锁，可以通过分析该信息来解决死锁问题。</p>
+<blockquote>
+<p>具体的演示过程，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h3 id="112-终止死锁事务">11.2 终止死锁事务</h3>
+<p>一旦发现死锁，需要找到造成死锁的事务，并选择其中一个事务终止。可以根据事务的执行时间、影响行数、优先级等因素进行终止决策。</p>
+<p>可以采取以下方法来解决死锁问题：</p>
+<ul>
+<li>
+<p>回滚事务：</p>
+<p>使用以下命令回滚某个事务以解除死锁：</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;ROLLBACK;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre></li>
+<li>
+<p>杀死进程：</p>
+<p>使用以下命令查找引起死锁的进程：</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;SHOW PROCESSLIST;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>找到引起死锁的进程ID后，使用以下命令杀死该进程：</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;KILL &amp;lt;process_id&amp;gt;;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre></li>
+</ul>
+<blockquote>
+<p>具体的演示过程，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h3 id="113-重试事务">11.3 重试事务</h3>
+<p>终止死锁事务后，需要重新执行被终止的事务。</p>
+<p>重试事务 之前，需要调整事务顺序</p>
+<p>这可能需要一些逻辑处理，例如对数据进行回滚或者重新执行一些操作。</p>
+<h3 id="114-防止死锁再次发生">11.4 防止死锁再次发生</h3>
+<p>通过数据库的日志和监控信息，分析死锁的原因。</p>
+<p>可以根据死锁原因对数据库的设计和代码进行优化，以尽量减少死锁的发生。</p>
+<p>根据分析结果，针对性地进行数据库结构调整、索引优化、事务隔离级别调整等措施，以降低死锁的概率。</p>
+<h2 id="说在最后有问题找老架构取经">说在最后：有问题找老架构取经</h2>
+<p>MySQL死锁是什么，如何解决？如果大家能对答如流，如数家珍，基本上 面试官会被你 震惊到、吸引到。</p>
+<p>最终，<strong>让面试官爱到 “不能自已、口水直流”</strong>。offer， 也就来了。</p>
+<p>在面试之前，建议大家系统化的刷一波 5000页《<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247497474&amp;idx=1&amp;sn=54a7b194a72162e9f13695443eabe186&amp;scene=21#wechat_redirect">尼恩Java面试宝典PDF</a>》，里边有大量的大厂真题、面试难题、架构难题。很多小伙伴刷完后， 吊打面试官， 大厂横着走。</p>
+<p>在刷题过程中，如果有啥问题，大家可以来 找 40岁老架构师尼恩交流。</p>
+<p>另外，如果没有面试机会，<strong>可以找尼恩来改简历、做帮扶。</strong></p>
+<p>遇到职业难题，找老架构取经， 可以省去太多的折腾，省去太多的弯路。</p>
+<p>尼恩指导了大量的小伙伴上岸，前段时间，<strong>刚指导一个40岁+被裁小伙伴，拿到了一个年薪100W的offer。</strong></p>
+<p>狠狠卷，实现 “offer自由” 很容易的， 前段时间一个武汉的跟着尼恩卷了2年的35岁大龄小伙伴， 在极度严寒/痛苦被裁的环境下， offer拿到手软、手软、手软， 实现真正的 “offer自由” 。</p>
+<h2 id="部分历史案例">部分历史案例</h2>
+<ul>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">**绝地逢生：**9年经验</a><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">自考</a>小伙伴，跟着尼恩狠卷3月硬核技术，面试机会爆表，2周后收3个offer ，满血复活</p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486098&amp;idx=1&amp;sn=bbc5732b071477573bfab8a259d208d3&amp;chksm=97b57b1aa0c2f20c27dd74b490b6062c9eec262a3ac25548534ff70290b172dcc51c6eafe532&amp;scene=21#wechat_redirect">**硬转架构：**35岁被裁6个月 职业绝望，转架构急救上岸，DDD和3高项目太重要了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486077&amp;idx=1&amp;sn=090ad8d19559c727b80e321cd70e3c32&amp;chksm=97b57bf5a0c2f2e32a982b62cfeb2db8744260d7e2d80efdf11ad7c1c5257057ea9b1f7419ec&amp;scene=21#wechat_redirect">**逆天改命：**3年经验2本，卷3个月涨薪60%，进准大厂(得物、乐信、58集团等)，年薪36W</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486059&amp;idx=1&amp;sn=23fa04e6ea781525732f021ab1afaeeb&amp;scene=21#wechat_redirect">女35岁CRUD程序媛，12月被裁后，拿30个机会2个offer上岸，年底大裁员太不容易了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486028&amp;idx=1&amp;sn=cf10ecda7a986b26e0359eba7a9cfeff&amp;scene=21#wechat_redirect">38还有救吗？有。42岁被裁2年天快塌了，急救1个月上岸，成开发经理offer，起死回生</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485994&amp;idx=1&amp;sn=50b95d3ae3009d395458c8740595977f&amp;scene=21#wechat_redirect">被裁不慌，9年小伙1个月喜提年薪60W offer，做中间件架构，爽歪了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485972&amp;idx=1&amp;sn=9f2b5059aaad70c8018b7c6c95a08994&amp;scene=21#wechat_redirect">12年小伙转架构，1小时蜕变收年薪55万offer，秘诀：GO+Java双栖架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485942&amp;idx=1&amp;sn=faa999fc9508435db7a88af2716492d9&amp;chksm=97b5787ea0c2f168ac80d344670df16be12614d37161a893ebed88d4c915384fcbc024996403&amp;scene=21#wechat_redirect">**年薪百万：**40岁小伙被裁6个月，跟着尼恩猛卷3月硬核技术，100W年薪逆袭 ，上岸秘诀：首席架构/总架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485914&amp;idx=1&amp;sn=7832d0b63155f12eb8036321a99991c8&amp;scene=21#wechat_redirect">不怕裁员，8年小伙去中年危机，秘诀：换架构师赛道，上得厅堂，下得厨房，越早越好</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485881&amp;idx=1&amp;sn=97aae4d5edf8ea30d363e22ca86b5955&amp;scene=21#wechat_redirect">被裁员后因祸得福，拿N+1后，逆涨30%，如何实现？</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485855&amp;idx=1&amp;sn=e9f6b1de7352f09d686c1481632fc454&amp;scene=21#wechat_redirect">逆天啦：4年crud小伙收shein+银行两优质offer，狠卷1月收年薪43万大涨30%</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485838&amp;idx=1&amp;sn=72d9733544a5310ee5068fc4533173ea&amp;scene=21#wechat_redirect">原来，拿大厂offer 有捷径&hellip;&hellip;</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485812&amp;idx=1&amp;sn=d87729bea8a8e22f3c2b3eb207d3b38b&amp;scene=21#wechat_redirect">太劲爆&hellip;. 被裁4个月，38岁Android转Java，2个月提架构offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485780&amp;idx=1&amp;sn=03be191625369d33ac54b5c5066c7a68&amp;scene=21#wechat_redirect">起死回生：8年小伙高中毕业+频繁跳槽，狠卷2月，提Java高级offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485663&amp;idx=1&amp;sn=357ab76bc6695485b7941e8eb24a0b42&amp;scene=21#wechat_redirect">爽翻了：指导3轮，5年小伙收5大offer，涨50%，领路模式太牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485643&amp;idx=1&amp;sn=ce71b19e7c9745ab2fe8bfc75f54d993&amp;chksm=97b57943a0c2f055e5c085eec48586e9ba05ae661acabe4cfb7e984c5aeb03d6beeafd204eba&amp;scene=21#wechat_redirect">降维攻击，37年大龄老伙喜提60W年薪offer，1个月顺利上岸</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485571&amp;idx=1&amp;sn=c0096484fd2e1202c14a4bd9d37427c2&amp;chksm=97b5790ba0c2f01da764b8b7b5e3c8a5b02f42d2ed30809f9d7b2d8e73a5bebc9102ef502bc8&amp;scene=21#wechat_redirect">架构速成：从一面杀到一次过，记7年女架构的速成经历</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485452&amp;idx=1&amp;sn=68102559298564895b1496e2230dddb2&amp;chksm=97b57984a0c2f0927d80f8719a7dc56f43ff13e373eb3886d39be98538180f919225b5ac05f2&amp;scene=21#wechat_redirect">极速拿offer：阿里P6被裁后极速上岸，1个月内喜提2优质offer(含滴滴)</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247496226&amp;idx=1&amp;sn=459a566cfa5915a720e80e1880fd730d&amp;chksm=c14148a6f636c1b08a321d08384c5d76e184c22f8f4457f980452c45c163bdc5ab91ca17b919&amp;scene=21#wechat_redirect">大逆袭：做化工12年，35岁转Java，被裁4个月后，1个月收架构Offer，大龄跨行，超级牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492928&amp;idx=1&amp;sn=82fd1c530d0ad8ad798b5c35c040641b&amp;chksm=c1415fc4f636d6d25f16e12a73a2635073994ef742efdddcc1185c5d7727785c98fac14e8de8&amp;scene=21#wechat_redirect">被裁后炸爽：10年小伙12天火速上岸，反涨20%，爽暴了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492621&amp;idx=1&amp;sn=f6ada03c596baedcf995e5cb60d255b2&amp;chksm=c1415e89f636d79f13b25d7f3691fb79931515f15b421d65fab1c5e34d4cce4165b6d1772737&amp;scene=21#wechat_redirect">裁就裁，6年小伙60W极速上岸，白拿20W还游一圈拉萨，真香</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491450&amp;idx=1&amp;sn=98379c07e430562a8a244121e63f47d7&amp;chksm=c142a5fef6352ce8e3ee64090a6d0619a9d40484f358302d96990e7655ec16f8d8e7624ca88e&amp;scene=21#wechat_redirect">极速拿offer：被毕业3个月，11年经验小伙0.5个月极速拿offer，领路模式的巨大威力</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491496&amp;idx=1&amp;sn=cb31f7510a7c2efb7daf6cad793860ad&amp;scene=21#wechat_redirect">惊天大逆袭：8年小伙20天时间提75W年薪offer，逆涨50%，秘诀在这</a></p>
+</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240424/MySQL%E6%AD%BB%E9%94%81%E9%97%AE%E9%A2%98%E8%AF%A6%E8%A7%A3%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240424/MySQL%E6%AD%BB%E9%94%81%E9%97%AE%E9%A2%98%E8%AF%A6%E8%A7%A3%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240424/SpringBoot%E9%A1%B9%E7%9B%AE%E6%90%AD%E5%BB%BA%E4%B8%8E%E9%85%8D%E7%BD%AE--%E7%9F%A5%E8%AF%86%E9%93%BA/">SpringBoot项目搭建与配置 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/SpringBoot%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E6%9C%BA%E5%88%B6%E5%8F%8A%E9%9D%A2%E8%AF%95%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/">SpringBoot自动装配机制及面试题 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">高并发下防止重复下单的解决方案 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/Spring-Boot%E9%A1%B9%E7%9B%AEpom.xml%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/">Spring Boot项目pom.xml配置详解 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/FSAC%E6%9C%AA%E6%9D%A5%E8%B6%85%E7%BA%A7%E6%9E%B6%E6%9E%84%E5%B8%88%E5%AE%9E%E7%8E%B0%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B%E5%86%8D%E6%97%A0%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">FSAC未来超级架构师：实现架构转型，再无中年危机 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/MySQL'>MySQL</a></li>
+                
+                <li><a href='/geek001/tags/%E6%AD%BB%E9%94%81'>死锁</a></li>
+                
+                <li><a href='/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88'>解决方案</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BAThreadLocal--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="深入浅出ThreadLocal -- 知识铺">深入浅出ThreadLocal -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Redis%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%BF%E7%94%A8%E8%B7%B3%E8%A1%A8%E8%80%8C%E4%B8%8D%E7%94%A8%E5%B9%B3%E8%A1%A1%E6%A0%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Redis为什么使用跳表而不用平衡树 -- 知识铺">Redis为什么使用跳表而不用平衡树 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/GraphQL%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E4%B8%8E%E9%98%B2%E6%8A%A4%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GraphQL安全漏洞与防护策略 -- 知识铺">GraphQL安全漏洞与防护策略 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8-ThinkJS-%E6%90%AD%E5%BB%BA-GraphQL-API--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用 ThinkJS 搭建 GraphQL API -- 知识铺">使用 ThinkJS 搭建 GraphQL API -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8Spring-Boot%E5%92%8CShiro%E9%9B%86%E6%88%90Pac4j%E5%AE%9E%E7%8E%B0CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺">使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%9F%BA%E4%BA%8Ebuji-pac4j%E5%92%8CCAS%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E7%A4%BA%E4%BE%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于buji-pac4j和CAS实现单点登录示例 -- 知识铺">基于buji-pac4j和CAS实现单点登录示例 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="单点登录配置问题 -- 知识铺">单点登录配置问题 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E9%9B%86%E6%88%90Shiro%E6%A1%86%E6%9E%B6%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95CAS--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="集成Shiro框架实现单点登录CAS -- 知识铺">集成Shiro框架实现单点登录CAS -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Next.js-14React%E5%BC%80%E5%8F%91%E8%80%85%E7%9A%84%E6%96%B0%E5%AE%A0%E4%B8%8E%E5%85%A8%E6%A0%88%E6%A1%86%E6%9E%B6%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺">Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="接口调优中的批量处理策略 -- 知识铺">接口调优中的批量处理策略 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
