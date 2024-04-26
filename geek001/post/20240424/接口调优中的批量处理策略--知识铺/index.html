@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>接口调优中的批量处理策略 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="接口调优中的批量处理策略 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-04-24T11:27:05&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="接口调优中的批量处理策略 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#21-批量数据库操作"><strong>2.1 批量数据库操作</strong></a></li>
+        <li><a href="#22-合并网络请求"><strong>2.2 合并网络请求</strong></a></li>
+        <li><a href="#23-使用批处理任务"><strong>2.3 使用批处理任务</strong></a></li>
+        <li><a href="#24-合并小文件"><strong>2.4 合并小文件</strong></a></li>
+        <li><a href="#25-合并数据查询"><strong>2.5 合并数据查询</strong></a></li>
+        <li><a href="#26-分页批量处理"><strong>2.6 分页批量处理</strong></a></li>
+        <li><a href="#27-批量提交事务"><strong>2.7 批量提交事务</strong></a></li>
+        <li><a href="#28-并行批量处理"><strong>2.8 并行批量处理</strong></a></li>
+        <li><a href="#29-使用缓存"><strong>2.9 使用缓存</strong></a></li>
+        <li><a href="#210-监控和调优"><strong>2.10 监控和调优</strong></a></li>
+        <li><a href="#211-分布式批处理"><strong>2.11 分布式批处理</strong></a></li>
+        <li><a href="#212-合理设置批处理大小"><strong>2.12 合理设置批处理大小</strong></a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">接口调优中的批量处理策略 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年4月24日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>架构师（JiaGouX）</p>
+<p>我们都是架构师！<br>
+架构未来，你来不来？</p>
+<p>批量处理是接口调优中常见的策略之一，可以减少数据库和网络开销，提高处理效率。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/mmbiz_png/YK9e7vHy9IQATwibKVicOpXZibX8VOvBrnF39NdpXQMwdpyIgN0ibicEwRdge0mXthxjHagHgwpWhrsibvMZFibaQC6vQ/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />   
+    </p>
+<p><strong>一、必要性</strong></p>
+<p>
+        <img class="mx-auto" alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/mmbiz_png/orc2J6rib40bATuJM23UiaHQ0tsVpvjgyuhk7To5zFqb2fyL9pCr1U7hfeKJELCht0KxWnuias6TLibMdcRhM7QhyQ/640?wx_fmt=png&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />   
+    </p>
+<p>进行批量处理优化是接口调优的一项重要策略，它可以带来多方面的性能优势。</p>
+<p>以下是一些批量处理优化的主要原因：</p>
+<ol>
+<li>
+<p><strong>减少数据库访问次数</strong>： 批量处理将多个操作合并成一个批次执行，从而减少了与数据库的交互次数。数据库访问通常是接口调优中的瓶颈之一，通过批量处理可以显著降低数据库连接和关闭的开销，提高性能。</p>
+</li>
+<li>
+<p><strong>降低网络开销</strong>： 数据库操作涉及网络通信，而网络通信的开销是相对较高的。通过批量处理，可以在一次通信中传递多个操作，减少了网络开销，特别是在高延迟的网络环境中更为明显。</p>
+</li>
+<li>
+<p><strong>提高事务效率</strong>： 在一些需要事务的场景下，批量处理可以减少事务的开始和提交次数，从而提高整体事务的效率。减少事务的嵌套和开销对于数据库性能和并发控制有积极影响。</p>
+</li>
+<li>
+<p><strong>降低资源消耗</strong>： 单独执行大量小规模的操作可能会导致过多的资源消耗，如数据库连接池中的连接数。批量处理可以减少这种资源的浪费，提高系统的稳定性。</p>
+</li>
+<li>
+<p><strong>优化内存使用</strong>： 批量处理可以更好地利用内存，减少了单个操作导致的内存分配和回收开销。这对于处理大数据量时尤为重要，可以降低内存压力。</p>
+</li>
+<li>
+<p><strong>提高并发度</strong>： 批量处理可以在一定程度上提高并发度。在一次批量操作中，可以并发处理多个批次，从而加速整体处理速度，特别是在多线程或异步操作的情况下。</p>
+</li>
+<li>
+<p><strong>降低锁的竞争</strong>： 在涉及事务的情况下，批量处理可以降低对数据库表的锁的竞争。减少锁竞争可以提高系统的并发性，减少潜在的死锁和性能问题。</p>
+</li>
+<li>
+<p><strong>提高整体性能</strong>： 通过以上方式，批量处理可以有效地提高整体接口的性能，降低系统的响应时间，提升用户体验。</p>
+</li>
+</ol>
+<p>批量处理优化是一种综合性的性能提升手段，适用于处理大量数据的场景。在设计和实现接口时，考虑采用批量处理的策略，可以有效地降低系统的负载，提高性能，同时减少资源的消耗。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/mmbiz_png/YK9e7vHy9IQATwibKVicOpXZibX8VOvBrnF39NdpXQMwdpyIgN0ibicEwRdge0mXthxjHagHgwpWhrsibvMZFibaQC6vQ/640?wx_fmt=png" />   
+    </p>
+<p><strong>二、建议</strong></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/mmbiz_png/orc2J6rib40bATuJM23UiaHQ0tsVpvjgyuhk7To5zFqb2fyL9pCr1U7hfeKJELCht0KxWnuias6TLibMdcRhM7QhyQ/640?wx_fmt=png" />   
+    </p>
+<p>以下是关于接口调优中批量处理的一些建议：</p>
+<h3 id="21-批量数据库操作"><strong>2.1 批量数据库操作</strong></h3>
+<p>尽量减少数据库交互次数，使用批量插入、更新或删除操作，以减小数据库负担。数据库的批量操作通常比单条操作更高效。通过减少数据库交互次数，批量处理可以显著提高接口性能。</p>
+<p>以下是一些进行批量数据库操作的通用方法：</p>
+<p><strong>1) 使用批处理语句</strong></p>
+<p>大多数数据库支持批处理语句，通过将多个操作合并成一个批量操作，减少了与数据库的通信次数。例如，在 Java 中，使用 JDBC 可以通过 addBatch 和 executeBatch 来执行批处理语句。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 使用JDBC批处理插入数据&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>2) 使用 ORM 框架的批量操作</strong></p>
+<p>如果我们使用了对象关系映射（ORM）框架，如 Hibernate 或 MyBatis，通常它们提供了批量插入、更新和删除的机制。这些框架会优化生成的 SQL 语句，以实现批处理效果。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 使用Hibernate批量插入数据&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 使用存储过程</strong></p>
+<p>将多个数据库操作放在一个存储过程中，通过一次调用执行多个操作。存储过程通常在数据库端执行，可以减少数据在网络中的传输。</p>
+<p><strong>4) 使用数据库工具</strong></p>
+<p>一些数据库系统提供了专门的工具或语法用于批量处理，如 MySQL 的 LOAD DATA INFILE 语句。使用这些工具可以快速地导入大量数据。</p>
+<p><strong>5) 使用批量更新的优化方式</strong></p>
+<p>对于大规模的更新操作，考虑使用批量更新的优化方式，例如使用 CASE WHEN 语句。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;UPDATE&lt;/span&gt; table_name&lt;/span&gt;
+</code></pre><p><strong>6) 分批次处理</strong></p>
+<p>将大量数据分成小批次进行处理，避免一次性处理大量数据。这对于大型数据集和复杂业务逻辑有利。</p>
+<p><strong>7) 使用批处理框架</strong></p>
+<p>对于大规模的数据处理，可以考虑使用专业的批处理框架，如 Spring Batch 等。这些框架提供了丰富的功能和配置选项，可以更好地管理和优化批量处理任务。</p>
+<p>在进行批量数据库操作时，需根据具体场景和需求选择适当的方式。确保在设计和实现过程中考虑事务管理、异常处理和性能监控，以保证批处理的正确性和高效性。</p>
+<h3 id="22-合并网络请求"><strong>2.2 合并网络请求</strong></h3>
+<p>如果接口涉及到与其他服务通信，考虑将多个请求合并为一个，以减小网络开销。这可以通过合并请求参数、使用批量接口或 GraphQL 等方式实现。特别适用于需要从服务端获取多个资源或执行多个操作的情况。通过减少网络请求次数，可以降低延迟和提高性能。</p>
+<p>以下是一些合并网络请求的方法：</p>
+<p><strong>1) 使用HTTP/2 或 HTTP/3</strong></p>
+<p>这些协议支持多路复用，允许多个请求同时在同一连接上进行，避免了建立多个连接的开销。这有助于减少网络请求的总体延迟。</p>
+<p><strong>2) 使用异步请求</strong></p>
+<p>在客户端使用异步请求，可以并发地发送多个请求。这可以通过 JavaScript 中的 XMLHttpRequest 对象或 fetch API 来实现。在服务端，也可以考虑使用异步框架来处理并发请求。</p>
+<p><strong>3) 合并资源请求</strong></p>
+<p>将多个资源请求合并为一个请求。例如，将多个 CSS 或 JavaScript 文件合并为一个文件，减少页面加载时的请求数。</p>
+<p><strong>4) 使用批处理请求</strong></p>
+<p>将多个操作合并成一个请求，服务端一次性处理所有操作。这可以通过设计相应的接口或使用批处理框架来实现。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 例子：合并多个查询请求&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>5) 使用 GraphQL</strong></p>
+<p>GraphQL 是一种查询语言，允许客户端指定需要的数据，从而避免了多个接口请求。服务端可以根据一个 GraphQL 查询来满足客户端的多个请求。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 例子：GraphQL查询&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>6) 缓存请求结果</strong></p>
+<p>对于可能重复的请求，可以在客户端或服务端进行结果的缓存，避免重复的请求。</p>
+<p>使用 WebSocket：WebSocket 提供了双向通信的能力，允许在同一连接上进行多个请求和响应。这对于实时应用程序和推送通知很有用。</p>
+<p><strong>7) 减少不必要的请求</strong></p>
+<p>在设计接口时，避免设计过多、过于细粒度的接口，减少不必要的请求。只请求客户端需要的数据，避免获取冗余信息。</p>
+<p>合并网络请求需要在设计接口和客户端请求逻辑时进行权衡。在某些场景下，合并请求可以显著提高性能，但在其他场景下可能会引入复杂性。因此，需要根据具体的业务需求和性能要求进行综合考虑。</p>
+<h3 id="23-使用批处理任务"><strong>2.3 使用批处理任务</strong></h3>
+<p>将相关的任务组织成批处理任务，以提高任务执行的效率。这对于异步任务、定时任务等场景非常有效。特别是在需要处理大量数据或执行耗时操作的情况下。</p>
+<p>以下是一些建议和示例，说明如何使用批处理任务进行优化：</p>
+<p><strong>1) 明确定义批处理的操作</strong></p>
+<p>在开始批处理任务之前，明确定义需要进行批处理的具体操作。这可能包括数据库插入、更新、删除，文件处理，网络请求等。</p>
+<p><strong>2) 分批次处理数据</strong></p>
+<p>将大量数据分成小批次进行处理，而不是一次性处理整个数据集。这可以帮助降低内存使用，提高系统稳定性，同时也有助于并发处理。</p>
+<p><strong>3) 使用批处理框架</strong></p>
+<p>利用批处理框架可以简化批处理任务的管理和执行。例如，Java 中的 Spring Batch 框架提供了强大的批处理功能，包括事务管理、错误处理、并发执行等。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 使用Spring Batch的示例&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>4) 优化数据库批处理</strong></p>
+<p>对于数据库批处理，使用数据库提供的批量操作语句（如 JDBC 的 addBatch和executeBatch）或者 ORM 框架的批处理功能。这可以显著减少数据库访问次数。</p>
+<p><strong>5) 并行处理批次</strong></p>
+<p>在处理数据的过程中，考虑在批次之间进行并行处理。这可以通过多线程、异步任务等方式实现，提高整体处理速度。</p>
+<p><strong>6) 容错和事务管理</strong></p>
+<p>在设计批处理任务时，考虑容错机制和事务管理。保证任务的稳定性，避免因异常导致任务无法正常完成。</p>
+<p><strong>7) 定时执行</strong></p>
+<p>针对需要定期执行的批处理任务，使用定时任务来触发批处理任务的执行。这有助于在非高峰时段执行任务，减少对系统其他功能的影响。</p>
+<p><strong>8) 合理设置批处理的大小</strong></p>
+<p>根据具体场景，合理设置批处理的大小，考虑到内存使用、数据库压力和系统并发度等因素。</p>
+<p>使用批处理任务可以有效地优化接口性能，尤其是在处理大规模数据或需要长时间执行的任务时。选择合适的批处理框架和优化策略，结合系统需求和性能目标，可以提高系统的稳定性和响应性。</p>
+<h3 id="24-合并小文件"><strong>2.4 合并小文件</strong></h3>
+<p>如果接口涉及到文件操作，考虑将多个小文件合并为一个大文件，减小文件操作的开销。这对于文件上传、下载等场景有帮助。合并小文件可以降低文件数量，减小文件系统的开销，提高文件操作的效率。</p>
+<p>以下是一些建议和方法，说明如何合并小文件：</p>
+<p><strong>1) 批量读取和写入</strong></p>
+<p>使用缓冲流一次性读取多个小文件的内容，并将它们合并写入到一个大文件中。这样可以减少文件读写的次数，提高效率。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：合并多个小文件到一个大文件&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>2) 使用文件合并工具</strong></p>
+<p> 对于大规模的文件合并操作，可以考虑使用专门的文件合并工具。这些工具通常能够并行处理文件合并操作，提高整体效率。</p>
+<p><strong>3) 合并文件路径存储</strong></p>
+<p>如果小文件较多，并且它们分布在不同的目录下，可以将这些目录逐一合并，形成一个更大的目录结构。这有助于降低文件系统的索引开销。</p>
+<p><strong>4) 使用压缩文件</strong></p>
+<p>将小文件打包成一个压缩文件，减少文件数量。这可以通过使用 ZIP、TAR 等压缩格式来实现。需要注意的是，压缩文件可能会增加读取时的解压开销。</p>
+<p><strong>5) 合并文件在内存中处理</strong></p>
+<p>如果小文件的总大小可以容纳在内存中，可以考虑将它们读取到内存中进行合并处理，然后将结果写入一个大文件。</p>
+<p><strong>6) 使用 MapReduce</strong></p>
+<p>对于大规模分布式文件处理，可以考虑使用 MapReduce 框架。MapReduce 可以在分布式环境中并行处理大量小文件的合并任务。</p>
+<p><strong>7) 使用数据库存储</strong></p>
+<p>将小文件的内容存储在数据库中，并通过数据库操作进行合并。这种方式适用于需要对文件内容进行复杂查询和处理的场景。</p>
+<p><strong>8) 考虑合并策略</strong></p>
+<p>根据实际需求，选择合适的合并策略。有时可以按照文件名、时间戳等进行有序合并，以便更容易管理和维护。</p>
+<p>在合并小文件时，需要根据具体的业务需求和性能目标选择合适的方法。确保在实施合并策略时，对文件的内容、结构和后续处理要求有清晰的了解，以避免引入潜在问题。</p>
+<h3 id="25-合并数据查询"><strong>2.5 合并数据查询</strong></h3>
+<p>在数据库查询中，避免在循环中逐个查询，而是使用 IN 查询或者 JOIN 操作，将多个查询合并成一个，减少数据库查询次数。 在接口调优中，合并数据查询是一项关键的优化策略，特别是在需要获取多个相关数据的情况下。通过合并查询可以减少数据库访问次数，降低系统负担，提高性能。以下是一些合并数据查询的方法：</p>
+<p><strong>1) 使用 JOIN 语句</strong></p>
+<p>如果数据分布在不同的表中，并且之间存在关联关系，使用 SQL 的 JOIN 语句可以在一次查询中获取多个表的相关数据，避免多次单表查询。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;-- 示例：使用INNER JOIN合并两个表的查询&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>2) 采用子查询</strong></p>
+<p>在某些情况下，使用子查询可以将多个查询合并为一个，减少数据库访问次数。确保使用子查询时考虑到性能和查询的复杂性。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;-- 示例：使用子查询合并两次查询&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 使用 IN 或 EXISTS 子句</strong></p>
+<p>使用 IN 或 EXISTS 子句可以合并多个查询条件，将它们合并成一个查询。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;-- 示例：使用IN合并两次查询&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>4) 缓存查询结果</strong></p>
+<p>对于一些不经常变化的数据，可以考虑将查询结果缓存起来，避免多次查询相同的数据。</p>
+<p><strong>5) 使用存储过程</strong></p>
+<p>将多个查询逻辑封装在存储过程中，通过一次调用存储过程获取所有需要的数据。</p>
+<p><strong>6) 使用 ORM 框架的关联查询</strong></p>
+<p>对象关系映射（ORM）框架如 Hibernate 或 MyBatis 通常提供了关联查询的功能，能够方便地在一次查询中获取相关联的数据。</p>
+<p><strong>7) 合并多个接口请求</strong></p>
+<p>对于 Web 服务或 RESTful 接口，可以考虑设计一个接口，通过一次请求获取多个相关数据，而不是分多次请求获取。</p>
+<p>在进行合并数据查询时，需要综合考虑数据库表结构、查询性能、业务需求以及系统的并发情况。选择适当的合并策略可以显著提高系统性能，降低响应时间。</p>
+<h3 id="26-分页批量处理"><strong>2.6 分页批量处理</strong></h3>
+<p>对于大量数据的处理，使用分页机制进行批量处理，以避免一次性处理大量数据导致内存占用过高。通过将数据分成适当大小的页，可以有效地控制内存使用，并提高系统的性能。</p>
+<p>以下是一些分页批量处理的方法：</p>
+<p><strong>1) 分页查询数据库</strong></p>
+<p>对于大量数据存储在数据库中的情况，使用分页查询是一种常见的方式。通过在查询语句中使用 LIMIT 和 OFFSET，可以控制每次查询返回的数据量和起始位置。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;-- 示例：分页查询数据库&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>2) 使用分页参数</strong></p>
+<p>在接口中引入分页参数，允许客户端指定要获取的页数和每页的数据量。这样可以根据需求调整分页大小。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 示例：接口请求中包含分页参数&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 处理器中使用分页逻辑</strong></p>
+<p>在后端处理器（Controller、Service 等）中实现分页逻辑，根据分页参数计算出应该查询的数据范围，并执行相应的操作。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 示例：在Java中处理分页逻辑&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>4) 支持排序</strong></p>
+<p>允许客户端指定排序方式，以确保在不同页之间的数据顺序是一致的。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// 示例：接口请求中包含排序参数&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>5) 数据缓存和预加载</strong></p>
+<p>针对热门数据，可以考虑使用缓存机制，或者在系统启动时预加载一部分数据到内存中，以提高访问速度。</p>
+<p><strong>6) 异步处理</strong></p>
+<p>对于批量处理任务，可以考虑使用异步处理来提高系统的并发性能。例如，将大量数据的处理任务放入消息队列中异步执行。</p>
+<p><strong>7) 监控和优化</strong></p>
+<p>在实施分页批量处理后，监控系统的性能和资源使用情况，通过性能测试和负载测试找到系统的瓶颈，进一步优化系统。</p>
+<p><strong>8) 合理设置分页大小</strong></p>
+<p>根据实际情况和系统负载合理设置每页的数据量。太小的分页可能会增加数据库查询的开销，太大的分页可能导致内存占用过高。</p>
+<p>分页批量处理是一种平衡内存和性能的策略，通过合理的分页设计，可以使系统更具弹性，更好地适应不同规模的数据量。</p>
+<h3 id="27-批量提交事务"><strong>2.7 批量提交事务</strong></h3>
+<p>如果接口涉及到事务，尽量将多个操作放在同一个事务中，以减少事务提交的开销。特别是在需要处理大量数据或执行多个操作的情况下。批量提交事务可以减少事务的开销，提高系统性能。</p>
+<p>以下是一些方法和建议，说明如何批量提交事务：</p>
+<p><strong>1) 分批次处理并提交事务</strong></p>
+<p>将大量数据分成小批次处理，并在每个批次处理完成后提交事务。这有助于控制事务的大小，避免一次性处理大量数据导致事务过长的问题。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：分批次处理并提交事务&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>2) 使用事务回滚点</strong></p>
+<p>在处理大事务时，可以使用事务回滚点（Savepoint）来划分事务中的子事务，实现分批提交。在需要回滚时，可以回到指定的事务回滚点。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：使用事务回滚点分批提交事务&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 使用批处理框架</strong></p>
+<p>对于大规模的数据处理，可以考虑使用专业的批处理框架，如 Spring Batch 等。这些框架提供了丰富的功能和配置选项，可以更好地管理和优化批量处理任务。</p>
+<p>在实施批量提交事务时，需根据具体场景和需求选择适当的方式。确保在设计和实现过程中考虑事务管理、异常处理和性能监控，以保证批处理的正确性和高效性。</p>
+<h3 id="28-并行批量处理"><strong>2.8 并行批量处理</strong></h3>
+<p>在适当的场景下，可以考虑使用并行处理多个批量任务，以提高整体的处理速度。 并行批量处理是接口调优中一种常见的策略，可以提高系统性能，特别是在需要处理大量数据或执行耗时操作的情况下。</p>
+<p>以下是一些方法和建议，说明如何实现并行批量处理：</p>
+<p><strong>1) 多线程处理</strong></p>
+<p>利用多线程来并行处理批量任务。将大量数据分成多个小任务，每个任务在独立的线程中执行，以充分利用多核处理器的性能。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：使用多线程并行处理批量任务&lt;/span&gt;&lt;/span&gt;
+</code></pre><p>**2) 使用并行流（Parallel Streams）<br>
+**</p>
+<p>如果使用 Java 8 及以上版本，可以使用并行流来简化并行处理。通过调用 parallel() 方法，可以将集合的操作转换为并行操作。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java 8示例：使用并行流并行处理批量任务&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 使用分布式计算框架</strong></p>
+<p>对于更大规模的数据处理，可以考虑使用分布式计算框架，如 Apache Spark、Hadoop 等。这些框架可以将任务分布到多个节点上并行执行，实现横向扩展。</p>
+<p><strong>4) 批量任务拆分</strong></p>
+<p>将大批量任务拆分成多个小任务，每个小任务独立执行。这有助于并行化处理，并能够更好地利用系统资源。</p>
+<p><strong>5) 异步任务处理</strong></p>
+<p>将批量任务设计成异步执行的形式，可以通过消息队列或事件驱动的方式实现。每个异步任务在独立的线程或进程中执行，提高并行度。</p>
+<p><strong>6) 数据分片并行处理</strong></p>
+<p>将数据分片后并行处理，每个分片独立处理。这适用于大量数据需要进行相似操作的场景。</p>
+<p><strong>7) 使用并行算法</strong></p>
+<p>针对特定的批量任务，可以考虑使用并行算法来提高处理效率。例如，并行排序算法、并行搜索算法等。</p>
+<p><strong>8) 适当的并发控制</strong></p>
+<p>在进行并行处理时，需要适当控制并发度，避免过多的并发导致系统资源不足。可以通过调整并发度来优化性能。</p>
+<p>在实现并行批量处理时，需谨慎考虑并发安全性、资源管理和系统负载等因素。通过合理设计任务拆分和并行执行的逻辑，可以更好地利用硬件资源，提高系统的整体性能。</p>
+<h3 id="29-使用缓存"><strong>2.9 使用缓存</strong></h3>
+<p>对于一些不经常变化的数据，可以考虑在缓存中进行批量查询，减少数据库的访问。<br>
+缓存可以减少对底层数据存储的访问，提高数据读取速度，降低系统负载。</p>
+<p>以下是一些关于如何在批量处理中使用缓存的方法和建议：</p>
+<p><strong>1) 缓存热点数据</strong></p>
+<p>针对常被访问的数据，使用缓存将其存储在内存中，避免重复从数据库或其他数据源中读取。这样可以显著提高数据的读取速度。</p>
+<p><strong>2) 使用分布式缓存</strong></p>
+<p>对于分布式系统，考虑使用分布式缓存系统，如 Redis、Memcached 等。这样可以实现在多个节点之间共享缓存数据，提高整体性能。</p>
+<p><strong>3) 缓存查询结果</strong></p>
+<p>如果某个查询的结果是稳定的且不经常变化，可以将查询结果缓存起来，下次相同的查询直接从缓存中获取，避免重复查询。</p>
+<p><strong>4) 缓存结果集</strong></p>
+<p>在批量处理中，如果有一些中间结果集是可以复用的，可以将这些结果集缓存起来，以减少计算或查询的开销。</p>
+<p><strong>5) 使用本地缓存</strong></p>
+<p>对于单机应用，可以使用本地内存缓存，如 Guava Cache。这种缓存适用于存储相对较小、生命周期较短的数据。</p>
+<pre tabindex="0"><code>&lt;span&gt;// Java示例：使用Guava &lt;span&gt;Cache&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>6) 考虑缓存失效策略</strong></p>
+<p>对于缓存中的数据，需要考虑合适的失效策略，以确保缓存中的数据是最新的。可以根据数据的更新频率设置缓存的过期时间。</p>
+<p><strong>7) 缓存预加载</strong></p>
+<p>在系统启动时，可以预先加载一部分数据到缓存中，以提高系统初始性能。这对于那些被频繁访问的数据特别有效。</p>
+<p><strong>8) 使用缓存注解</strong></p>
+<p>对于基于 Java 的应用，可以使用缓存注解，如 Spring 的 @Cacheable，简化缓存的使用和管理。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：使用Spring的@Cacheable注解&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>9) 缓存清理策略</strong></p>
+<p>定期清理缓存中的过期数据，以释放内存并保持缓存的健康状态。这可以通过定时任务或缓存系统本身的清理机制来实现。</p>
+<p><strong>10) 分布式锁和缓存一致性</strong></p>
+<p>当使用分布式缓存时，需要考虑分布式锁和缓存一致性的问题，以避免并发访问导致的数据不一致。</p>
+<p>在使用缓存时，需要根据实际业务场景和性能需求，选择合适的缓存方案和配置参数。同时，要注意缓存的内存占用、缓存击穿、缓存雪崩等缓存相关的常见问题。</p>
+<h3 id="210-监控和调优"><strong>2.10 监控和调优</strong></h3>
+<p>部署监控系统以监控批处理任务的执行情况是非常重要的，它能够及时发现性能瓶颈、异常情况和资源利用情况，从而进行有效的调优。</p>
+<p>以下是一些建议，说明如何部署监控系统并监控批处理任务：</p>
+<p><strong>1) 选择监控工具和系统</strong></p>
+<p>选择适合我们应用和环境的监控工具。一些常用的监控工具包括 Prometheus、Grafana、ELK Stack（Elasticsearch、Logstash、Kibana）、Datadog 等。确保所选工具支持批处理任务的监控。将监控工具集成到我们的应用中。通过使用监控代理或监控库，可以方便地将监控数据发送到监控系统。</p>
+<p><strong>2) 监控批处理任务</strong></p>
+<p>确定批处理任务中的关键性能指标，例如任务执行时间、吞吐量、成功率、错误率等。在批处理任务的关键代码路径中添加监控点。这可以通过在代码中插入性能日志、指标记录或使用监控工具提供的API来实现。配置日志监控，确保批处理任务的日志包含足够的信息。使用监控系统来分析日志，检测异常情况并及时报警。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;// Java示例：使用Prometheus的Java客户端&lt;/span&gt;&lt;/span&gt;
+</code></pre><p><strong>3) 设定警报规则</strong></p>
+<p>基于关键性能指标，设定适当的警报规则。例如，当批处理任务执行时间超过阈值或错误率升高时，触发警报。将监控系统与通知系统（如 Slack、Email、短信等）整合，以便在触发警报时及时通知相关人员。</p>
+<p><strong>4) 可视化监控仪表板</strong></p>
+<p>利用监控工具提供的仪表板功能，创建针对批处理任务的可视化仪表板。仪表板应包含关键性能指标和警报信息。 配置实时监控，确保能够实时查看批处理任务的执行情况。这有助于迅速发现性能问题。</p>
+<p><strong>5) 周期性分析和优化</strong></p>
+<p>定期进行性能分析，通过监控系统的历史数据和趋势分析，找出性能瓶颈和潜在问题。根据性能分析结果，进行相应的优化和调整。可能需要优化代码、调整数据库索引、增加硬件资源等。</p>
+<p><strong>6) 分布式追踪</strong></p>
+<p>使用分布式追踪工具来跟踪批处理任务在分布式系统中的调用链。这有助于定位性能问题和优化点。 将分布式追踪信息整合到监控系统中，以便在仪表板上查看批处理任务的完整调用链。</p>
+<p><strong>7) 定期性能测试</strong></p>
+<p>在不同负载下进行定期性能测试，以验证系统在不同情况下的性能表现，及时发现潜在的性能问题。确保性能测试环境与生产环境尽可能相似，以保证性能测试的准确性。</p>
+<p><strong>8) 安全和权限</strong></p>
+<p>确保监控系统的安全性，采取合适的措施保护监控数据，避免敏感信息泄露。控制访问监控系统的权限，确保只有授权人员能够查看和修改监控配置。</p>
+<p>通过以上步骤，可以建立一个全面的监控体系，确保对批处理任务的执行情况进行实时监控、及时发现潜在问题、并进行相应的调优。</p>
+<h3 id="211-分布式批处理"><strong>2.11 分布式批处理</strong></h3>
+<p>如果系统规模较大，可以考虑使用分布式批处理框架，将任务分发到多个节点进行处理，以提高整体的处理能力。</p>
+<p>以下是进行分布式批处理时的一些建议和方法：</p>
+<ol>
+<li>
+<p>数据分片 将大数据集分割成小的数据片段，每个片段称为一个数据分片。数据分片的划分可以基于某种规则，例如按照数据范围、按照数据的散列值等。对数据分片进行元数据管理，记录每个数据分片的信息，包括所在节点、状态、处理进度等。元数据管理有助于跟踪和监控分布式批处理的执行情况。</p>
+</li>
+<li>
+<p>任务调度与协调 使用任务调度系统来协调和调度分布式批处理任务。常见的任务调度框架包括 Apache Hadoop YARN、Apache Mesos、Kubernetes 等。对于批处理作业的协调，可以使用分布式作业调度系统，例如 Apache Airflow、Apache Oozie 等。</p>
+</li>
+<li>
+<p>并行处理 在每个节点上并行执行数据分片的处理任务。确保任务之间相互独立，可以同时运行，从而提高整体处理速度。需要在节点之间进行适当的数据通信，确保节点之间的数据同步。但在设计时要避免过度的数据传输，以减少通信开销。</p>
+</li>
+<li>
+<p>容错和恢复 在分布式环境中，任务可能因为节点故障或其他原因而失败。需要实施适当的容错机制，例如重新执行失败的任务、检查点机制等。对于需要原子性处理的任务，确保实施事务性处理机制，以避免部分成功和部分失败的情况。</p>
+</li>
+<li>
+<p>资源管理 确保每个节点都有足够的资源（CPU、内存、磁盘等）来执行任务，防止因为资源不足而导致性能下降。考虑使用动态伸缩机制，根据负载自动调整节点的数量，以适应不同处理阶段的资源需求。</p>
+</li>
+<li>
+<p>数据一致性 对于需要保证数据一致性的任务，可以考虑使用分布式事务机制，确保在整个分布式系统中的数据操作具有原子性。在设计任务时考虑幂等性，使得任务在失败并需要重试时不会引入额外的影响。</p>
+</li>
+<li>
+<p>部署模式 考虑在云服务中部署分布式批处理任务，利用云服务提供的资源管理和弹性伸缩功能。使用容器技术（如 Docker、Kubernetes）将分布式批处理任务容器化，简化部署和管理。</p>
+</li>
+<li>
+<p>系统安全 在数据传输和存储中使用加密机制，确保数据的安全性。对分布式环境中的节点进行身份认证与授权，以确保系统的安全性。</p>
+</li>
+</ol>
+<p>通过以上方法，可以有效地设计和实现分布式批处理系统，提高数据处理效率，保证任务的正确性和可靠性。在实际应用中，根据具体场景和需求选择适当的技术栈和工具。</p>
+<h3 id="212-合理设置批处理大小"><strong>2.12 合理设置批处理大小</strong></h3>
+<p>针对具体的业务场景，合理设置批处理的大小，以达到平衡系统资源和性能的目的。<br>
+下面是一些关于如何合理设置批处理大小的建议：</p>
+<p><strong>1) 考虑系统资源</strong></p>
+<p>批处理大小应该合理考虑系统的内存资源。如果批处理任务占用大量内存，可以适当减小批处理大小，防止系统因内存不足而产生性能问题。批处理任务的计算密集型部分可能会占用大量 CPU 资源。在设置批处理大小时，需要考虑系统的 CPU 利用率，避免过度消耗 CPU 资源导致其他任务性能下降。</p>
+<p><strong>2) 数据库性能</strong></p>
+<p>对于涉及数据库操作的批处理任务，数据库连接数是一个重要的考虑因素。合理设置批处理大小可以控制数据库连接数，防止连接数过多导致数据库性能下降。批处理任务中使用的事务大小对数据库性能也有影响。过大的事务可能导致数据库锁定，过小的事务可能增加事务处理的开销。需要根据实际情况进行调优。</p>
+<p><strong>3) 网络通信</strong></p>
+<p>批处理任务可能涉及到网络通信，特别是在分布式系统中。考虑网络带宽限制，避免设置过大的批处理大小导致网络拥塞。如果批处理任务需要与其他服务进行通信，需要考虑服务的响应时间。设置合理的批处理大小可以控制请求的并发度，避免因等待响应而产生延迟。</p>
+<p><strong>4) 任务并发度</strong></p>
+<p>批处理任务的并发度直接影响到系统资源的使用情况。合理设置批处理大小可以控制任务的并发度，防止过度占用系统资源。在分布式环境中，任务调度系统可以用来控制任务的并发度。根据任务调度系统的能力和配置，适当设置批处理大小。</p>
+<p><strong>5) 批处理性能</strong></p>
+<p>进行性能评估测试，通过尝试不同的批处理大小，观察系统的性能变化。根据实际测试结果进行调整。使用监控系统监控关键性能指标，如响应时间、吞吐量、资源利用率等，以便实时了解系统的运行情况。</p>
+<p><strong>6) 数据处理逻辑</strong></p>
+<p>批处理任务的数据处理逻辑可能有复杂的计算或操作。合理设置批处理大小可以平衡计算开销和系统资源利用效率。如果批处理任务涉及到事务，需要考虑事务的大小。设置适当的批处理大小以保证事务的有效性和性能。</p>
+<p><strong>7) 系统稳定性</strong></p>
+<p>避免设置过大的批处理大小，防止长时间运行的批处理任务占用系统资源，导致其他任务受到影响。考虑在系统运行中动态调整批处理大小，根据系统负载和性能表现进行实时调整。</p>
+<p>设置合理的批处理大小需要综合考虑系统资源、数据库性能、网络通信等多个因素。通过测试和监控，及时调整批处理大小，以达到系统性能最优化。</p>
+<p>在实施批量处理时，需要根据具体的业务场景和需求，灵活选择合适的批量处理策略。批量处理通常可以显著提高系统的性能和效率，降低系统的负担。</p>
+<p>如喜欢本文，请点击右上角，把文章分享到朋友圈<br>
+如有想了解学习的技术点，请留言给若飞安排分享</p>
+<p><strong>因公众号更改推送规则，请点“在看”并加“星标”第一时间获取精彩技术分享</strong></p>
+<p><strong>·END·</strong></p>
+<pre tabindex="0"><code>&lt;p&gt;&lt;strong&gt;相关阅读：&lt;/strong&gt;&lt;/p&gt;&lt;hr&gt;&lt;ul&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650357440&amp;amp;idx=1&amp;amp;sn=c4b353d9143ab7f7ef74b122dc2f383f&amp;amp;chksm=83004a22b477c334645c79a76659d71586c7237cdcc13c7586a4fa7409697e7e7392d1fd425b&amp;amp;scene=21#wechat_redirect&#34; textvalue=&#34;一张图看懂微服务架构路线&#34; linktype=&#34;text&#34; imgurl=&#34;&#34; imgdata=&#34;null&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; wah-hotarea=&#34;click&#34; hasload=&#34;1&#34;&gt;一张图看懂微服务架构路线&lt;/a&gt;&lt;br&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650353906&amp;amp;idx=1&amp;amp;sn=5cb209febf8867841d31ecb2b32a059d&amp;amp;chksm=83004410b477cd066f62fbdc032eec5e2057d74894dddbc5994c120393b5e6a2c104283048b5&amp;amp;scene=21#wechat_redirect&#34; textvalue=&#34;基于Spring Cloud的微服务架构分析&#34; linktype=&#34;text&#34; imgurl=&#34;&#34; imgdata=&#34;null&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; wah-hotarea=&#34;click&#34; hasload=&#34;1&#34;&gt;基于Spring Cloud的微服务架构分析&lt;/a&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650352201&amp;amp;idx=1&amp;amp;sn=ad5cbac0687d5dc3c9c314aa959c07fe&amp;amp;chksm=83005eabb477d7bd445342f43baaa61fa2ca5dfae7c75ef6fb3b650569e8bcefba86318aa013&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; wah-hotarea=&#34;click&#34; hasload=&#34;1&#34;&gt;微服务等于Spring Cloud？了解微服务架构和框架&lt;/a&gt;&lt;br&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650353129&amp;amp;idx=1&amp;amp;sn=73c8cb5919e18d32c21b8089646256be&amp;amp;chksm=8300590bb477d01dbad276ea44d04695e63b3f604d9cf0204da7e2653d37f07b9634c4368473&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; wah-hotarea=&#34;click&#34; hasload=&#34;1&#34;&gt;如何构建基于 DDD 领域驱动的微服务？&lt;/a&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650352055&amp;amp;idx=1&amp;amp;sn=f9cbd707459421370aac6ac71f016052&amp;amp;chksm=83005d55b477d443649c5ffeb79fd371abe92a80375dc55063dcf5a2879a471bdfca84a4f37b&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; wah-hotarea=&#34;click&#34; hasload=&#34;1&#34;&gt;小团队真的适合引入SpringCloud微服务吗？&lt;/a&gt;&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650351363&amp;amp;idx=1&amp;amp;sn=de8f029590d26376f5dac6ededded2fb&amp;amp;chksm=830053e1b477daf7adc3a72ffd2f0f0f0c6a22030bace8cdee1fba6a2dc14e9cb5699d08741c&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;DDD兴起的原因以及与微服务的关系&lt;/a&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650351218&amp;amp;idx=1&amp;amp;sn=88c6116fa0105b90addcf4d460b99fbe&amp;amp;chksm=83005290b477db86bd1b6a7cb96de4f397955b1887f5ef9eee6d5393a1d6b457f8d68a64fa38&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务之间的最佳调用方式&lt;/a&gt;&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650350733&amp;amp;idx=1&amp;amp;sn=fec8de69cdb8df73c79b22cbdd7c0775&amp;amp;chksm=8300506fb477d9794e3aa90a2b19621523146c3358126d25a22df0ab386f193f9fd87292ba8a&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务架构设计总结实践&lt;/a&gt;&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650350395&amp;amp;idx=1&amp;amp;sn=90722cb88bc6cdfafdcdecaf9edd5f29&amp;amp;chksm=830057d9b477decf84744fff10e352de3e719f9b8fce8dc40a9b4c6a4a9f9b44cb2f1eddae4c&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;基于 Kubernetes 的微服务项目设计与实现&lt;/a&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650348667&amp;amp;idx=1&amp;amp;sn=fa8aec8cd09a448235ba0b21e27d99b4&amp;amp;chksm=83006899b477e18fdb56322a98f156aaa0745b35137e3c0c6bbe0a940f8a7a24a4eaf3318625&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务架构-设计总结&lt;/a&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650348663&amp;amp;idx=1&amp;amp;sn=f476299d36695fead2eff2d7a29bad16&amp;amp;chksm=83006895b477e1831c66d7709b52a74246d97986157587a14785a51b4e23248fc1a327841a47&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;为什么微服务一定要有网关？&lt;/a&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;p&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650348314&amp;amp;idx=1&amp;amp;sn=84c54dd629f219ca80a157939e5c546f&amp;amp;chksm=83006ff8b477e6ee2c006d3f3b393c2787b110d8123927e5c3a7639bc4515dc09ccdc4eb8845&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;主流微服务全链路监控系统之战&lt;/a&gt;&lt;br&gt;&lt;/p&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650346739&amp;amp;idx=1&amp;amp;sn=f9855c471d182e468d823cab80ce53f1&amp;amp;chksm=83006011b477e907f1641eb217f797afb1a088b8c826c152d6dd658649a4e0ec570da7396be8&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务架构实施原理详解&lt;/a&gt;&lt;br&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650346693&amp;amp;idx=1&amp;amp;sn=cbb4a27496a01aaf19c651484116d55e&amp;amp;chksm=83006027b477e93118c61fb80b0d55dc5ff68c92e8aab67708e0ca2e9781b7eb2dc3692cd0cf&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务的简介和技术栈&lt;/a&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650346733&amp;amp;idx=1&amp;amp;sn=7df8de06a8c29a3712c30903f4464353&amp;amp;chksm=8300600fb477e91956c891af0f8a6a342705332e64f7f81b59678cc729e1a4c85c919904c421&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;微服务场景下的数据一致性解决方案&lt;/a&gt;&lt;/section&gt;&lt;/li&gt;&lt;li&gt;&lt;section&gt;&lt;a target=&#34;_blank&#34; href=&#34;http://mp.weixin.qq.com/s?__biz=MzAwNjQwNzU2NQ==&amp;amp;mid=2650345318&amp;amp;idx=1&amp;amp;sn=beb39fcca1b8af9c8dea348398326723&amp;amp;chksm=83007b84b477f292c01238686e50caf4e43304a3c748f3419ed5b876197f1c4995f2a9e4bfd0&amp;amp;scene=21#wechat_redirect&#34; data-itemshowtype=&#34;0&#34; tab=&#34;innerlink&#34; data-linktype=&#34;2&#34; hasload=&#34;1&#34; wah-hotarea=&#34;click&#34;&gt;设计一个容错的微服务架构&lt;/a&gt;&lt;/section&gt;&lt;/li&gt;&lt;/ul&gt;
+</code></pre><blockquote>
+<p>作者：奔跑的毛球</p>
+<p>来源：juejin.cn/post/7336799230978261029</p>
+<p>版权申明：内容来源网络，仅供学习研究，版权归原创者所有。如有侵权烦请告知，我们会立即删除并表示歉意。谢谢!</p>
+</blockquote>
+<p><strong>架构师</strong></p>
+<p>我们都是架构师！</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/mmbiz/sXiaukvjR0RB58TtkIHwhn4lpsqLnZgian9d5tr1BibP7XpibGTFFib1nq9YuYq209XZUEfCOqMzepDOBbN9KD9wMSg/640?wx_fmt=jpeg" />   
+    </p>
+<p>****关注<strong>架构师(JiaGouX)，添加“星标”</strong></p>
+<p><strong>获取每天技术干货，一起成为牛逼架构师</strong></p>
+<p>**技术群请****加若飞：**<strong>1321113940</strong> <strong>进架构师群</strong></p>
+<p>投稿、合作、版权等邮箱：<strong><a href="mailto:admin@137x.com">admin@137x.com</a></strong></p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240424/Expedia-%E4%BC%98%E5%8C%96%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2%E9%80%9F%E5%BA%A6%E9%87%87%E7%94%A8%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84%E5%92%8C-GraphQL--%E7%9F%A5%E8%AF%86%E9%93%BA/">Expedia 优化航班搜索速度，采用微前端架构和 GraphQL -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/FSAC%E6%9C%AA%E6%9D%A5%E8%B6%85%E7%BA%A7%E6%9E%B6%E6%9E%84%E5%B8%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">FSAC未来超级架构师 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E6%88%90%E5%8A%9F%E9%87%87%E7%94%A8-GraphQL-%E6%94%B9%E5%8F%98%E8%A1%8C%E4%B8%9A%E7%9A%84%E5%85%AC%E5%8F%B8%E5%92%8C%E4%BA%A7%E5%93%81--%E7%9F%A5%E8%AF%86%E9%93%BA/">成功采用 GraphQL 改变行业的公司和产品 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/API%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95%E5%AD%A6%E4%B9%A0%E8%B5%84%E6%BA%90%E6%B1%87%E6%80%BB--%E7%9F%A5%E8%AF%86%E9%93%BA/">API渗透测试学习资源汇总 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E5%8F%AF%E8%A7%86%E5%8C%96%E7%9A%84%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86%E5%B9%B3%E5%8F%B0%E4%BB%8B%E7%BB%8D--%E7%9F%A5%E8%AF%86%E9%93%BA/">可视化的接口管理平台介绍 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86'>批量处理</a></li>
+                
+                <li><a href='/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96'>性能优化</a></li>
+                
+                <li><a href='/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88'>架构师</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BAThreadLocal--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="深入浅出ThreadLocal -- 知识铺">深入浅出ThreadLocal -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Redis%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%BF%E7%94%A8%E8%B7%B3%E8%A1%A8%E8%80%8C%E4%B8%8D%E7%94%A8%E5%B9%B3%E8%A1%A1%E6%A0%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Redis为什么使用跳表而不用平衡树 -- 知识铺">Redis为什么使用跳表而不用平衡树 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/GraphQL%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E4%B8%8E%E9%98%B2%E6%8A%A4%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GraphQL安全漏洞与防护策略 -- 知识铺">GraphQL安全漏洞与防护策略 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8-ThinkJS-%E6%90%AD%E5%BB%BA-GraphQL-API--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用 ThinkJS 搭建 GraphQL API -- 知识铺">使用 ThinkJS 搭建 GraphQL API -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8Spring-Boot%E5%92%8CShiro%E9%9B%86%E6%88%90Pac4j%E5%AE%9E%E7%8E%B0CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺">使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%9F%BA%E4%BA%8Ebuji-pac4j%E5%92%8CCAS%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E7%A4%BA%E4%BE%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于buji-pac4j和CAS实现单点登录示例 -- 知识铺">基于buji-pac4j和CAS实现单点登录示例 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="单点登录配置问题 -- 知识铺">单点登录配置问题 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E9%9B%86%E6%88%90Shiro%E6%A1%86%E6%9E%B6%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95CAS--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="集成Shiro框架实现单点登录CAS -- 知识铺">集成Shiro框架实现单点登录CAS -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Next.js-14React%E5%BC%80%E5%8F%91%E8%80%85%E7%9A%84%E6%96%B0%E5%AE%A0%E4%B8%8E%E5%85%A8%E6%A0%88%E6%A1%86%E6%9E%B6%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺">Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="接口调优中的批量处理策略 -- 知识铺">接口调优中的批量处理策略 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

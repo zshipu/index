@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>API 架构风格比较：REST vs gRPC vs GraphQL -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="API 架构风格比较：REST vs gRPC vs GraphQL -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-04-24T11:15:05&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="API 架构风格比较：REST vs gRPC vs GraphQL -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240424/API-%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC%E6%AF%94%E8%BE%83REST-vs-gRPC-vs-GraphQL--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#什么是-api">什么是 API？</a></li>
+    <li><a href="#为什么-grpc-很重要">为什么 gRPC 很重要？</a></li>
+    <li><a href="#什么是-rest-api">什么是 REST API？</a></li>
+    <li><a href="#什么是-graphql">什么是 GraphQL？</a></li>
+    <li><a href="#何时应使用graphqlgrpc和rest">何时应使用GraphQL、gRPC和REST？</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">API 架构风格比较：REST vs gRPC vs GraphQL -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年4月24日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>构建 API 是现代工程中开发人员的最重要任务之一。这些 API 允许不同的系统进行通信和数据交换。虽然 <strong>REST</strong> 多年来一直是实现 API 的事实标准，但今天也有新兴的标准，如 <strong>gRPC</strong> 和 <strong>GraphQL</strong>。</p>
+<h2 id="什么是-api">什么是 API？</h2>
+<p>“应用程序编程接口”（API）是各种软件服务之间的通信渠道。传输请求和响应的应用程序分别称为客户端和服务器。<strong>API</strong> 是一个外部软件组件，使程序功能可供其他程序使用。</p>
+<p>在下面的蜜蜂 🐝 插图中，花朵充当服务器，蜂巢充当客户端，蜜蜂提供通信手段（REST API 请求）。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/sz_mmbiz_jpg/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FWPCrPpwW6HGg8I3SQXTf1xDLRRE9oewiaP0pIReSSDkITP6bRKtJ1EQ/640?wx_fmt=jpeg&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*mHdyF2gDD-ihbf77.jpeg</p>
+<p>什么是 API？（图片来源：Rapid API）</p>
+<p>存在不同的 API 架构或协议，如 REST、gRPC 和 GraphQL。</p>
+<h2 id="为什么-grpc-很重要">为什么 gRPC 很重要？</h2>
+<p><strong>gRPC</strong> 是由 Google 开发的高性能、开源、通用远程过程调用（RPC）框架。它使用 <strong>Protocol Buffers (protobuf)</strong> 作为其接口定义语言。协议缓冲区是一种非常有效和快速的网络数据序列化方式。这项技术使用 <strong>HTTP 2.0 协议</strong> 实现了 RPC API；然而，服务器和 API 开发者都无法访问 HTTP。它遵循 <strong>客户端-响应通信模型</strong>，由于 gRPC 能够接收来自多个客户端的多个请求并同时处理它们，因此支持双向通信和流媒体。然而，gRPC 在浏览器支持方面仍然 <strong>相当有限</strong>。</p>
+<p>如前所述，gRPC 默认使用 <strong>Protocol Buffers</strong> 来序列化有效载荷数据。<strong>Protocol Buffers</strong> 是紧凑的二进制序列化格式，用于结构化数据。它们使用在 .proto 文件中定义的模式，允许在不同语言之间进行高效的编码和解码。它们提供了比传统的 JSON 或 XML 更小的尺寸和更快的处理速度等优势。</p>
+<p><strong>gRPC 的优点：</strong></p>
+<p>1.<strong>速度。</strong> 由于 HTTP/2，gRPC 比 HTTP/1.1 上的 REST 更快、更高效。2.<strong>多语言支持。</strong> 提供工具在多种语言中生成客户端和服务器代码。3.<strong>流媒体：</strong> 支持双向流媒体，允许更互动的实时通信。4.<strong>截止时间/超时：</strong> 内置支持确保请求不会挂起。它自动解决重试、网络问题等。5.<strong>生态系统：</strong> 支持身份验证、负载均衡等。</p>
+<p><strong>gRPC 的缺点：</strong></p>
+<p>1.<strong>复杂：</strong> 您必须了解 Protocol Buffers 和 gRPC API。还必须预先定义模式。2.<strong>浏览器支持有限：</strong> 由于依赖 HTTP/2，原生浏览器支持有限。3.<strong>工具：</strong> 虽然在增长，但 gRPC 工具的成熟度不如 REST。您可以使用 gRPCurl 或 Postman 来测试这些 API。4.<strong>不可读性：</strong> 由于它们是二进制的，它们难以调试，就像您可以使用基于文本的格式（如 XML 或 JSON）那样。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FEwfKew9zdITFdLYBGrYABibcNN8KvsEevuqQCvibQuImJ2RAVeW5AKxA/640?wx_fmt=jpeg&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*AO1tMGTnLNOJmH1V.jpeg</p>
+<p>gRPC</p>
+<blockquote>
+<p><strong>什么是 Protocol Buffers？</strong></p>
+</blockquote>
+<blockquote>
+<p><strong>Protocol Buffers</strong>，通常缩写为 Protobuf，是 Google 在 2008 年设计的一种序列化结构化数据的方法。与 XML 或 JSON 类似，它们更精简、更快，因为它们是二进制的，使它们成为与服务器通信或高效存储数据的应用程序的首选。</p>
+</blockquote>
+<blockquote>
+<p>使用 Protocol Buffers 进行数据序列化涉及几个步骤：</p>
+</blockquote>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FgQ9eRcH8N3fw1R3kaACfYVMWygPBaQfB9ohXmBfuuJL3TxAo3RN6OQ/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*-IlqMWWV73UwsiwM.png</p>
+<blockquote>
+<p><strong>定义数据结构</strong>：您从在 <code>.proto</code> 文件中定义数据结构开始。这包括指定数据类型（整数、字符串、布尔值、自定义类型等）及其字段编号。</p>
+</blockquote>
+<blockquote>
+<p>例如：</p>
+</blockquote>
+<blockquote>
+<p><strong>2. 生成源代码</strong>：使用 Protocol Buffers 编译器（<code>protoc</code>）从文件中生成您所需语言的源代码。编译器可以为多种语言生成代码，包括 Java、C++、Python 等。</p>
+</blockquote>
+<blockquote>
+<p><strong>3. 生成可执行包</strong>：可执行包也是与 Protobuf 代码生成的源文件一起生成和部署的。在运行时，消息以二进制格式序列化和压缩。</p>
+</blockquote>
+<blockquote>
+<p><strong>4. 反序列化：</strong> 当接收方收到序列化的数据流时，他们可以使用生成的类轻松地将其转换回结构化格式。</p>
+</blockquote>
+<h2 id="什么是-rest-api">什么是 REST API？</h2>
+<p><strong>REST</strong>（Representational State Transfer，表述性状态传递）不是一个框架或库，而是一种用于构建 Web 服务和 API 的架构风格。在 REST 中，一切都是 <strong>由唯一 URL 标识的资源</strong>，这些资源使用 HTTP 方法（如 GET（检索资源）、POST（创建新资源）、PUT 或 PATCH（更新资源）和 DELETE（移除资源））进行操作。</p>
+<p>客户端到服务器的每个请求都必须包含理解和完成请求所需的所有信息。<strong>服务器不存储请求之间的客户端上下文</strong>，简化了设计并提高了可伸缩性。客户端和服务器的 HTTP 请求和响应体携带 <strong>JSON 或 XML 表示</strong> 资源的状态。</p>
+<blockquote>
+<p>在他的 博士论文中，计算机科学家 <strong>Roy Fielding</strong> 在 2000 年介绍并定义了表述性状态传递。 <strong>REST API 的好处：</strong></p>
+</blockquote>
+<p>•<strong>简单性：</strong> 使用标准 HTTP 方法和常见数据格式使 REST API 易于理解和实现。•<strong>互操作性：</strong> REST API 促进了互操作性，因为不同的应用程序可以无缝交互，无论使用的是哪种编程语言或平台。•<strong>可伸缩性：</strong> REST API 的无状态性质允许轻松扩展以处理大量请求。•<strong>灵活性：</strong> 由于其多功能设计原则，REST API 可以适应各种用例。</p>
+<p><strong>REST API 的缺点：</strong></p>
+<p>•<strong>无状态性：</strong> REST 依赖于无状态事务，这意味着每个请求都必须独立完成所有信息。对于需要在多个请求之间维护状态的工作流程（如电子商务网站上的购物车）来说，这可能很麻烦。•<strong>有效载荷大小有限：</strong> REST 中的数据传输通常通过 JSON 或 XML 有效载荷进行，如果您处理复杂数据或多个查询，这可能会变得相当大。这可能导致性能问题。•<strong>可发现性不足：</strong> REST API 本身并不容易让用户理解其功能或如何与之交互，这可能会为新用户增加复杂性。•<strong>复杂查询的性能：</strong> 对于从较大资源中检索特定数据点，REST 可能不是理想选择。其他选项，如 GraphQL，在这种情况下可能更有效。</p>
+<p>REST 定义了一个 API 应该遵循的 <strong>六个架构约束</strong>，以被认为是真正的 RESTful：</p>
+<p>1.<strong>客户端-服务器：</strong> 这种关注点的分离将客户端（使用 API 的应用程序）与服务器（提供 API 的应用程序）分开。客户端发起请求，服务器处理并发送响应。2.<strong>无状态：</strong> 客户端到服务器的每个请求都必须包含理解请求所需的所有信息。服务器不存储有关客户端的任何上下文。这简化了通信并提高了可伸缩性。3.<strong>统一接口：</strong> 此约束定义了一组规则，规定客户端如何与服务器交互。这些规则包括：</p>
+<p>•<strong>基于资源：</strong> API 暴露客户端可以交互的资源。URL 标识资源。•<strong>标准方法：</strong> 客户端使用标准 HTTP 方法（GET、POST、PUT、DELETE）对资源进行操作。•<strong>表示：</strong> 客户端和服务器之间的数据以 JSON 或 XML 等标准格式交换。</p>
+<p>1.<strong>可缓存：</strong> 客户端可以将服务器响应标记为可缓存。这允许客户端本地存储频繁访问的数据，减轻服务器负载并提高性能。2.<strong>分层系统：</strong> 架构可能包括客户端和服务器之间的多个层次（代理、缓存、负载均衡器）。这些层可以提高性能、安全性和可伸缩性。3.<strong>按需代码（可选）：</strong> 虽然不是严格必需的，但 RESTful API 可以选择性地将可执行代码传输给客户端。客户端可以使用此代码扩展其功能或本地处理数据。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FBwwzCsnhPk9EkGHqsFdSKVicBW9VpAsMlh3vLEibicf3XibOxqDuMH48cg/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*NNVOJlgkCQSHJMJM.png</p>
+<p>REST 架构约束</p>
+<p><strong>REST API 调用的一个例子</strong> 是当我们想要获取 ID 为 500 的用户信息时，使用 curl 命令行工具为 <a href="https://api.example.com">https://api.example.com</a> 地址上的 API 发出的请求：<code>curl -X GET https://api.example.com/users/500 -H &quot;Accept: application/json&quot;</code>。最后一部分（Accept: application/json）是一个头部，表明客户端期望以 JSON 格式接收数据。响应将是 JSON 格式的结果，200 将是响应状态码。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8Fto6zibCibOE0xOhvY0ziao7UiaP86DZTutRzQ52KrSy2eoiactwMaB4Y5ag/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*JoLLqPwNe4Kbjnxp.png</p>
+<p>REST API 架构</p>
+<p>即使在性能至关重要时 REST 不是最佳选择，我们仍然可以在这里做一些事情，如 <strong>缓存</strong>、<strong>分页</strong>、<strong>有效载荷压缩</strong> 等。</p>
+<h2 id="什么是-graphql">什么是 GraphQL？</h2>
+<p><strong>GraphQL</strong> 是一种用于 API 的查询语言，由 Meta 在 2015 年发布并开源。现在由 GraphQL 基金会 监督。GraphQL 是一个服务器端运行时环境，使客户端能够从 API 请求所需的数据。与传统的 REST API 不同，后者通常需要多个请求来获取不同的数据片段，GraphQL 允许您在单个请求中指定所需的所有数据。GraphQL 规范在 2015 年开源。</p>
+<p>因为 GraphQL 在向 API 发送查询时不会过度或不足地获取结果，它保证了使用 GraphQL 构建的应用程序是 <strong>可伸缩、快速和稳定</strong> 的。它还允许将多个操作组合成单个 HTTP 请求。</p>
+<p>GraphQL API 按照 <strong>类型和字段</strong> 组织，而不是端点。使用 <strong>GraphQL Schema Definition Language (SDL)</strong>，您将数据定义为模式。这个模式作为客户端和服务器之间的契约，详细说明了可以进行哪些查询、可以获取哪些类型的数据以及响应将是什么样子。</p>
+<p><strong>GraphQL 的好处：</strong></p>
+<p>•<strong>高效的数据获取：</strong> 您只请求确切需要的数据，消除了 REST 可能发生的过度获取或不足获取的问题。这可以显著提高性能，尤其是对于复杂的数据模型。•<strong>灵活和声明性：</strong> GraphQL 使用定义可用数据及其访问方式的模式。这个模式允许开发人员编写清晰、简洁的查询，指定他们确切的数据需求。•<strong>单个请求用于多个资源：</strong> 与 REST 不同，后者需要多个 API 调用来从不同端点获取数据，GraphQL 允许将查询组合成单个请求以提高效率。•<strong>版本控制和向后兼容性：</strong> 可以通过版本控制实现 GraphQL 模式更改，确保现有客户端不受影响，同时允许未来增长。</p>
+<p><strong>GraphQL 的缺点：</strong></p>
+<p>•<strong>查询结构的复杂性：</strong> 虽然灵活性是一个优势，但编写复杂的 GraphQL 查询可能具有挑战性，并且需要仔细规划以提高可读性和可维护性。•<strong>缓存：</strong> 与利用内置 HTTP 缓存机制的 REST API 相比，GraphQL 的数据缓存通常更复杂。•<strong>安全性：</strong> GraphQL 暴露了您的整个数据模式，因此必须采取适当的安全措施以防止未经授权的访问敏感数据。•<strong>学习曲线：</strong> 对于不熟悉 GraphQL 的开发人员，理解模式和查询语法涉及学习曲线。•<strong>错误处理：</strong> 如果库不解析响应体中状态为 200 的错误，则客户端必须使用更复杂的逻辑来处理它们。</p>
+<p><strong>它是如何工作的：</strong></p>
+<p>1.客户端<strong>使用GraphQL语法定义查询</strong>，精确指定数据应如何结构化以及需要哪些字段。2.GraphQL服务器使用预定义的模式来确定<strong>可用的数据</strong>及其与其他数据的关系。这个模式定义了类型、字段以及类型之间的关系。3.服务器根据模式执行查询。对于查询中的每个字段，<strong>服务器都有一个相应的解析函数</strong>来获取该字段的数据。4.<strong>服务器返回一个JSON对象</strong>，其结构直接反映了查询内容，填充了请求的数据。</p>
+<p>GraphQL</p>
+<p>GraphQL支持<strong>三种核心操作</strong>，定义了客户端如何与服务器交互：</p>
+<p>1.<strong>查询（Queries）：</strong> 用于从服务器检索数据。这是GraphQL中最常用的操作。2.<strong>变更（Mutations）：</strong> 在服务器上修改数据。这可能涉及创建新数据、更新现有数据或删除数据。3.<strong>订阅（Subscriptions）：</strong> 用于在客户端和服务器之间建立实时通信。服务器可以在请求的数据发生变化时更新客户端。</p>
+<p><strong>GraphQL请求的一个示例</strong>包括一个操作和你请求或操作的数据，例如：</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FAVC1XQljIW2yQ1NDCnuXmdapCeibzmy2AUkAQSYOOaHYsEY5aDnveQg/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*alyu_KfPj0B16JGL.png</p>
+<p>这个查询检索ID为1的用户的数据。它还获取了该用户帖子的嵌套数据，包括它们的ID和标题。</p>
+<p><strong>响应是一个JSON对象</strong>，包含查询或变更请求的实际数据和可选错误。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FpP3j8Q16CUkMAq5Dibz3QSxFkOr4hKx1hfDibJbswQAuQ7TdCre0hTUA/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*PnF8Oo87D7xlza8t.png</p>
+<blockquote>
+<p>要了解更多关于GraphQL的信息，可以查看Eve Porcello和Alex Banks的书籍“<strong>Learning GraphQL</strong>”。</p>
+</blockquote>
+<h2 id="何时应使用graphqlgrpc和rest">何时应使用GraphQL、gRPC和REST？</h2>
+<p>开发者在设计应用程序时可以选择多种客户端-服务器通信协议。在当代项目中，使用GraphQL、gRPC和REST相对常见。每种协议根据您的应用程序需求可以提供不同的优势。</p>
+<p>•<strong>GraphQL</strong> 是一种灵活的数据请求方法，专注于特定请求并仅提供所需数据。它的客户端驱动特性使其与其他API区别开来。客户端做出所有决策，而不是处理它们。GraphQL的<strong>优势</strong>在于它与语言无关，请求通过单一端点进行，并且是强类型的，因为它有模式。•<strong>REST</strong> 是最受欢迎的一个。当一个领域可以被描述为一组资源时，它是一个很好的选择。REST是一种用于数据传输的无状态架构。它的<strong>优势</strong>包括是一个成熟的标准、简单易用和良好的缓存支持。•<strong>gRPC</strong> 是一个轻量级且快速的数据获取系统。这里的主要区别是它如何描述其合同谈判。它依赖于合同；架构不是管理谈判的内容；它是服务器和客户端之间的关系。虽然处理和计算被委托给远程服务器，但大部分能力用于客户端。它的主要<strong>优势</strong>是它有轻量级客户端，高效率，使用协议缓冲区来发送/接收数据，而且是开源的。</p>
+<p>下图显示了最常见的API架构风格的时间线。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_jpg/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FGAQA1AOZZBBrzUXrm1tcGTY0Q0J5V0xU5bCMkcibNj6AKjJCseq5vCg/640?wx_fmt=jpeg&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*e9MG7BXAETjUBAzJ.jpeg</p>
+<p>API架构风格时间线</p>
+<p>因此，何时选择这些协议中的每一个：</p>
+<p>✅ 如果您正在构建一个CRUD风格的Web应用程序或您处理结构化数据良好，使用<strong>REST</strong>。它是公共API和需要被广泛客户端消费的服务的首选。</p>
+<p>✅ 如果您的API是私有的并且关于行动或性能至关重要，使用<strong>gRPC</strong>。服务器到服务器通信的低延迟至关重要。它使用HTTP/2和ProtoBuf优化了效率和速度。</p>
+<p>✅ 如果您有一个公共API，需要在定制请求方面灵活，并希望将不同来源的数据添加到公共API中，请使用<strong>GraphQL</strong>。在客户端-服务器通信中使用它，我们必须在单次往返中获取所有数据。</p>
+<p><figure class="max-w-2xl mx-auto overflow-hidden">
+    
+        <img alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/b8r1Kxg2cLLIMibCUjmia888IWnOcuGK8FmBkG0uj68vnGia3aLxMYxz9yA2iazzH4Fr1onbicibBB5JXUOnOedugEnw/640?wx_fmt=png&amp;from=appmsg" />
+    
+    <figcaption class="p-2 text-center">null</figcaption>
+</figure></p>
+<p>0*FtwVKxzvEgZscU7c.png</p>
+<p>gRPC与REST与GraphQL比较</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240424/API-%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC%E6%AF%94%E8%BE%83REST-vs-gRPC-vs-GraphQL--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240424/API-%E6%9E%B6%E6%9E%84%E9%A3%8E%E6%A0%BC%E6%AF%94%E8%BE%83REST-vs-gRPC-vs-GraphQL--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240424/%E6%8E%A8%E8%8D%90%E5%87%A0%E6%AC%BEC#%E7%9A%84%E9%80%9A%E4%BF%A1%E6%A1%86%E6%9E%B6--%E7%9F%A5%E8%AF%86%E9%93%BA/">推荐几款C#的通信框架 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/REST%E4%B8%8EGraphQL%E5%9C%A8%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E4%B8%AD%E7%9A%84%E6%AF%94%E8%BE%83--%E7%9F%A5%E8%AF%86%E9%93%BA/">REST与GraphQL在微服务架构中的比较 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E4%BD%BF%E7%94%A8Nest.js%E5%92%8CGraphQL%E5%AE%9E%E7%8E%B0CRUD%E6%8E%A5%E5%8F%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/">使用Nest.js和GraphQL实现CRUD接口 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/GraphQL%E7%AE%80%E4%BB%8B%E4%B8%8E%E5%AE%9E%E8%B7%B5--%E7%9F%A5%E8%AF%86%E9%93%BA/">GraphQL简介与实践 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/GraphQL%E4%BB%8B%E7%BB%8D%E4%B8%8ESpring-Boot-GraphQL%E5%AE%9E%E7%8E%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/">GraphQL介绍与Spring Boot GraphQL实现 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/REST'>REST</a></li>
+                
+                <li><a href='/geek001/tags/gRPC'>gRPC</a></li>
+                
+                <li><a href='/geek001/tags/GraphQL'>GraphQL</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BAThreadLocal--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="深入浅出ThreadLocal -- 知识铺">深入浅出ThreadLocal -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Redis%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%BF%E7%94%A8%E8%B7%B3%E8%A1%A8%E8%80%8C%E4%B8%8D%E7%94%A8%E5%B9%B3%E8%A1%A1%E6%A0%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Redis为什么使用跳表而不用平衡树 -- 知识铺">Redis为什么使用跳表而不用平衡树 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/GraphQL%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E4%B8%8E%E9%98%B2%E6%8A%A4%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GraphQL安全漏洞与防护策略 -- 知识铺">GraphQL安全漏洞与防护策略 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8-ThinkJS-%E6%90%AD%E5%BB%BA-GraphQL-API--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用 ThinkJS 搭建 GraphQL API -- 知识铺">使用 ThinkJS 搭建 GraphQL API -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8Spring-Boot%E5%92%8CShiro%E9%9B%86%E6%88%90Pac4j%E5%AE%9E%E7%8E%B0CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺">使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%9F%BA%E4%BA%8Ebuji-pac4j%E5%92%8CCAS%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E7%A4%BA%E4%BE%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于buji-pac4j和CAS实现单点登录示例 -- 知识铺">基于buji-pac4j和CAS实现单点登录示例 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="单点登录配置问题 -- 知识铺">单点登录配置问题 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E9%9B%86%E6%88%90Shiro%E6%A1%86%E6%9E%B6%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95CAS--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="集成Shiro框架实现单点登录CAS -- 知识铺">集成Shiro框架实现单点登录CAS -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Next.js-14React%E5%BC%80%E5%8F%91%E8%80%85%E7%9A%84%E6%96%B0%E5%AE%A0%E4%B8%8E%E5%85%A8%E6%A0%88%E6%A1%86%E6%9E%B6%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺">Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="接口调优中的批量处理策略 -- 知识铺">接口调优中的批量处理策略 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

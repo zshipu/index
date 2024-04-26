@@ -1,0 +1,1607 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>MySQL MVCC机制深入解析 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="MySQL MVCC机制深入解析 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-04-24T11:01:05&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="MySQL MVCC机制深入解析 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240424/MySQL-MVCC%E6%9C%BA%E5%88%B6%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#尼恩说在前面">尼恩说在前面</a></li>
+    <li><a href="#本文目录">本文目录</a></li>
+    <li><a href="#什么是mvcc">什么是MVCC</a></li>
+    <li><a href="#mvcc的根本目标提升并发能力">MVCC的根本目标：提升并发能力</a></li>
+    <li><a href="#事务并发处理的四大场景">事务并发处理的四大场景</a>
+      <ul>
+        <li><a href="#读-读场景">读-读场景：</a></li>
+        <li><a href="#写-写场景">写-写场景</a></li>
+        <li><a href="#读-写写-读场景">读-写、写-读场景</a></li>
+        <li><a href="#各并发事务场景的解决方案">各并发事务场景的解决方案</a></li>
+      </ul>
+    </li>
+    <li><a href="#无锁架构cow思想">无锁架构：COW思想</a>
+      <ul>
+        <li><a href="#java中的copyonwritearraylist">Java中的CopyOnWriteArrayList</a></li>
+        <li><a href="#mvcc如何使用copy-on-write思想呢借鸡生蛋">MVCC如何使用Copy-On-Write思想呢？借鸡生蛋</a></li>
+        <li><a href="#mvcc与锁的关系">MVCC与锁的关系</a></li>
+      </ul>
+    </li>
+    <li><a href="#mysql事务隔离级别与mvcc">MySQL事务隔离级别与MVCC</a>
+      <ul>
+        <li><a href="#什么是事务">什么是事务</a></li>
+        <li><a href="#事务的acid特性图片httpsmmbizqpiccnsz_mmbiz_pngxlgvgpaib7woquoucmnkgxs4thyt8mlnxxmeo8o7khibw8pffqibvykislntkmzuf4iyv1v5v5v7frcsicmoaihzqg640wx_fmtpngfromappmsg">事务的ACID特性<img src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxxMeo8O7KhibW8pffqibVYkIsLNTkmZUf4IYV1V5v5v7frcSicMoaIHzQg/640?wx_fmt=png&amp;from=appmsg" alt="图片"></a></li>
+        <li><a href="#4中事务隔离级别">4中事务隔离级别</a></li>
+        <li><a href="#隔离级别并发性数据一致性的三角之间关系">隔离级别、并发性、数据一致性的三角之间关系</a></li>
+        <li><a href="#注意rcrr-适用mvcc">注意：RC/RR 适用MVCC</a></li>
+      </ul>
+    </li>
+    <li><a href="#mvcc机制的三个核心组件">MVCC机制的三个核心组件</a>
+      <ul>
+        <li><a href="#核心组件1-隐藏字段">核心组件1. 隐藏字段</a></li>
+        <li><a href="#核心组件2-undo-log回滚日志">核心组件2. undo log（回滚日志）</a></li>
+        <li><a href="#核心组件3-read-view">核心组件3. read-view</a></li>
+      </ul>
+    </li>
+    <li><a href="#innodb表的四个隐藏字段">InnoDB表的四个隐藏字段</a>
+      <ul>
+        <li><a href="#隐藏的主键row_id">隐藏的主键：row_id</a></li>
+        <li><a href="#隐藏的删除标识deleted_bit">隐藏的删除标识：deleted_bit</a></li>
+        <li><a href="#隐藏的最近更新事务idtrx_id">隐藏的最近更新事务ID：trx_id</a></li>
+        <li><a href="#隐藏的回滚指针roll_ptr">隐藏的回滚指针：roll_ptr</a></li>
+      </ul>
+    </li>
+    <li><a href="#innodb引擎的undo-log日志">InnoDB引擎的Undo-log日志</a></li>
+    <li><a href="#快照读和当前读">快照读和当前读</a></li>
+    <li><a href="#mvcc核心readview">MVCC核心ReadView</a>
+      <ul>
+        <li><a href="#什么是readview呢">什么是ReadView呢？</a></li>
+        <li><a href="#readview的核心属性">ReadView的核心属性</a></li>
+        <li><a href="#readview的读取规则">ReadView的读取规则</a></li>
+        <li><a href="#readview的生成规则">ReadView的生成规则</a></li>
+      </ul>
+    </li>
+    <li><a href="#总结mvcc实现原理">总结：MVCC实现原理</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+    <li><a href="#说在最后有问题找老架构取经">说在最后：有问题找老架构取经</a></li>
+    <li><a href="#部分历史案例">部分历史案例</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">MySQL MVCC机制深入解析 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年4月24日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h2 id="尼恩说在前面">尼恩说在前面</h2>
+<p>在40岁老架构师 尼恩的<strong>读者交流群</strong>(50+)中，很多小伙伴拿到了一线互联网企业如得物、阿里、滴滴、极兔、有赞、希音、百度、网易、美团的面试机会，遇到很多很重要的面试题：</p>
+<blockquote>
+<p>1.请解释Mysql MVCC，它的 作用是什么？</p>
+<p>2.在MySQL中，MVCC是如何实现的？请简述其工作原理。</p>
+<p>3.MVCC是如何解决读-写和写-写冲突的？</p>
+<p>4.在并发环境中，当多个事务同时读取同一行数据时，MVCC是如何保证每个事务看到的数据版本是一致的？</p>
+<p>5.MVCC如何帮助提高数据库的并发性能？</p>
+</blockquote>
+<p>最近有小伙伴在面试阿里，又遇到了MVCC相关的面试题。小伙伴 支支吾吾的说了几句，没说清楚，面试挂了。</p>
+<p>所以，尼恩给大家做一下系统化、体系化的梳理，使得大家内力猛增，可以充分展示一下大家雄厚的 “技术肌肉”，<strong>让面试官爱到 “不能自已、口水直流”</strong>，然后实现”offer直提”。</p>
+<p>这里，尼恩团队把MVCC 进行了全面的梳理，穿透式的梳理，</p>
+<p>梳理为一个PDF文档 《MVCC 学习圣经：一次穿透MYSQL MVCC 》， 并且持续迭代。</p>
+<p>这个文档将成为大家 面试的杀手锏， 此文当最新PDF版本，可以找40岁老架构师尼恩获取。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WMXFFX7XX5ZHxpiaCLiblVic3iboHIiapxDIPk3NyFpk6gc6MMicfSnpC1EGFCtq0bNdO5CwKymR4pSiapxg/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>当然，上面的面试题以及参考答案，也会收入咱们的 《<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247497474&amp;idx=1&amp;sn=54a7b194a72162e9f13695443eabe186&amp;scene=21#wechat_redirect">尼恩Java面试宝典PDF</a>》V171版本，供后面的小伙伴参考，提升大家的 3高 架构、设计、开发水平。</p>
+<blockquote>
+<p>最新《尼恩 架构笔记》《尼恩高并发三部曲》《尼恩Java面试宝典》的PDF，请关注本公众号【技术自由圈】获取，回复：领电子书</p>
+</blockquote>
+<p>本文作者：</p>
+<ul>
+<li>
+<p>第一作者 Moen （负责写初稿 ）</p>
+</li>
+<li>
+<p>第二作者 尼恩 （40岁老架构师， 负责提升此文的 技术高度，让大家有一种 俯视 技术的感觉）</p>
+</li>
+</ul>
+<h2 id="本文目录">本文目录</h2>
+<p><strong>- 尼恩说在前面</strong></p>
+<p><strong><strong>-</strong> 什么是MVCC</strong></p>
+<p><strong><strong><strong>-</strong></strong> MVCC的根本目标：提升并发能力</strong></p>
+<p><strong><strong><strong>-</strong></strong> 事务并发处理的四大场景</strong></p>
+<p> - 读-读场景：</p>
+<p> - 写-写场景</p>
+<p> - 读-写、写-读场景</p>
+<p> - 各并发事务场景的解决方案</p>
+<p><strong><strong><strong>-</strong></strong> 无锁架构：COW思想</strong></p>
+<p> - Java中的CopyOnWriteArrayList</p>
+<p> - MVCC如何使用Copy-On-Write思想呢？借鸡生蛋</p>
+<p> - MVCC与锁的关系</p>
+<p><strong><strong><strong>-</strong></strong> MySQL事务隔离级别与MVCC</strong></p>
+<p> - 什么是事务</p>
+<p> - 事务的ACID特性</p>
+<p> - 4中事务隔离级别</p>
+<p> - 隔离级别、并发性、数据一致性的三角之间关系</p>
+<p> - 注意：RC/RR 适用MVCC</p>
+<p><strong><strong><strong>-</strong></strong> MVCC机制的三个核心组件</strong></p>
+<p> - 核心组件1. 隐藏字段</p>
+<p> - 核心组件2. undo log（回滚日志）</p>
+<p> - 核心组件3. read-view</p>
+<p><strong><strong><strong>-</strong></strong> InnoDB表的四个隐藏字段</strong></p>
+<p> - 隐藏的主键：row_id</p>
+<p> - 隐藏的删除标识：deleted_bit</p>
+<p> - 隐藏的最近更新事务ID：trx_id</p>
+<p> - 隐藏的回滚指针：roll_ptr</p>
+<p><strong><strong><strong>-</strong></strong> InnoDB引擎的Undo-log日志</strong></p>
+<p><strong><strong><strong>-</strong></strong> 快照读和当前读</strong></p>
+<p><strong><strong><strong>-</strong></strong> MVCC核心ReadView</strong></p>
+<p> - 什么是ReadView呢？</p>
+<p> - ReadView的核心属性</p>
+<p> - ReadView的读取规则</p>
+<p> - ReadView的生成规则</p>
+<p><strong><strong><strong>-</strong></strong> 总结：MVCC实现原理</strong></p>
+<p><strong><strong><strong>-</strong></strong> 说在最后：有问题找老架构取经</strong></p>
+<h2 id="什么是mvcc">什么是MVCC</h2>
+<p><code>MVCC</code>机制的全称为<code>Multi-Version Concurrency Control</code>，即多版本并发控制。</p>
+<p>MVCC主要是为了提升数据库并发性能而设计的，其中采用更好的方式处理了读-写并发冲突，做到即使有读写冲突时，可以实现并发执行，从而提升并发能力，确保了任何时刻的读操作都是非阻塞的。</p>
+<blockquote>
+<p>在众多的MySQL开源存储引擎中，几乎只有InnoDB实现了MVCC机制，其他的存储引擎如：MyISAM、memory等存储引擎中并未实现MVCC。</p>
+</blockquote>
+<p>MVCC（Multi-Version Concurrency Control，多版本并发控制）一种并发控制机制，用于解决并发事务访问数据库时可能出现的一些问题，如脏读、不可重复读和幻读。</p>
+<p>在MVCC机制中，数据库中的每个数据行都可以存在多个版本，并且每个事务看到的数据版本可能不同。具体来说，MVCC机制通过以下方式实现并发控制：</p>
+<ol>
+<li>
+<p><strong>版本控制</strong>：每当对数据库中的数据行进行更新操作时，不是直接覆盖原始数据，而是创建一个新的数据版本，并将新版本的数据与事务的时间戳相关联。</p>
+</li>
+<li>
+<p><strong>快照读取</strong>：在MVCC中，读取操作不会阻塞写入操作，也不会阻塞其他读取操作。事务可以读取数据库中的数据快照，即某个时间点之前的数据版本，而不会受到其他事务的影响。</p>
+</li>
+<li>
+<p><strong>可见性判断</strong>：在执行读取操作时，事务只能看到在其开始之前已经提交的数据版本，而看不到其他事务正在修改的数据。这样可以避免脏读和不可重复读问题。</p>
+</li>
+<li>
+<p><strong>回滚操作</strong>：当事务回滚时，不会对数据库中的数据进行物理删除或修改，而是标记事务所涉及的数据版本为无效，使得其他事务无法看到该版本。</p>
+</li>
+</ol>
+<p>总的来说，MVCC机制通过维护多个数据版本，实现了事务的隔离性和并发性，保证了数据库的一致性和可靠性。它是许多现代数据库系统（如MySQL、PostgreSQL等）中常用的并发控制技术。</p>
+<h2 id="mvcc的根本目标提升并发能力">MVCC的根本目标：提升并发能力</h2>
+<p>在并发读写数据库时，读操作可能会不一致的数据（脏读）。</p>
+<p>为了避免这种情况，需要实现数据库的并发访问控制，最简单的方式就是加锁访问。</p>
+<p>由于，加锁会将读写操作串行化，所以不会出现不一致的状态。</p>
+<p>但是，读操作会被写操作阻塞，大幅降低读性能。</p>
+<h2 id="事务并发处理的四大场景">事务并发处理的四大场景</h2>
+<p>首先， 这里讲 事务的并发处理分为四大场景，分别是</p>
+<ul>
+<li>
+<p><code>读-读</code>、</p>
+</li>
+<li>
+<p><code>写-写</code>、</p>
+</li>
+<li>
+<p><code>读-写</code>、</p>
+</li>
+<li>
+<p><code>写-读</code>，</p>
+</li>
+</ul>
+<p>这四种情况分别对应并发事务执行时的四种场景，为了后续分析<code>MVCC</code>机制时方便理解，因此先将这几种情况说明。</p>
+<h3 id="读-读场景">读-读场景：</h3>
+<p>读-读场景即是指多个事务/线程在并发读取一个相同的数据，比如事务<code>T1</code>正在读取<code>ID=16</code>的行记录，事务<code>T2</code>也在读取这条记录，两个事务之间是并发执行的。</p>
+<p><code>MySQL</code>执行查询语句，绝对不会对引起数据的任何变化，因此对于这种情况而言，不需要做任何操作，因为不改变数据就不会引起任何并发问题。</p>
+<h3 id="写-写场景">写-写场景</h3>
+<p>写-写场景也比较简单，也就是指多个事务之间一起对同一数据进行写操作，</p>
+<p>比如事务<code>T1</code>对<code>ID=16</code>的行记录做修改操作，事务<code>T2</code>则对这条数据做删除操作，事务<code>T1</code>提交事务后想查询看一下，结果连这条数据都不见了，这也是所谓的脏写问题，也被称为<strong>更新覆盖问题</strong>，</p>
+<p>对于这个问题在所有数据库、所有隔离级别中都是零容忍的存在，最低的隔离级别也要解决这个问题。</p>
+<h3 id="读-写写-读场景">读-写、写-读场景</h3>
+<p>读-写、写-读实际上从宏观角度来看，可以理解成同一种类型的操作，但从微观角度而言则是两种不同的情况，</p>
+<ul>
+<li>
+<p>读-写是指一个事务先开始读，然后另一个事务则过来执行写操作，</p>
+</li>
+<li>
+<p>写-读则相反，主要是读、写发生的前后顺序的区别。</p>
+</li>
+</ul>
+<p>并发事务中同时存在读、写两类操作时，这是最容易出问题的场景，脏读、不可重复读、幻读都出自于这种场景中，当有一个事务在做写操作时，读的事务中就有可能出现这一系列问题，因此数据库才会引入各种机制解决。</p>
+<h3 id="各并发事务场景的解决方案">各并发事务场景的解决方案</h3>
+<p>对于写-写、读-写、写-读这三类存在线程安全问题的场景，最为简单粗暴的方式，通过 <strong>加锁</strong> 的方案确保线程安全。</p>
+<p>但是，加锁会导致部分的串行化、整体串行化，因此效率会下降，而<code>MVCC</code>机制的诞生则解决了这个问题。</p>
+<p>因此<code>MySQL</code>推出了<code>MVCC</code>机制，在读-写并存（读-写、写-读）的场景，使用局部无锁架构，提升性能。</p>
+<p>MVCC 机制 在线程安全问题和加锁串行化之间做了一定取舍，让两者之间达到了很好的平衡，即防止了脏读、不可重复读及幻读问题的出现<code>，</code>又无需对并发读-写事务加锁处理。</p>
+<h2 id="无锁架构cow思想">无锁架构：COW思想</h2>
+<p>Copy-On-Write（COW，写时复制）是一种常见的并发编程思想。</p>
+<p>Copy-On-Write基本思想是，当多个线程需要对共享数据进行修改时，不直接在原始数据上进行操作，而是先将原始数据复制一份（即写时复制），然后在副本上进行Write。</p>
+<p>Copy-On-Write 通过操作写操作副本，引入<strong>局部无锁架构</strong>，解决并且处理之间的数据冲突，提高了并发性能。</p>
+<p>Copy-On-Write的实现步骤如下：</p>
+<ol>
+<li>
+<p><strong>读取数据</strong>：多个线程同时读取共享数据时，它们可以直接访问原始数据，而不需要复制。因为读取操作不会修改数据，所以可以安全地共享原始数据。</p>
+</li>
+<li>
+<p><strong>写入数据</strong>：当某个线程需要修改共享数据时，首先会将原始数据进行复制（即写时复制），然后在副本上进行修改。这样做的好处是，其他线程仍然可以继续读取原始数据，不受写入线程的影响。</p>
+</li>
+<li>
+<p><strong>更新引用</strong>：写入线程完成修改后，会更新共享数据的引用，使得其他线程后续访问时可以获取到最新的数据副本。</p>
+</li>
+</ol>
+<p>Copy-On-Write的优点包括：</p>
+<ul>
+<li>
+<p><strong>线程安全</strong>：通过复制数据副本并在副本上进行修改，避免了多线程并发修改原始数据时的数据冲突问题，从而提高了线程安全性。</p>
+</li>
+<li>
+<p><strong>减少锁竞争</strong>：由于读取操作不需要加锁，所以可以减少锁竞争，提高了并发性能。</p>
+</li>
+<li>
+<p><strong>节省内存</strong>：只有在有写入操作时才会进行数据复制，而读取操作可以共享原始数据，因此可以节省内存空间。</p>
+</li>
+</ul>
+<p>然而，Copy-On-Write也有一些缺点，主要是由于数据复制和更新引用所带来的额外开销，可能会导致内存和性能方面的消耗增加。因此，适用场景需要根据具体情况进行评估和选择。</p>
+<p>COW思想写操作之间是要互斥的，并且每次写操作都会有一次copy，所以只适合读大于写的情况。所以，COW思想 专门用于<strong>优化读的次数远大于写次数</strong>的场景。比如，Java的 并发容器CopyOnWriteArrayList。</p>
+<h3 id="java中的copyonwritearraylist">Java中的CopyOnWriteArrayList</h3>
+<p>CopyOnWriteArrayList 是jdk1.5以后并发包中提供的一种并发容器，写操作通过创建底层数组的新副本来实现，是一种读写分离的并发策略，我们也成为“写时复制容器”。</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;public boolean add(E e) {&lt;br&gt;   &lt;span&gt;//加锁，对写操作保证线程安全&lt;/span&gt;&lt;br&gt;   final ReentrantLock lock = &lt;span&gt;this&lt;/span&gt;.lock;&lt;br&gt;   lock.lock();&lt;br&gt;   &lt;span&gt;try&lt;/span&gt; {&lt;br&gt;       &lt;span&gt;Object&lt;/span&gt;[] elements = getArray();&lt;br&gt;       int len = elements.length;&lt;br&gt;       &lt;span&gt;//拷贝原容器，长度为原容器+1&lt;/span&gt;&lt;br&gt;       &lt;span&gt;Object&lt;/span&gt;[] newElements = Arrays.copyOf(elements, len + &lt;span&gt;1&lt;/span&gt;);&lt;br&gt;       &lt;span&gt;//在新副本执行添加操作&lt;/span&gt;&lt;br&gt;       newElements[len] = e;&lt;br&gt;       &lt;span&gt;//底层数组指向新的数组&lt;/span&gt;&lt;br&gt;       setArray(newElements);&lt;br&gt;       &lt;span&gt;return&lt;/span&gt; &lt;span&gt;true&lt;/span&gt;;&lt;br&gt;   } &lt;span&gt;finally&lt;/span&gt; {&lt;br&gt;       lock.unlock();&lt;br&gt;   }&lt;br&gt;}&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>CopyOnWriteArrayList底层实现添加的原理是先copy出一个容器(可以简称副本)，再往新的容器里添加这个新的数据，最后把新的容器的引用地址赋值给了之前那个旧的的容器地址，但是在添加这个数据的期间，其他线程如果要去读取数据，仍然是读取到旧的容器里的数据。</p>
+<h3 id="mvcc如何使用copy-on-write思想呢借鸡生蛋">MVCC如何使用Copy-On-Write思想呢？借鸡生蛋</h3>
+<p>一图胜千言，40岁老架构师用一张图，给大家总结一如何借鸡生蛋，实现 Copy-On-Write思想的。</p>
+<p>总体来说， MVCC Copy-On-Write思想， 包括三个组成部分：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WMXFFX7XX5ZHxpiaCLiblVic3iblzdkeH75Bcx7MgO3jI7uygQ4LIichjic9NN3L71LJfw5I9ZXbickTdR6A/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>事务要实现ACID，其中的原子性、一致性主要使用 undo-log 数据副本实现，undo-log 就是重做日志，一个事务一个 undo-log 日志副本。</p>
+<p>多个事务的 undo-log 日志副本 (数据快照)，组成了一个 副本链，如下下图：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WMXFFX7XX5ZHxpiaCLiblVic3ibcDvtFsuCu1uCv53bGrDKhrZwF4F3ZO7ptZBVibvbkdwhP5Sur0TP6hw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>MVCC 也就借鸡生蛋， 复用 这个 undo-log 副本链， 实现了自己 Copy-On-Write思想。</p>
+<h3 id="mvcc与锁的关系">MVCC与锁的关系</h3>
+<p>再看看 一个核心问题：MVCC与锁的关系？</p>
+<p>还是一图胜千言，40岁老架构师用一张图，给大家总结一下MVCC和锁如何结合使用，提升事务并行能力的：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnx3eeWOX1qjOn1E3A7LZyUOCOib8sUaVfSs4BxJLuicHAGTzLRAMrJibHDA/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>MVCC（Multi-Version Concurrency Control，多版本并发控制）和锁是数据库管理系统中两种不同的并发控制机制，它们在处理事务并发访问时起着不同的作用。</p>
+<ol>
+<li><strong>MVCC</strong>：</li>
+</ol>
+<ul>
+<li>
+<p>MVCC通过维护数据的多个版本来实现并发控制，允许事务并发访问数据库而不会发生阻塞。</p>
+</li>
+<li>
+<p>在MVCC中，读取操作不会阻塞写入操作，也不会阻塞其他读取操作。每个事务可以看到一个一致性的数据快照，而不受其他事务的影响。</p>
+</li>
+<li>
+<p>MVCC主要用于读取操作的并发控制，可以有效地避免脏读、不可重复读和幻读等并发问题。</p>
+</li>
+</ul>
+<ol start="3">
+<li><strong>锁</strong>：</li>
+</ol>
+<ul>
+<li>
+<p>锁是一种悲观并发控制机制，通过在事务访问数据时对数据进行加锁，以防止其他事务对该数据进行修改或读取。</p>
+</li>
+<li>
+<p>在使用锁进行并发控制时，可能会出现阻塞和死锁等问题，特别是在高并发的情况下，锁的粒度过大或者锁的竞争过于激烈时，性能可能会受到影响。</p>
+</li>
+</ul>
+<p>MVCC和锁之间的关系可以总结如下：</p>
+<ul>
+<li>
+<p>MVCC是一种 <strong>乐观的并发控制机制</strong>，通过多副本的版本控制来实现并发访问，而不需要对数据进行加锁。</p>
+</li>
+<li>
+<p>锁是一种  <strong>悲观的并发控制机制</strong>，通过对数据进行加锁来确保事务的隔离性和一致性。</p>
+</li>
+</ul>
+<p>40岁老架构师尼恩提示： 很多时候，MVCC和锁可以结合使用，以实现更细粒度的并发控制，提高系统的性能和并发能力。</p>
+<h2 id="mysql事务隔离级别与mvcc">MySQL事务隔离级别与MVCC</h2>
+<h3 id="什么是事务">什么是事务</h3>
+<p>事务（Transaction）是数据库管理系统执行过程中的一个逻辑单位，它由一个有限的数据库操作序列构成。</p>
+<p>这些操作要么全部执行，要么全部不执行，是一个不可分割的工作单位。</p>
+<p>事务的目的是确保数据的完整性和一致性，它通过一系列的操作，将数据库从一个一致性状态转换到另一个一致性状态。</p>
+<h3 id="事务的acid特性图片httpsmmbizqpiccnsz_mmbiz_pngxlgvgpaib7woquoucmnkgxs4thyt8mlnxxmeo8o7khibw8pffqibvykislntkmzuf4iyv1v5v5v7frcsicmoaihzqg640wx_fmtpngfromappmsg">事务的ACID特性
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxxMeo8O7KhibW8pffqibVYkIsLNTkmZUf4IYV1V5v5v7frcSicMoaIHzQg/640?wx_fmt=png&amp;from=appmsg" />   
+    </h3>
+<p>事务通常具有以下四个特性，也被称为ACID属性：</p>
+<ol>
+<li>
+<p><strong>原子性（Atomicity）</strong>：事务作为一个整体执行，包含在其中的对数据库的操作要么全部执行，要么全部不执行。</p>
+</li>
+<li>
+<p><strong>一致性（Consistency）</strong>：事务必须使数据库从一个一致性状态变换到另一个一致性状态。也就是说，一个事务的执行不能破坏数据库数据的完整性和一致性。</p>
+</li>
+<li>
+<p><strong>隔离性（Isolation）</strong>：事务的执行不受其他事务的干扰，事务执行的中间结果对其他事务是不可见的。</p>
+</li>
+<li>
+<p><strong>持久性（Durability）</strong>：一旦事务提交，则其结果就是永久性的，即使系统崩溃也不会丢失。</p>
+<p>事务的这些特性确保了即使在高并发的环境中，数据库也能保持数据的完整性和一致性。在数据库系统中，事务是通过一系列的操作来完成的，包括数据的插入、更新、删除等。如果事务中的任何操作失败，或者因为某种原因被中断，那么整个事务都会回滚（Rollback），即撤销所有已经执行的操作，使数据库回到事务开始之前的状态。如果事务中的所有操作都成功完成，那么事务会提交（Commit），所做的更改会永久保存到数据库中。</p>
+</li>
+</ol>
+<h3 id="4中事务隔离级别">4中事务隔离级别</h3>
+<p>什么是事务个隔离级别？事务隔离级别主要定义了事务在并发执行时的行为，特别是它们如何与其他事务交互以及它们如何看到数据库中的更改。</p>
+<p>ANSI/ISO SQL标准定义了4中事务隔离级别：未提交读（read uncommitted），提交读（read committed），重复读（repeatable read），串行读（serializable）。</p>
+<ul>
+<li>
+<p>Oracle中默认的事务隔离级别是提交读 （read committed）。</p>
+</li>
+<li>
+<p>对于MySQL的Innodb的默认事务隔离级别是重复读（repeated read）。</p>
+</li>
+</ul>
+<p>MySQL支持四种不同的事务隔离级别，每种级别都有其特定的行为和适用场景。以下是MySQL的四种事务隔离级别及其描述：</p>
+<ol>
+<li><strong>READ UNCOMMITTED（读取未提交）</strong></li>
+</ol>
+<ul>
+<li>
+<p>允许读取尚未提交的数据变更。</p>
+</li>
+<li>
+<p>这是最低的隔离级别，它可能导致脏读、不可重复读和幻读。</p>
+</li>
+<li>
+<p>在这个级别，一个事务可以读取到另一个尚未提交事务的修改，这可能导致数据的不一致性。</p>
+</li>
+</ul>
+<ol start="3">
+<li><strong>READ COMMITTED（读取已提交）</strong></li>
+</ol>
+<ul>
+<li>
+<p>只允许读取并发事务已经提交的数据。</p>
+</li>
+<li>
+<p>这个级别可以防止脏读，但仍可能导致不可重复读和幻读。</p>
+</li>
+<li>
+<p>在这个级别，每个事务只能看到它开始时的数据状态以及它提交时其他事务所做的提交。</p>
+</li>
+</ul>
+<ol start="5">
+<li><strong>REPEATABLE READ（可重复读取）</strong></li>
+</ol>
+<ul>
+<li>
+<p><strong>这是MySQL的默认隔离级别</strong>。</p>
+</li>
+<li>
+<p>它确保在同一事务中多次读取同一数据时，看到的是相同的数据版本，即使其他事务在此期间修改了这些数据。</p>
+</li>
+<li>
+<p>尽管可以避免脏读和不可重复读，但在这个级别下仍可能出现幻读（即在一个事务中，两次相同的查询可能会返回不同的结果集，因为其他事务在此期间插入了新的记录）。</p>
+</li>
+</ul>
+<ol start="7">
+<li>
+<p><strong>SERIALIZABLE（可串行化）</strong></p>
+<p>选择适当的事务隔离级别需要根据应用的需求和性能考虑进行权衡。在某些情况下，可能需要更高的隔离级别来确保数据的一致性，而在其他情况下，可能需要降低隔离级别以提高性能。同时，也需要注意不同隔离级别可能带来的并发问题，如脏读、不可重复读和幻读等。</p>
+</li>
+</ol>
+<ul>
+<li>
+<p>这是最高的隔离级别。</p>
+</li>
+<li>
+<p>它通过强制事务串行执行来避免脏读、不可重复读和幻读。</p>
+</li>
+<li>
+<p>在这个级别，每个事务在执行时都会完全锁定它所访问的数据，从而确保数据的一致性。但这也可能导致性能下降，因为并发事务必须等待其他事务完成才能执行。
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxrroEdouoKSjL9yJ7hHxC2DlGRl4WtESo20oabd5EiboSto3hgsuYkTg/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+</li>
+</ul>
+<blockquote>
+<p><strong>脏读（Dirty Read）</strong>：<br>
+一个事务读取到另一个尚未提交事务的修改。</p>
+<p><strong>不可重复读（Non-repeatable Read）</strong>：<br>
+在同一个事务内，多次读取同一数据返回的结果有所不同。</p>
+<p><strong>幻读（Phantom Read）</strong>：<br>
+一个事务在执行两次相同的查询时，因为另一个并发事务的插入或删除操作，导致两次查询返回的结果集不同。</p>
+</blockquote>
+<h3 id="隔离级别并发性数据一致性的三角之间关系">隔离级别、并发性、数据一致性的三角之间关系</h3>
+<p>一图胜千言，40岁老架构师用一张图，给大家总结一下 事务隔离级别、并发性、数据一致性的三角之间关系：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxYCecRYic7lA8aXsqm4ve9XmTwvicYG943DicTU0TGnm92d6p7ibkac0LkA/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>事务隔离级别和并发性和数据一致性密切相关。不同的隔离级别提供了不同的并发性和数据一致性保证。</p>
+<ol>
+<li><strong>并发性</strong>：</li>
+</ol>
+<ul>
+<li>
+<p>并发性指的是数据库系统同时处理多个事务的能力。隔离级别越低，允许的并发操作越多，系统的并发性能越高。</p>
+</li>
+<li>
+<p>但是，过高的并发操作可能会导致事务之间的相互干扰，产生一些并发问题，如脏读、不可重复读和幻读。</p>
+</li>
+</ul>
+<ol start="3">
+<li><strong>数据一致性</strong>：</li>
+</ol>
+<ul>
+<li>
+<p>数据一致性指的是事务执行后，数据库中的数据是否保持一致性。隔离级别越高，数据一致性越好，但对并发操作的限制也越严格。</p>
+</li>
+<li>
+<p>高隔离级别可以防止一些并发问题的产生，如脏读、不可重复读和幻读，但会降低系统的并发性能。</p>
+</li>
+</ul>
+<p>参考阅读一下 尼恩的几篇相关文章：</p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247485634&amp;idx=1&amp;sn=12b0c0b632d02fa997029538e03de4c6&amp;scene=21#wechat_redirect">Mysql如何实现RR级隔离时，不会幻读？</a></p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247501296&amp;idx=1&amp;sn=912d486c8569647acc1ed6142a053b2a&amp;scene=21#wechat_redirect">阿里面试:Seata 如何实现 <em>RC</em> ?保证事务的隔离性?</a></p>
+<h3 id="注意rcrr-适用mvcc">注意：RC/RR 适用MVCC</h3>
+<p><code>MySQL</code>中仅在<code>RC</code>读已提交级别、<code>RR</code>可重复读级别才会使用<code>MVCC</code>机制。</p>
+<p>1：RU读未提交级别，不适用MVCC。</p>
+<p>既然都允许存在脏读问题、允许一个事务读取另一个事务未提交的数据，直接进行当前读，那自然可以直接读最新版本的数据，因此无需<code>MVCC</code>介入。</p>
+<p>2：Serializable串行化级别不存在事务并发，不适用MVCC。</p>
+<p>如果是Serializable串行化级别，因为会将所有的并发事务串行化处理，</p>
+<p>Serializable串行化级别，不论事务是读操作，亦或是写操作，都会被排好队一个个执行，这都不存在所谓的多线程并发问题了，自然也无需MVCC介入。</p>
+<h2 id="mvcc机制的三个核心组件">MVCC机制的三个核心组件</h2>
+<p><code>MVCC</code>机制主要通过三个组件实现：</p>
+<ul>
+<li>
+<p><code>隐藏字段</code></p>
+</li>
+<li>
+<p><code>Undo-log</code>日志</p>
+</li>
+<li>
+<p><code>ReadView</code>。
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxiaRMn2GXz1MgyLRlCevWhygQd4VvtsBUicrFXTIRcL63B9ULenRFkG4Q/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+</li>
+</ul>
+<h3 id="核心组件1-隐藏字段">核心组件1. 隐藏字段</h3>
+<p>在Innodb存储引擎中，每一行记录中都有隐藏字段</p>
+<ul>
+<li>
+<p>在有聚簇索引的情况下每一行记录中都会隐藏3个字段，</p>
+</li>
+<li>
+<p>如果没有聚簇索引的情况下每一行记录中都会隐藏4个字段。</p>
+</li>
+</ul>
+<p>在有聚簇索引的情况下每一行记录中都会隐藏3个字段为DB_TRX_ID,DB_ROLL_PTR、deleted_bit，</p>
+<ul>
+<li>
+<p>DB_TRX_ID：记录创建这条数据上次修改它的事务 ID，</p>
+</li>
+<li>
+<p>DB_ROLL_PTR：回滚指针，指向这条记录的上一个版本</p>
+</li>
+<li>
+<p>deleted_bit字段，即记录被更新或删除，这里的删除并不代表真的删除，而是将这条记录的delete flag改为true</p>
+</li>
+</ul>
+<p>除了上面的3个隐藏字段，没有聚簇索引还会有DB_ROW_ID这个字段。</p>
+<blockquote>
+<p>40岁老架构师尼恩提是：隐藏字段的细节，稍后详细介绍。</p>
+</blockquote>
+<h3 id="核心组件2-undo-log回滚日志">核心组件2. undo log（回滚日志）</h3>
+<p>在事务的ACID特性中，undo log（回滚日志）主要用于实现事务的原子性、隔离性、一致性的关键组件之一。它的主要作用包括：</p>
+<ol>
+<li>
+<p><strong>事务的回滚操作</strong>：</p>
+<p>当一个事务执行过程中发生错误或者被用户显式回滚时，数据库系统需要能够<strong>撤销该事务已经执行的操作</strong>，将数据库恢复到事务开始之前的状态。这就是回滚操作。</p>
+<p>undo log记录了事务执行过程中所做的所有修改操作的<strong>逆操作</strong>，通过undo log可以快速回滚事务所做的修改，从而保证事务的原子性。</p>
+</li>
+<li>
+<p><strong>恢复和崩溃恢复</strong>：</p>
+<p>当数据库系统发生崩溃或者异常关闭时，可能会导致部分事务未提交的修改操作丢失或者部分已提交的修改操作未持久化到磁盘。</p>
+<p>通过undo log，数据库系统可以在恢复过程中, <strong>将未提交的修改操作回滚</strong>，并将已提交但<strong>未持久化的修改操作重新应用到数据库中</strong>，从而保证数据库的一致性和完整性。</p>
+</li>
+</ol>
+<p>总的来说，undo log在数据库系统中扮演着非常重要的角色，它不仅用于实现事务的回滚操作和并发控制，还用于数据库系统的恢复和崩溃恢复。通过记录事务的修改操作和逆操作，undo log确保了数据库的原子性、隔离性和一致性，是数据库系统的关键组件之一。</p>
+<p>尼恩在前面讲到， MVCC 实现了自己 Copy-On-Write思想提升并发能力的时候， 也需要数据的副本，这里既然undo-log 有了那么多副本，MVCC 就借鸡生蛋， 复用 这些数据副本。</p>
+<p>所以，undo log 中的副本，可以用于实现多版本并发控制（MVCC），提升事务的并发性能。</p>
+<h3 id="核心组件3-read-view">核心组件3. read-view</h3>
+<p>那么多的数据副本，通过对比时间戳或者版本号，看到自己能看的版本？</p>
+<p>undo log保存的是一个版本链，也就是使用DB_ROLL_PTR这个字段来连接的。</p>
+<p>多个事务的 undo-log 日志副本 (数据快照)，组成了一个 副本链，如下图：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxlCayLbcb9AvAGnusaY4pZFE14ricpNzvZtw81ah2JZxQtsNlKjAj2xw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>那么，如果多个事务并行的读写操作，每一个事务应该使用那个版本呢？</p>
+<p>简单来说，在MVCC中，每个事务可以有一个特定的时间戳或者版本号，而通过对比事务的时间点所能看到的数据版本的集合。</p>
+<p>一般来说，时间戳或者版本号的对比规则包括以下几个方面：</p>
+<ol>
+<li>
+<p><strong>已提交数据</strong>：事务只能看到已经提交的数据版本。即如果某个数据版本的提交时间早于当前事务的开始时间，则该数据版本对事务是可见的。</p>
+</li>
+<li>
+<p><strong>未提交数据</strong>：事务不应该看到其他事务尚未提交的数据版本。即如果某个数据版本的提交时间晚于事务的开始时间，则该数据版本对事务是不可见的。</p>
+</li>
+<li>
+<p><strong>事务开始时间</strong>：事务开始时间是确定事务 read-view 的关键因素之一。事务只能看到在它开始时间之前已经提交的数据版本。</p>
+</li>
+<li>
+<p><strong>数据快照</strong>：事务读取数据时，read-view 应该是一个一致的数据快照，即事务开始时刻的数据库状态的一个一致性快照。这样可以确保事务读取的数据是在一个一致的时间点获取的。</p>
+</li>
+</ol>
+<p>通过遵循这些对比规则，数据库系统可以保证事务读取的数据是一致的、可靠的，并且与其他并发事务的操作相互独立。</p>
+<p>一图胜千言。</p>
+<p>40岁老架构师用一张图，给大家弄一个例子，展示一个下面的场景。</p>
+<p>下面的图中，对于事务4来说，可以看到的数据版本，是事务1的已经提交的数据：
+        <img class="mx-auto" alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxOmU70WW3lJwmQVaYYhgHWE51NkdWyMKsPibon3I1IWGaicUmtcwAcnLw/640?wx_fmt=png&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />   
+    </p>
+<p>上图中，事务2，事务3，事务5的快照版本，事务4的是不可以看到的。</p>
+<p>当然， 上面是通过时间比对来的，但是 mysql 的MVCC不是通过对比时间戳来实现的。</p>
+<p>MVCC 使用 一个新的组件，read-view + 一组对比规则，来计算 可见版本。</p>
+<p>read-view 有一些列的对比规则，这些规则用于确定一个事务在读取数据时，如何与数据库中的其他事务的版本号（这里其实就是事务ID）进行比较，以确定它所能看到的数据版本。</p>
+<p>当 执行一个select语句时MVCC 会产生一致性视图<code>read view</code>。那么这个read view 没有记录事务的开始时间，和截止时间 ， 而是换成另一种方式去记录开始时间和截止时间，换成什么方式呢：</p>
+<ul>
+<li>
+<p>read view 记录当前活跃事务 id，组成活跃事务id数组 ，这个属性的作用，哪些事务是当前事务，也是不可见的</p>
+</li>
+<li>
+<p>read view 记录当前最小活跃事务 id，这个属性的作用，用于判断哪些事务是已经提交了的</p>
+</li>
+<li>
+<p>read view 记录当前的下一个事务 id，这个属性的作用，用于判断哪些事务是未来事务，也是不可见的
+        <img class="mx-auto" alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxiaJHDqN1DK2L5SGgBSXre9CXhOtyezrstBdZdo8KgpCjVnFmXTgu2XA/640?wx_fmt=png&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />   
+    </p>
+</li>
+</ul>
+<p>注意，上面是尼恩为大家总结和归纳的，比较清晰好记， mysql 的MVCC 版本的对比规则， 看上去非常、非常复杂。</p>
+<p>下面是mysql 的MVCC 的read view 版本对比规则， 确实也是一个非常复杂的对比逻辑， 很多小伙伴傻傻看不懂， 并且背诵了半天还记不住，非常痛苦。
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxGibicM6sVBmRsWaJiaUBkCKAy6TWfPjibkxEgPbMep1XpgQH0gH8phXY8A/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>通过 上面的这个复杂的对比流程， read-view 终于确定一个事务在执行时所能看到的数据视图。</p>
+<h2 id="innodb表的四个隐藏字段">InnoDB表的四个隐藏字段</h2>
+<p>通常情况下，当你基于<code>InnoDB</code>引擎建立一张表后，<code>MySQL</code>除了会构建你显式声明的字段外，通常还会构建一些<code>InnoDB</code>引擎的隐藏字段，</p>
+<p>在<code>InnoDB</code>引擎中，隐藏字段主要有<code>DB_ROW_ID、DB_Deleted_Bit、DB_TRX_ID、DB_ROLL_PTR</code>这四个。</p>
+<table>
+<thead>
+<tr>
+<th>列名</th>
+<th>是否必须</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>row_id</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p>否</p>
+<p>|</p>
+<p>隐藏主键，单调递增的行ID，不是必需的，占用6个字节。</p>
+<p>|
+|</p>
+<p>deleted_bit</p>
+<p>|</p>
+<p>是</p>
+<p>|</p>
+<p>删除标识，占用1个字节。</p>
+<p>|
+|</p>
+<p>trx_id</p>
+<p>|</p>
+<p>是</p>
+<p>|</p>
+<p>最近的更新事务Id，记录操作该行数据事务的事务ID，占用6个字节。</p>
+<p>|
+|</p>
+<p>roll_pointer</p>
+<p>|</p>
+<p>是</p>
+<p>|</p>
+<p>回滚指针，指向当前记录行的Undo-log日志中的旧版本数据，占用7个字节。</p>
+<p>|</p>
+<h3 id="隐藏的主键row_id">隐藏的主键：row_id</h3>
+<p>对于<code>InnoDB</code>引擎的表而言，由于其表数据是按照 <strong>聚簇索引</strong>的格式存储，因此通常都会选择主键作为聚簇索引列，然后基于主键字段构建索引树，</p>
+<p>但如若表中未定义主键，则会选择一个具备 <strong>唯一非空属性</strong> 的字段，作为聚簇索引的字段来构建树。</p>
+<p>当两者都不存在时，<code>InnoDB</code>就会隐式定义一个顺序递增的列<code>ROW_ID</code>来作为聚簇索引列。</p>
+<p>所以, 就算你的表中未定义主键、索引，其实默认也会存在一个聚簇索引，只不过这个索引在上层无法使用，仅提供给<code>InnoDB</code>构建树结构存储表数据。</p>
+<h3 id="隐藏的删除标识deleted_bit">隐藏的删除标识：deleted_bit</h3>
+<p>在MySQL中，对于InnoDB中一条<code>delete</code>语句而言，当执行后并不会立马删除表的数据，而是将这条数据的<code>Deleted_Bit</code>删除标识改为<code>1/true</code>，而不是不会对数据库中的数据进行物理删除。</p>
+<p>后续的查询<code>SQL</code>检索数据时，如果检索到了这条数据，但看到隐藏字段<code>Deleted_Bit=1</code>时，就知道该数据已经被其他事务<code>delete</code>了，因此不会将这条数据纳入结果集。</p>
+<p><code>Deleted_Bit</code>的优势：主要是能够有利于聚簇索引，比如当一个事务中删除一条数据后，后续又执行了回滚操作，假设此时是真正的删除了表数据，会发生如下两种情况：</p>
+<ul>
+<li>
+<p>①删除表数据时，有可能会破坏索引树原本的结构，导致 叶子节点合并的情况。</p>
+</li>
+<li>
+<p>②事务回滚时，又需重新插入这条数据，再次插入时又会破坏前面的结构，导致 叶子节点分裂 的情况。</p>
+</li>
+</ul>
+<p>所以，当执行<code>delete</code>语句时，只会改变将隐藏字段中的删除标识（<code>Deleted_Bit</code>）改为<code>1/true</code>，而不去执行物理删除（不去破坏索引树），如果后续事务出现回滚动作，直接将其标识再改回<code>0/false</code>即可，这样就避免了索引树的结构调整。</p>
+<p>谁来清理过期数据呢？</p>
+<p>了防止“已删除”的数据占用过多的磁盘空间，同时确保清理数据时不会影响<code>MVCC</code>的正常工作，Mysql使用 &ldquo;Purger线程&quot;完成“已删除”的数据的定期清理。</p>
+<p>&ldquo;Purger线程&quot;用来定期检查数据库中的数据，并根据一些预定义的规则或条件来决定哪些数据应该被删除或清理。</p>
+<p>Purger线程的主要职责包括：</p>
+<ul>
+<li>
+<p>检查数据库中的数据，识别哪些数据应该被清理。</p>
+</li>
+<li>
+<p>根据一些预定义的规则或条件来决定数据的清理方式，比如按时间戳删除过期数据或者根据某些属性标记数据为无效。</p>
+</li>
+<li>
+<p>执行清理操作，删除或标记需要清理的数据。</p>
+</li>
+<li>
+<p>定期运行，以确保数据库中的数据保持在一个合理的范围内，避免存储空间被不必要的数据占用。</p>
+</li>
+</ul>
+<p>Purger线程通常在后台运行，定期执行清理任务，以保持数据库的健康状态和良好的性能。</p>
+<p><code>purger</code>线程自身也会维护一个<code>ReadView</code>，如果某条数据的<code>Deleted_Bit=true</code>，并且<code>TRX_ID</code>对<code>purge</code>线程的<code>ReadView</code>可见，那么这条数据一定是可以被安全清除的（即不会影响<code>MVCC</code>工作）。</p>
+<h3 id="隐藏的最近更新事务idtrx_id">隐藏的最近更新事务ID：trx_id</h3>
+<p><code>TRX_ID</code>全称为<code>transaction_id</code>，即是事务<code>ID</code>的意思，</p>
+<p><code>MySQL</code>对于每一个创建的事务，都会为其分配一个事务<code>ID</code>，事务<code>ID</code>同样遵循顺序递增的特性，即后来的事务<code>ID</code>绝对会比之前的<code>ID</code>要大，比如：</p>
+<blockquote>
+<p>此时事务<code>T1</code>准备修改表字段的值，<code>MySQL</code>会为其分配一个事务<code>ID=1</code>，当事务<code>T2</code>准备向表中插入一条数据时，又会为这个事务分配一个<code>ID=2</code>&hellip;&hellip;</p>
+<p>如果是SELECT语句，则分配的事务ID = 0；</p>
+</blockquote>
+<p>表中的隐藏字段<code>TRX_ID</code>，记录的就是最近一次改动当前这条数据的事务<code>ID</code>，这个字段是实现<code>MVCC</code>机制的核心之一。</p>
+<h3 id="隐藏的回滚指针roll_ptr">隐藏的回滚指针：roll_ptr</h3>
+<p><code>ROLL_PTR</code>全称为<code>rollback_pointer</code>，也就是回滚指针的意思，这个也是表中每条数据都会存在的一个隐藏字段。</p>
+<p>当一个事务对一条数据做了改动后，都会将旧版本的数据放到<code>Undo-log</code>日志中，而<code>rollback_pointer</code>就是一个地址指针，指向<code>Undo-log</code>日志中旧版本的数据。</p>
+<p>当需要回滚事务时，就可以通过这个隐藏列，来找到改动之前的旧版本数据，而<code>MVCC</code>机制也利用这点，实现了行数据的多版本。</p>
+<h2 id="innodb引擎的undo-log日志">InnoDB引擎的Undo-log日志</h2>
+<p><strong>Undo-log可以理解成回滚日志,它存储的是老版本数据</strong>。</p>
+<p>在表记录修改之前，会先把原始数据拷贝到Undo-log里，如果事务回滚，即可以通过Undo-log来还原数据。</p>
+<p>或者如果当前记录行不可见，可以顺着Undo-log链找到满足其可见性条件的记录行版本。</p>
+<p>在insert/update/delete(本质也是做更新，只是更新一个特殊的删除位字段)操作时，都会产生Undo-log。</p>
+<p>在InnoDB里，Undo-log分为如下两类：</p>
+<ol>
+<li>
+<p><strong>insert Undo-log</strong> : 事务对insert新记录时产生的Undo-log, 只在事务回滚时需要, 并且在事务提交后就可以立即丢弃。</p>
+</li>
+<li>
+<p><strong>update Undo-log</strong> : 事务对记录进行delete和update操作时产生的Undo-log，不仅在事务回滚时需要，快照读也需要，只有当数据库所使用的快照中不涉及该日志记录，对应的回滚日志才会被删除。</p>
+</li>
+</ol>
+<p><strong>Undo-log有什么用途呢？</strong></p>
+<blockquote>
+<p>1.事务回滚时，保证原子性和一致性。 2.如果当前记录行不可见，可以顺着undo log链找到满足其可见性条件的记录行版本(用于MVCC快照读)。</p>
+</blockquote>
+<p>我们来看如下例子，理解一下Undo-log版本链。
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxt9vchuKEzLIiaMZ0aIht2uqGrCPOYgU55etxf5xQ8rIMneSJpWpB8pA/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>如上述这段<code>SQL</code>隶属于<code>trx_id=1</code>的<code>T1</code>事务，其中对同一条数据改动了两次，那<code>Undo-log</code>日志中只会存储两条旧版本的数据，如下图：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxXMU2XtAJy8Hd79YTChvYuGX0iciaYMYxg6X4s2dUSj9JhqEUB8rzeDOQ/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>从上图中可明显看出：</p>
+<p>不同的旧版本数据，会以<code>roll_ptr</code>回滚指针作为链接点，然后将所有的旧版本数据组成一个<code>单向链表</code>。</p>
+<p>请注意：最新的旧版本数据，都会插入到<code>链表头中</code>，而不是追加到链表尾部。</p>
+<blockquote>
+<p>细说一下执行上述<code>update</code>语句的详细过程：<br>
+1.对<code>ID=1</code>这条要修改的行数据加上排他锁。</p>
+<p>2.将原本的旧数据拷贝到<code>Undo-log</code>的<code>rollback Segment</code>区域。</p>
+<p>3.对表数据上的记录进行修改，修改完成后将隐藏字段中的<code>trx_id</code>改为当前事务<code>ID</code>。</p>
+<p>4.将隐藏字段中的<code>roll_ptr</code>指向<code>Undo-log</code>中对应的旧数据，并在提交事务后释放锁。</p>
+</blockquote>
+<p>为什么<code>Undo-log</code>日志要设计出版本链呢？</p>
+<p>有如下两个好处：</p>
+<ol>
+<li>
+<p>一方面可以实现<code>事务点回滚</code>；</p>
+</li>
+<li>
+<p>另一方面则可以实现<code>MVCC</code>机制。</p>
+</li>
+</ol>
+<p>与之前的删除标识类似，一条数据被<code>delete</code>后并提交了，最终会从磁盘移除，而<code>Undo-log</code>中记录的旧版本数据，同样会占用空间，</p>
+<p>因此在事务提交后也会移除，移除的工作同样由<code>purger</code>线程负责，<code>purger</code>线程内部也会维护一个<code>ReadView</code>，它会以此作为判断依据，来决定何时移除<code>Undo</code>记录。</p>
+<h2 id="快照读和当前读">快照读和当前读</h2>
+<p>快照读，就是读取快照数据，即快照生成的那一刻的数据。</p>
+<p>在不加锁的情况下，我们使常用的 普通的SELECT语句 就是快照读，如下：</p>
+<blockquote>
+<p>SELECT * FROM USER WHERE &hellip;&hellip;</p>
+</blockquote>
+<p>当前读，就是读取最新的数据，要读取最新提交的数据版本。</p>
+<p>我们在<strong>加锁SELECT语句，或者对数据进行增、删、改</strong>都会进行当前读。如下：</p>
+<blockquote>
+<p>SELECT * FROM USER LOCK IN SHARE MODE;</p>
+<p>SELECT * FROM USER FOR UPDATE;</p>
+<p>INSERT INTO USER VALUES &hellip;&hellip;</p>
+<p>DELETE FROM USER WHERE &hellip;&hellip;</p>
+<p>UPDATE USER SET &hellip;&hellip;</p>
+</blockquote>
+<p>在MySQL中只有在<code>RR和RC</code>这两个事务隔离级别下才会使用 <strong>快照读</strong>。</p>
+<blockquote>
+<p>在RR中，快照会在事务中第一次SELECT语句执行时生成，只有在本事务中对数据进行更改 才会更新快照。</p>
+<p>在RC中，每次SELECT都会重新生成一个快照，总是读取最新版本数据。</p>
+</blockquote>
+<h2 id="mvcc核心readview">MVCC核心ReadView</h2>
+<p>经过前面的分析，对于MVCC多版本并发控制，多版本是通过<code>Undo-log日志</code>实现。</p>
+<p>先来思考如下的问题：</p>
+<p>如果<code>T1</code>事务要查询id=1的一条行数据，此时这条行数据正在被<code>T2</code>事务修改，那也就代表着这条数据可能存在多个旧版本数据，<code>T1</code>事务在查询时，应该读这条数据的哪个版本呢？
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnx8LAXXZ8LrqgeibeubFdpp82hq7mtfAmyPEEoE8eWBzPfbcQDt9b37HA/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>此时就需要用到<code>ReadView</code>，用它来做多版本的并发控制，根据查询的时机，来选择一个当前事务可见的旧版本数据读取。</p>
+<h3 id="什么是readview呢">什么是ReadView呢？</h3>
+<p>当一个事务在尝试读取一条数据时，<code>MVCC</code>基于当前<code>MySQL</code>的运行状态生成的快照，也被称之为读视图，即<code>ReadView</code>，在这个快照中记录着当前所有活跃事务的<code>ID</code>（活跃事务是指还在执行的事务，即未结束（提交/回滚）的事务）。</p>
+<blockquote>
+<p>ReadView是事务在进行快照读的时候生成的记录快照, 可以帮助我们解决可见性问题的。</p>
+</blockquote>
+<h3 id="readview的核心属性">ReadView的核心属性</h3>
+<p>当一个事务启动后，首次执行<code>select</code>操作时，<code>MVCC</code>就会生成一个数据库当前的<code>ReadView</code>，</p>
+<p>通常而言，一个事务与一个<code>ReadView</code>属于一对一的关系（不同隔离级别下也会存在细微差异），<code>ReadView</code>一般包含4个核心属性：</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>creator_trx_id</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p>代表创建当前这个<code>ReadView</code>的<code>事务ID</code>。</p>
+<p>|
+|</p>
+<p>trx_ids</p>
+<p>|</p>
+<p>表示在生成当前<code>ReadView</code>时，系统内活跃（未提交）的<code>事务ID</code>列表，它的数据结构为一个List。(<code>注意</code>：这里的trx_ids中的活跃事务，<strong>不包括当前事务自己</strong>和<strong>已提交</strong>的事务，这点非常重要)</p>
+<p>|
+|</p>
+<p>up_limit_id</p>
+<p>|</p>
+<p>活跃的事务列表（trx_ids）中，最小的<code>事务ID</code>，如果trx_ids为空，则up_limit_id 为 low_limit_id。</p>
+<p>|
+|</p>
+<p>low_limit_id</p>
+<p>|</p>
+<p>表示在生成当前<code>ReadView</code>时，系统中要给下一个事务分配的<code>ID值</code>。（<code>注意</code>：它并不是目前系统中活跃事务的最大ID，因为MySQL的事务ID是按序递增的，因此当启动一个新的事务时，都会为其分配事务ID，而这个low_limit_id则是整个MySQL中要为下一个事务分配的ID值。）</p>
+<p>|</p>
+<p>我们假设目前数据库中共有<code>T1~T6</code>这6个事务，<code>T1、T2、T4、T6</code>还在执行，<code>T3</code>已经回滚，<code>T5</code>已经提交，</p>
+<p>此时当有一条查询语句执行时，就会利用<code>MVCC</code>机制生成一个<code>ReadView</code>，由于在MySQL中单纯由一条<code>select</code>语句组成的事务并不会分配事务<code>ID</code>，因此默认为<code>0</code>，所以目前这个ReadView的信息如下：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxMttNDDkcYU9H9DmCzauKp7QSGeE2rkADia2Se6Yt6TV02Hg7NoVsXMg/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<h3 id="readview的读取规则">ReadView的读取规则</h3>
+<p>访问某条记录的时候如何判断该记录是否可见,具体规则如下：</p>
+<ul>
+<li>
+<p>如果被访问版本的 <code>事务ID = creator_trx_id</code>，那么表示当前事务访问的是自己修改过的记录，那么该版本对当前事务可见；</p>
+</li>
+<li>
+<p>如果被访问版本的 <code>事务ID &lt; up_limit_id</code>，那么表示生成该版本的事务在当前事务生成 ReadView 前已经提交，所以该版本可以被当前事务访问。</p>
+</li>
+<li>
+<p>如果被访问版本的 <code>事务ID &gt; low_limit_id</code> 值，那么表示生成该版本的事务在当前事务生成 ReadView 后才开启，所以该版本不可以被当前事务访问。</p>
+</li>
+<li>
+<p>如果被访问版本的 <code>事务ID在 up_limit_id和m_low_limit_id</code>之间，那就需要判断一下版本的事务ID是不是在 trx_ids 列表中，如果在，说明创建 ReadView 时生成该版本的事务还是活跃的，该版本不可以被访问；</p>
+</li>
+<li>
+<p>如果不在，说明创建 ReadView 时生成该版本的事务已经被提交，该版本可以被访问。
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxicpQk2iaAUKKxbgvlthAo0Q61G8A6W4Ndr7gcoEMmOhOJkd6E1mL1lqw/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+</li>
+</ul>
+<p>上面这种图，网上有上万篇文章， 都是抄来抄去， 没有一篇文章做了总结和简化。</p>
+<p>关于这个对比规则，由于逻辑复杂，导致尽管大家看了那些文章，甚至看了很多视频，还是不能理解透彻， 迷迷糊糊的，面试的时候 说不清楚，也很容易忘了。</p>
+<p>尼恩团队看不下去，用咱们的雄厚技术实力（洪荒之力）， 给大家来总结和简化。</p>
+<p>具体如下：
+        <img class="mx-auto" alt="图片" src="https://mmbiz.qpic.cn/sz_mmbiz_png/xlgvgPaib7WOQuoucmNkgXS4tHYt8MLnxiaJHDqN1DK2L5SGgBSXre9CXhOtyezrstBdZdo8KgpCjVnFmXTgu2XA/640?wx_fmt=png&amp;from=appmsg" />   
+    </p>
+<p>此图，是全网的第一张彻底穿透式的解读 MVCC的对比规则的图。</p>
+<p>通过此文，尼恩团队 第一次，帮助大家搞清楚复杂的 MVCC的底层原理。</p>
+<p>此图很容易理解，很容易记忆。</p>
+<p>大家可收藏起来， 面试之前复习一下，一定能吊打面试官。</p>
+<p><strong>不对，是吊死面试官。</strong></p>
+<p>尼恩团队用深厚的架构功力，非常喜欢也非常善于，把复杂的问题做清晰深入的穿透式、起底式的分析：</p>
+<ul>
+<li>
+<p>比如Netty的内存池和对象池（那个超级难，很多人穷其一生都搞不懂），</p>
+</li>
+<li>
+<p>比如DDD的建模和落地，</p>
+</li>
+<li>
+<p>比如Caffeine的底层架构，</p>
+</li>
+<li>
+<p>比如高性能葵花宝典</p>
+</li>
+<li>
+<p>比如 Thread Local 学习圣经</p>
+</li>
+<li>
+<p>等等等等。</p>
+</li>
+</ul>
+<p>这个技术难题一旦掌握，大家内力猛涨。 所以，建议大家去看看尼恩的这些核心内容。</p>
+<p>而且，尼恩团队进行一次真正的AI架构穿透，帮助大家穿透AI架构。</p>
+<p>扯远了，言归正传。</p>
+<h3 id="readview的生成规则">ReadView的生成规则</h3>
+<p>在MySQL中只有在<code>RR（可重复读）和RC（读已提交）</code>这两个事务隔离级别下有效，生成ReadView规则是不同的：</p>
+<blockquote>
+<p>在RR中，<code>ReadView</code>会在事务中<code>第一次SELECT</code>语句执行时生成，只有在本事务中对数据进行更改才会更新快照。</p>
+<p>在RC中，每次SELECT都会重新生成一个<code>ReadView</code>，总是读取最新版本数据。</p>
+<p>读已提交和可重复读唯一的区别在于：</p>
+<p>1.在RC隔离级别下，是每个select都会创建最新的ReadView；</p>
+<p>2.而在RR隔离级别下，则是当事务中的第一个select请求才创建ReadView。</p>
+</blockquote>
+<h2 id="总结mvcc实现原理">总结：MVCC实现原理</h2>
+<p>经过前面的分析后已得知：</p>
+<ul>
+<li>
+<p>当一个事务尝试改动某条数据时，会将原本表中的旧数据放入<code>Undo-log</code>日志中。</p>
+</li>
+<li>
+<p>当一个事务尝试查询某条数据时，<code>MVCC</code>会生成一个<code>ReadView</code>快照。</p>
+<p>其中<code>Undo-log</code>主要实现数据的多版本，<code>ReadView</code>则主要实现多版本的并发控制。</p>
+<p>结合如下例子说明：</p>
+</li>
+</ul>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;&lt;span&gt;-- 事务T1：trx_id=1&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;UPDATE&lt;/span&gt; user_info  &lt;span&gt;SET&lt;/span&gt; &lt;span&gt;name&lt;/span&gt; = &lt;span&gt;&#34;小夏&#34;&lt;/span&gt; &lt;span&gt;WHERE&lt;/span&gt; &lt;span&gt;id&lt;/span&gt; = &lt;span&gt;1&lt;/span&gt;;&lt;br&gt;&lt;span&gt;UPDATE&lt;/span&gt; user_info  &lt;span&gt;SET&lt;/span&gt; sex = &lt;span&gt;&#34;女&#34;&lt;/span&gt; &lt;span&gt;WHERE&lt;/span&gt; &lt;span&gt;id&lt;/span&gt; = &lt;span&gt;1&lt;/span&gt;;&lt;/span&gt;&lt;/section&gt;
+</code></pre><pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;&lt;span&gt;-- 事务T2：trx_id=2&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;SELECT&lt;/span&gt; * &lt;span&gt;FROM&lt;/span&gt;  user_info  &lt;span&gt;WHERE&lt;/span&gt; &lt;span&gt;id&lt;/span&gt; = &lt;span&gt;1&lt;/span&gt;;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>目前存在<code>T1、T2</code>两个并发事务，<code>T1</code>目前在修改<code>ID=1</code>的这条数据，而<code>T2</code>则准备查询这条数据，那么<code>T2</code>在执行时具体过程如下：</p>
+<ul>
+<li>
+<p>1.当事务中出现<code>select</code>语句时，会先根据<code>MySQL</code>的当前情况生成一个<code>ReadView</code>。</p>
+</li>
+<li>
+<p>2.判断行数据中的隐藏列<code>trx_id</code>与<code>ReadView.creator_trx_id</code>是否相同：</p>
+</li>
+<li>
+<p>相同：代表创建<code>ReadView</code>和修改行数据的事务是同一个，自然可以读取最新版数据。</p>
+</li>
+<li>
+<p>不相同：代表目前要查询的数据，是被其他事务修改过的，继续往下执行。</p>
+</li>
+<li>
+<p>3.判断隐藏列<code>trx_id</code>是否小于<code>ReadView.up_limit_id</code>最小活跃事务<code>ID</code>：</p>
+</li>
+<li>
+<p>小于：代表改动行数据的事务在创建快照前就已结束，可以读取最新版本的数据。</p>
+</li>
+<li>
+<p>不小于：则代表改动行数据的事务还在执行，因此需要继续往下判断。</p>
+</li>
+<li>
+<p>4.判断隐藏列<code>trx_id</code>是否小于<code>ReadView.low_limit_id</code>这个值：</p>
+</li>
+<li>
+<p>大于或等于：代表改动行数据的事务是生成快照后才开启的，因此不能访问最新版数据。</p>
+</li>
+<li>
+<p>小于：表示改动行数据的事务<code>ID</code>在<code>up_limit_id、low_limit_id</code>之间，需要进一步判断。</p>
+</li>
+<li>
+<p>5.如果隐藏列<code>trx_id</code>小于<code>low_limit_id</code>，继续判断<code>trx_id</code>是否在<code>trx_ids</code>中：</p>
+</li>
+<li>
+<p>在：表示改动行数据的事务目前依旧在执行，不能访问最新版数据。</p>
+</li>
+<li>
+<p>不在：表示改动行数据的事务已经结束，可以访问最新版的数据。</p>
+<p>然后经过上述一系列判断后，可以得知：<strong>目前查询数据的事务到底能不能访问最新版的数据</strong>。</p>
+<p>如果能，就直接拿到表中的数据并返回，反之，不能则去<code>Undo-log</code>日志中获取旧版本的数据返回。</p>
+</li>
+</ul>
+<h5 id="总结">总结</h5>
+<p><code>MVCC</code>多版本并发控制，其中的多版本主要依赖<code>Undo-log</code>日志来实现，而并发控制则通过表的<code>隐藏字段</code>+<code>ReadView</code>快照来实现，通过<code>Undo-log</code>日志、<code>隐藏字段</code>、<code>ReadView</code>快照这3点，就实现了<code>MVCC</code>机制。</p>
+<h2 id="说在最后有问题找老架构取经">说在最后：有问题找老架构取经</h2>
+<p>MVCC 相关的面试题，是非常常见的面试题。也是核心面试题。</p>
+<p>以上的内容，如果大家能对答如流，如数家珍，基本上 面试官会被你 震惊到、吸引到。最终，<strong>让面试官爱到 “不能自已、口水直流”</strong>。offer， 也就来了。</p>
+<p>在面试之前，建议大家系统化的刷一波 5000页《<a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247484558&amp;idx=3&amp;sn=3c498b0f8e3897e899acf154ad1ac8ee&amp;chksm=c142be0af635371c06b830243517aae063e23814195df1cc75ab2123c5b3ab9cb1217cbd80e3&amp;scene=21#wechat_redirect">尼恩Java面试宝典</a>》V174，在刷题过程中，如果有啥问题，大家可以来 找 40岁老架构师尼恩交流。</p>
+<p>另外，如果没有面试机会，可以找尼恩来帮扶、领路。尼恩已经指导了大量的就业困难的小伙伴上岸.</p>
+<p>前段时间，帮助一个40岁+就业困难小伙伴拿到了一个<strong>年薪100W</strong>的offer，小伙伴实现了 <strong>逆天改命</strong> 。</p>
+<h2 id="部分历史案例">部分历史案例</h2>
+<ul>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">**绝地逢生：**9年经验</a><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">自考</a>小伙伴，跟着尼恩狠卷3月硬核技术，面试机会爆表，2周后收3个offer ，满血复活</p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486098&amp;idx=1&amp;sn=bbc5732b071477573bfab8a259d208d3&amp;chksm=97b57b1aa0c2f20c27dd74b490b6062c9eec262a3ac25548534ff70290b172dcc51c6eafe532&amp;scene=21#wechat_redirect">**硬转架构：**35岁被裁6个月 职业绝望，转架构急救上岸，DDD和3高项目太重要了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486077&amp;idx=1&amp;sn=090ad8d19559c727b80e321cd70e3c32&amp;chksm=97b57bf5a0c2f2e32a982b62cfeb2db8744260d7e2d80efdf11ad7c1c5257057ea9b1f7419ec&amp;scene=21#wechat_redirect">**逆天改命：**3年经验2本，卷3个月涨薪60%，进准大厂(得物、乐信、58集团等)，年薪36W</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486059&amp;idx=1&amp;sn=23fa04e6ea781525732f021ab1afaeeb&amp;scene=21#wechat_redirect">女35岁CRUD程序媛，12月被裁后，拿30个机会2个offer上岸，年底大裁员太不容易了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486028&amp;idx=1&amp;sn=cf10ecda7a986b26e0359eba7a9cfeff&amp;scene=21#wechat_redirect">38还有救吗？有。42岁被裁2年天快塌了，急救1个月上岸，成开发经理offer，起死回生</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485994&amp;idx=1&amp;sn=50b95d3ae3009d395458c8740595977f&amp;scene=21#wechat_redirect">被裁不慌，9年小伙1个月喜提年薪60W offer，做中间件架构，爽歪了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485972&amp;idx=1&amp;sn=9f2b5059aaad70c8018b7c6c95a08994&amp;scene=21#wechat_redirect">12年小伙转架构，1小时蜕变收年薪55万offer，秘诀：GO+Java双栖架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485942&amp;idx=1&amp;sn=faa999fc9508435db7a88af2716492d9&amp;chksm=97b5787ea0c2f168ac80d344670df16be12614d37161a893ebed88d4c915384fcbc024996403&amp;scene=21#wechat_redirect">**年薪百万：**40岁小伙被裁6个月，跟着尼恩猛卷3月硬核技术，100W年薪逆袭 ，上岸秘诀：首席架构/总架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485914&amp;idx=1&amp;sn=7832d0b63155f12eb8036321a99991c8&amp;scene=21#wechat_redirect">不怕裁员，8年小伙去中年危机，秘诀：换架构师赛道，上得厅堂，下得厨房，越早越好</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485881&amp;idx=1&amp;sn=97aae4d5edf8ea30d363e22ca86b5955&amp;scene=21#wechat_redirect">被裁员后因祸得福，拿N+1后，逆涨30%，如何实现？</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485855&amp;idx=1&amp;sn=e9f6b1de7352f09d686c1481632fc454&amp;scene=21#wechat_redirect">逆天啦：4年crud小伙收shein+银行两优质offer，狠卷1月收年薪43万大涨30%</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485838&amp;idx=1&amp;sn=72d9733544a5310ee5068fc4533173ea&amp;scene=21#wechat_redirect">原来，拿大厂offer 有捷径&hellip;&hellip;</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485812&amp;idx=1&amp;sn=d87729bea8a8e22f3c2b3eb207d3b38b&amp;scene=21#wechat_redirect">太劲爆&hellip;. 被裁4个月，38岁Android转Java，2个月提架构offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485780&amp;idx=1&amp;sn=03be191625369d33ac54b5c5066c7a68&amp;scene=21#wechat_redirect">起死回生：8年小伙高中毕业+频繁跳槽，狠卷2月，提Java高级offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485663&amp;idx=1&amp;sn=357ab76bc6695485b7941e8eb24a0b42&amp;scene=21#wechat_redirect">爽翻了：指导3轮，5年小伙收5大offer，涨50%，领路模式太牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485643&amp;idx=1&amp;sn=ce71b19e7c9745ab2fe8bfc75f54d993&amp;chksm=97b57943a0c2f055e5c085eec48586e9ba05ae661acabe4cfb7e984c5aeb03d6beeafd204eba&amp;scene=21#wechat_redirect">降维攻击，37年大龄老伙喜提60W年薪offer，1个月顺利上岸</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485571&amp;idx=1&amp;sn=c0096484fd2e1202c14a4bd9d37427c2&amp;chksm=97b5790ba0c2f01da764b8b7b5e3c8a5b02f42d2ed30809f9d7b2d8e73a5bebc9102ef502bc8&amp;scene=21#wechat_redirect">架构速成：从一面杀到一次过，记7年女架构的速成经历</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485452&amp;idx=1&amp;sn=68102559298564895b1496e2230dddb2&amp;chksm=97b57984a0c2f0927d80f8719a7dc56f43ff13e373eb3886d39be98538180f919225b5ac05f2&amp;scene=21#wechat_redirect">极速拿offer：阿里P6被裁后极速上岸，1个月内喜提2优质offer(含滴滴)</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247496226&amp;idx=1&amp;sn=459a566cfa5915a720e80e1880fd730d&amp;chksm=c14148a6f636c1b08a321d08384c5d76e184c22f8f4457f980452c45c163bdc5ab91ca17b919&amp;scene=21#wechat_redirect">大逆袭：做化工12年，35岁转Java，被裁4个月后，1个月收架构Offer，大龄跨行，超级牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492928&amp;idx=1&amp;sn=82fd1c530d0ad8ad798b5c35c040641b&amp;chksm=c1415fc4f636d6d25f16e12a73a2635073994ef742efdddcc1185c5d7727785c98fac14e8de8&amp;scene=21#wechat_redirect">被裁后炸爽：10年小伙12天火速上岸，反涨20%，爽暴了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492621&amp;idx=1&amp;sn=f6ada03c596baedcf995e5cb60d255b2&amp;chksm=c1415e89f636d79f13b25d7f3691fb79931515f15b421d65fab1c5e34d4cce4165b6d1772737&amp;scene=21#wechat_redirect">裁就裁，6年小伙60W极速上岸，白拿20W还游一圈拉萨，真香</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491450&amp;idx=1&amp;sn=98379c07e430562a8a244121e63f47d7&amp;chksm=c142a5fef6352ce8e3ee64090a6d0619a9d40484f358302d96990e7655ec16f8d8e7624ca88e&amp;scene=21#wechat_redirect">极速拿offer：被毕业3个月，11年经验小伙0.5个月极速拿offer，领路模式的巨大威力</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491496&amp;idx=1&amp;sn=cb31f7510a7c2efb7daf6cad793860ad&amp;scene=21#wechat_redirect">惊天大逆袭：8年小伙20天时间提75W年薪offer，逆涨50%，秘诀在这</a></p>
+</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240424/MySQL-MVCC%E6%9C%BA%E5%88%B6%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240424/MySQL-MVCC%E6%9C%BA%E5%88%B6%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240424/MySQL%E6%AD%BB%E9%94%81%E9%97%AE%E9%A2%98%E8%AF%A6%E8%A7%A3%E5%8F%8A%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">MySQL死锁问题详解及解决方案 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/SpringBoot%E9%A1%B9%E7%9B%AE%E6%90%AD%E5%BB%BA%E4%B8%8E%E9%85%8D%E7%BD%AE--%E7%9F%A5%E8%AF%86%E9%93%BA/">SpringBoot项目搭建与配置 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/SpringBoot%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D%E6%9C%BA%E5%88%B6%E5%8F%8A%E9%9D%A2%E8%AF%95%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/">SpringBoot自动装配机制及面试题 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E9%AB%98%E5%B9%B6%E5%8F%91%E4%B8%8B%E9%98%B2%E6%AD%A2%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95%E7%9A%84%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">高并发下防止重复下单的解决方案 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/Spring-Boot%E9%A1%B9%E7%9B%AEpom.xml%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/">Spring Boot项目pom.xml配置详解 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/MySQL'>MySQL</a></li>
+                
+                <li><a href='/geek001/tags/MVCC'>MVCC</a></li>
+                
+                <li><a href='/geek001/tags/InnoDB'>InnoDB</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BAThreadLocal--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="深入浅出ThreadLocal -- 知识铺">深入浅出ThreadLocal -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Redis%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%BF%E7%94%A8%E8%B7%B3%E8%A1%A8%E8%80%8C%E4%B8%8D%E7%94%A8%E5%B9%B3%E8%A1%A1%E6%A0%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Redis为什么使用跳表而不用平衡树 -- 知识铺">Redis为什么使用跳表而不用平衡树 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/GraphQL%E5%AE%89%E5%85%A8%E6%BC%8F%E6%B4%9E%E4%B8%8E%E9%98%B2%E6%8A%A4%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GraphQL安全漏洞与防护策略 -- 知识铺">GraphQL安全漏洞与防护策略 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8-ThinkJS-%E6%90%AD%E5%BB%BA-GraphQL-API--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用 ThinkJS 搭建 GraphQL API -- 知识铺">使用 ThinkJS 搭建 GraphQL API -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E4%BD%BF%E7%94%A8Spring-Boot%E5%92%8CShiro%E9%9B%86%E6%88%90Pac4j%E5%AE%9E%E7%8E%B0CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺">使用Spring Boot和Shiro集成Pac4j实现CAS单点登录 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%9F%BA%E4%BA%8Ebuji-pac4j%E5%92%8CCAS%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E7%A4%BA%E4%BE%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于buji-pac4j和CAS实现单点登录示例 -- 知识铺">基于buji-pac4j和CAS实现单点登录示例 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="单点登录配置问题 -- 知识铺">单点登录配置问题 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E9%9B%86%E6%88%90Shiro%E6%A1%86%E6%9E%B6%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95CAS--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="集成Shiro框架实现单点登录CAS -- 知识铺">集成Shiro框架实现单点登录CAS -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/Next.js-14React%E5%BC%80%E5%8F%91%E8%80%85%E7%9A%84%E6%96%B0%E5%AE%A0%E4%B8%8E%E5%85%A8%E6%A0%88%E6%A1%86%E6%9E%B6%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺">Next.js 14：React开发者的新宠与全栈框架的局限性 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240424/%E6%8E%A5%E5%8F%A3%E8%B0%83%E4%BC%98%E4%B8%AD%E7%9A%84%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="接口调优中的批量处理策略 -- 知识铺">接口调优中的批量处理策略 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
