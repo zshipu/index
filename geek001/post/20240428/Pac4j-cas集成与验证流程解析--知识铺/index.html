@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>Pac4j-cas集成与验证流程解析 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="Pac4j-cas集成与验证流程解析 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-04-28T06:55:08&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Pac4j-cas集成与验证流程解析 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240428/Pac4j-cas%E9%9B%86%E6%88%90%E4%B8%8E%E9%AA%8C%E8%AF%81%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一-关于pac4j-cas">一. 关于pac4j-cas</a></li>
+    <li><a href="#二-pac4j-cas和shiro">二. pac4j-cas和shiro</a></li>
+    <li><a href="#三-利用pac4j代码验证st一">三. 利用pac4j代码验证ST（一）</a>
+      <ul>
+        <li><a href="#31-代码">3.1 代码</a></li>
+      </ul>
+    </li>
+    <li><a href="#四-不用pac4j前后端分离jwt验证二">四. 不用pac4j，前后端分离jwt验证（二）</a></li>
+    <li><a href="#五-附">五. 附</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Pac4j-cas集成与验证流程解析 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年4月28日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p><strong>注意↓↓↓↓</strong></p>
+<blockquote>
+<p>其实直接调用 http://cas服务/serviceValidate?service=xxx&amp;ticket=xxx就能校验和获取用户信息了<br>
+这里将pac4j-cas的代码拷出来改, 也是方便理解它做了哪些事情.</p>
+</blockquote>
+<h2 id="一-关于pac4j-cas">一. 关于pac4j-cas</h2>
+<p>这几天一直在折腾pac4j-cas和cas的集成. 也大概了解了一下它的运作机制。</p>
+<ol>
+<li>首先我们配置了一堆关于cas，cas-client的相关信息</li>
+<li>我这边观察到的pac4j-cas两个关键的过滤器，<code>io.buji.pac4j.filter.SecurityFilter</code>和<code>io.buji.pac4j.filter.CallbackFilter</code>, SecurityFilter负责对登录认证判断，重定向到cas服务的login页面等，CallbackFilter则主要是负责在cas登录完成后，cas回调客户端，校验cas颁发的ST等.</li>
+<li>我们需要知道，有个很重要的参数<code>service</code>，去cas登录的时候需要service（<em>如service=http://www.baidu.com</em>），同时cas登录成功后也会重定向到这个service。我们拿到ST去CAS校验的时候也需要这个service</li>
+</ol>
+<h2 id="二-pac4j-cas和shiro">二. pac4j-cas和shiro</h2>
+<p>大概的流程如下</p>
+<ol>
+<li>访问客户端服务的请求如<strong>http://localhost:8080/listOrder</strong>, 根据shiro配置<code>ShiroCasConfiguration.factory</code>中设置的过滤器匹配规则,会经过pac4j的<code>SecurityFilter</code>, 进而到<code>org.pac4j.core.engine.DefaultSecurityLogic.DefaultSecurityLogic.perform()</code>中判断如果没有session。<br>
+然后pac4j会通过<code>saveRequestUrl</code>保存原请求url（http://localhost:8080/listOrder）到session中，以便登录后还能知道原来要请求什么<br>
+然后会根据配置好的cas服务地址, 重定向302去跳转到cas登录页面,<br>
+同时携带service信息, 如: <code>http://cas登录地址?service=http://localhost:8080/callback?client_name=client_user</code>。 同时把原来的</li>
+<li>cas认证中心登录成功, 生成cas会话的TGC的cookie信息, 同时根据callback中的地址信息, 重新返回请求本服务, 并且携带cas发放的<code>ticket</code>信息，返回302给浏览器重定向到service即 <code>http://localhost:8080/callback?client_name=client_user&amp;ticket=123</code></li>
+<li>客户端服务收到<code>/callback</code>请求, 经过pac4j的callback过滤器<code>io.buji.pac4j.filter.CallbackFilter</code>处理. 到<code>org.pac4j.core.engine.DefaultCallbackLogic.perform()</code>, 根据client_name,<br>
+获取配置好的客户端信息, 其中包括cas的校验地址. 通过<code>org.pac4j.core.client.BaseClient</code>基础客户端类, 调用 <code>this.authenticator.validate(credentials, context);</code>去校验ticket,<br>
+在<code>org.jasig.cas.client.validation.AbstractUrlBasedTicketValidator.constructValidationUrl()</code>中拼接cas校验ticket所需要的参数, 请求cas服务,<code>String serverResponse = this.retrieveResponseFromServer(new URL(validationUrl), ticket);</code> , 这就得到了认证信息, 用户信息<code>List&lt;CommonProfile&gt; profiles</code>,放入Shiro上下文中, 保存登录信息 同时本服务生产自身的(cookie/生成jwt)记录登录状态.<br>
+同时从session中<code>redirectToOriginallyRequestedUrl</code>再次取出之前保存好的原url信息（http://localhost:8080/listOrder），重定向</li>
+<li>再次请求本服务, 这里根据shiro配置的过滤器顺序不同，如果我们之前就保存了session信息， 可能就直接放行了。 或者一层层判断登录状态， 经过<code>io.buji.pac4j.filter.SecurityFilter.doFilter()</code>过滤器, 从我们配置的<code>Pac4jConfig.shiroSessionStore</code>,SessionStore中,获取上下文信息，若本身的cookie失效，就去验证一次ticket， 如果ticket也没有， 就再去重定向到cas的登录页面</li>
+</ol>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://img-blog.csdnimg.cn/20200812211354216.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3p6emdkXzY2Ng==,size_16,color_FFFFFF,t_70#pic_center" />   
+    </p>
+<h2 id="三-利用pac4j代码验证st一">三. 利用pac4j代码验证ST（一）</h2>
+<p>根据上面说的，我们知道<strong>第一次重定向到cas登录</strong>后，cas会重定向回来， 并且携带ticket信息，也就是颁发的ST</p>
+<p>如果我们想接入jwt， 前后端分离使用token验证的话， 可以简单调用接口来验证，不过我这里直接在pac4j-cas的基础上，将其封装的一部分拿过来直接用了。</p>
+<blockquote>
+<p>也可以对照上面的流程时序图, 打一些断点, 了解一下pac4j-cas内部做了什么操作.</p>
+</blockquote>
+<h3 id="31-代码">3.1 代码</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.zgd.common.web</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">com.zgd.common.BusinessException</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">io.buji.pac4j.context.ShiroSessionStore</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">lombok.extern.slf4j.Slf4j</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.apache.shiro.SecurityUtils</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.jasig.cas.client.validation.Assertion</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.jasig.cas.client.validation.TicketValidationException</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.jasig.cas.client.validation.TicketValidator</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.cas.client.CasClient</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.cas.config.CasConfiguration</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.authorization.checker.AuthorizationChecker</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.authorization.checker.DefaultAuthorizationChecker</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.client.Client</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.client.DirectClient</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.client.finder.ClientFinder</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.client.finder.DefaultSecurityClientFinder</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.config.Config</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.context.J2EContext</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.context.session.SessionStore</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.credentials.Credentials</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.engine.decision.DefaultProfileStorageDecision</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.engine.decision.ProfileStorageDecision</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.http.ajax.AjaxRequestResolver</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.http.ajax.DefaultAjaxRequestResolver</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.matching.MatchingChecker</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.matching.RequireAllMatchersChecker</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.profile.CommonProfile</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.profile.ProfileManager</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.pac4j.core.util.CommonHelper</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.springframework.beans.factory.annotation.Autowired</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.springframework.web.bind.annotation.GetMapping</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">org.springframework.web.bind.annotation.RestController</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.annotation.Resource</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.http.HttpServletRequest</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.http.HttpServletResponse</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.ArrayList</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.Iterator</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.List</span>;<span style="color:#bbb"> </span><span style="color:#998;font-style:italic">/** * LoginController * * @author zgd * @date 2020/8/11 15:46 */</span><span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Slf4j</span><span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@RestController</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">LoginController</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>CasConfiguration<span style="color:#bbb"> </span>casConfiguration;<span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Pac4jConfig<span style="color:#bbb"> </span>pac4jConfig;<span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>CasClient<span style="color:#bbb"> </span>casClient;<span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Resource</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Config<span style="color:#bbb"> </span>authcConfig;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>AuthorizationChecker<span style="color:#bbb"> </span>authorizationChecker<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DefaultAuthorizationChecker();<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>MatchingChecker<span style="color:#bbb"> </span>matchingChecker<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>RequireAllMatchersChecker();<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>ProfileStorageDecision<span style="color:#bbb"> </span>profileStorageDecision<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DefaultProfileStorageDecision();<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>AjaxRequestResolver<span style="color:#bbb"> </span>ajaxRequestResolver<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DefaultAjaxRequestResolver();<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>ClientFinder<span style="color:#bbb"> </span>clientFinder<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DefaultSecurityClientFinder();<span style="color:#bbb"> </span><span style="color:#998;font-style:italic">/**获取token */</span><span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@GetMapping</span>(<span style="color:#d14">&#34;/token&#34;</span>)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Response<span style="color:#000;font-weight:bold">&lt;</span>String<span style="color:#000;font-weight:bold">&gt;</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getToken</span>(<span style="color:#bbb"> </span>HttpServletRequest<span style="color:#bbb"> </span>request,<span style="color:#bbb"> </span>HttpServletResponse<span style="color:#bbb"> </span>response)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>TicketValidationException<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>CommonProfile<span style="color:#bbb"> </span>profile<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>validCASServiceTicket(request,<span style="color:#bbb"> </span>response);<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(profile<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">==</span><span style="color:#000;font-weight:bold">null</span>){<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throw</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>BusinessException(CAS_ST_ERROR);<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>token<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>JwtTokenUtil.<span style="color:#008080">generateToken</span>(profile.<span style="color:#008080">getUsername</span>()<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">==</span><span style="color:#000;font-weight:bold">null</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">?</span><span style="color:#bbb"> </span>profile.<span style="color:#008080">getId</span>()<span style="color:#bbb"> </span>:<span style="color:#bbb"> </span>profile.<span style="color:#008080">getUsername</span>());<span style="color:#bbb"> </span>log.<span style="color:#008080">info</span>(<span style="color:#d14">&#34;生成的token: {}&#34;</span>,<span style="color:#bbb"> </span>token);<span style="color:#bbb"> </span><span style="color:#998;font-style:italic">// 将签发的 JWT token 设置到 HttpServletResponse 的 Header中,并重写向vue前端页面 response.setHeader(AUTH_HEADER, token); return Response.ok(token); } /**校验st * @param request * @param response * @return */ private CommonProfile validCASServiceTicket(HttpServletRequest request, HttpServletResponse response) { //这两行代码其实就是下面的核心校验代码. 也可以直接用这两行代替.. // TicketValidator ticketValidator = casConfiguration.retrieveTicketValidator(webContext); // Assertion assertion = ticketValidator.validate(ticket, pac4jConfig.getServerUrl()); J2EContext context = new J2EContext(request, response, ShiroSessionStore.INSTANCE); List&lt;Client&gt; currentClients = clientFinder.find(authcConfig.getClients(), context, pac4jConfig.getClientName()); log.debug(&#34;currentClients: {}&#34;, currentClients); CommonProfile profile = null; for (Client currentClient : currentClients) { log.debug(&#34;Performing authentication for direct client: {}&#34;, currentClient); Credentials credentials = currentClient.getCredentials(context); log.debug(&#34;credentials: {}&#34;, credentials); profile = currentClient.getUserProfile(credentials, context); log.debug(&#34;profile: {}&#34;, profile); if (profile != null) { break; } } return profile; } }</span><span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>相关配置类:</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#3c5d5d;font-weight:bold">@Configuration</span><span style="color:#bbb"> </span><span style="color:#3c5d5d;font-weight:bold">@Data</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Pac4jConfig</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#998;font-style:italic">//地址为：cas地址 @Value(&#34;${shiro.cas.url}&#34;) private String casServerUrlPrefix; //地址为：验证返回后的项目地址：http://localhost:8080 @Value(&#34;${shiro.client.url}&#34;) private String shiroServerUrlPrefix; //相当于一个标志，可以随意，shiroConfig中也会用到 @Value(&#34;${shiro.client.name}&#34;) private String clientName; public String getLoginUrl() { return casServerUrlPrefix + &#34;/login?service=&#34; + getServiceUrl(); } public String getLogoutUrl() { return casServerUrlPrefix + &#34;/logout?service=&#34; + getServiceUrl(); } /** * 这里就还是按pac4j的思路, 写死一个serviceUrl.即cas认证后重定向的url, 可以是/aa, 也可以是/bb (我们需要和CallbackFilter一样写一个过滤器来处理,在这个过滤器中,我们需要拿ST去CAS校验) */ public String getServiceUrl(){ return shiroServerUrlPrefix + &#34;/aa?client_name=&#34; + clientName; } /** * pac4j配置 * * @param casClient * @return */ @Bean(&#34;authcConfig&#34;) public Config config(CasClient casClient) { Config config = new Config(casClient); return config; } /** * cas 客户端配置 * * @param casConfig * @return */ @Bean public CasClient casClient(CasConfiguration casConfig) { CasClient casClient = new CasClient(casConfig); //客户端回调地址, 同样也是ST校验的service参数. 必须要和获取ST的service参数一致, 才能验证成功 casClient.setCallbackUrl(getServiceUrl()); casClient.setName(clientName); return casClient; } /** * 请求cas服务端配置 * * @param */ @Bean public CasConfiguration casConfig() { final CasConfiguration configuration = new CasConfiguration(); //CAS server登录地址 configuration.setLoginUrl(casServerUrlPrefix + &#34;/login&#34;); //CAS 版本，默认为 CAS30，我们使用的是 CAS20 configuration.setProtocol(CasProtocol.CAS20); configuration.setAcceptAnyProxy(true); configuration.setPrefixUrl(casServerUrlPrefix + &#34;/&#34;); //监控CAS服务端登出，登出后销毁本地session实现双向登出 DefaultLogoutHandler logoutHandler = new DefaultLogoutHandler(); logoutHandler.setDestroySession(true); configuration.setLogoutHandler(logoutHandler); return configuration; } }</span><span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="四-不用pac4j前后端分离jwt验证二">四. 不用pac4j，前后端分离jwt验证（二）</h2>
+<p>先上图：<br>
+
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://img-blog.csdnimg.cn/20201014191908976.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3p6emdkXzY2Ng==,size_16,color_FFFFFF,t_70#pic_center" />   
+    </p>
+<p>直接用md好像不清晰:</p>
+<p>这只是个人提供的一种思路, 当然不仅仅限于这种做法.</p>
+<p>和上面的做法区别点在于，上面是全靠后台pac4j去完成重定向cas登录页，拦截callback回调信息，请求cas验证st，保存登录状态。上面个人感觉更适合前后端一起的方式，但是不便于jwt的使用</p>
+<p>这里是前端去主动跳转cas登录页，拿到st回来后交给后台去验证。也就是传过去的<code>service</code>参数url是前端地址。</p>
+<h2 id="五-附">五. 附</h2>
+<p>这里有个需要注意的地方, 验证中用到了一个url, <code>Assertion assertion = ticketValidator.validate(ticket, pac4jConfig.getServerUrl());</code><br>
+必须要和 重定向到cas登录中, 那个service参数<code>http://cas.com/login?service=http://localhost:8080/callback&amp;client_name=client_user</code>一样, ST才能校验通过.</p>
+<p>也就是 cas 服务的<code>/login</code>接口和校验的<code>/serviceValidate</code> 都需要传一个<code>service</code>参数, 这个参数必须一致才能保证校验通过</p>
+<p>这个如果是用pac4j的话, 它内部拼接url参数(<code>比如都是http:/${host}/callback</code>)已经保证了这点, 但是如果我们自己调用cas的api接口, 就需要注意这点</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240428/Pac4j-cas%E9%9B%86%E6%88%90%E4%B8%8E%E9%AA%8C%E8%AF%81%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240428/Pac4j-cas%E9%9B%86%E6%88%90%E4%B8%8E%E9%AA%8C%E8%AF%81%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240428/Pac4j-cas%E9%9B%86%E6%88%90%E5%92%8C%E5%89%8D%E5%90%8E%E7%AB%AF%E5%88%86%E7%A6%BBJWT%E9%AA%8C%E8%AF%81%E6%B5%81%E7%A8%8B%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">Pac4j-cas集成和前后端分离JWT验证流程解析 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/shiro%E9%85%8D%E7%BD%AE%E4%B8%AD%E6%B7%BB%E5%8A%A0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E7%99%BB%E5%87%BA%E8%BF%87%E6%BB%A4%E5%99%A8%E5%90%8E%E5%90%AF%E5%8A%A8%E6%8A%A5%E9%94%99--%E7%9F%A5%E8%AF%86%E9%93%BA/">shiro配置中添加单点登录登出过滤器后启动报错 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/pac4j-cas%E4%B8%8Eshiro%E9%9B%86%E6%88%90%E6%A1%86%E6%9E%B6%E6%BA%90%E7%A0%81%E5%88%86%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">pac4j-cas与shiro集成框架源码分析 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/shirocaspac4j-%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E9%99%861--%E7%9F%A5%E8%AF%86%E9%93%BA/">shiro、cas、pac4j 实现单点登陆（1） -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/shirocaspac4j-%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E9%99%86--%E7%9F%A5%E8%AF%86%E9%93%BA/">shiro、cas、pac4j 实现单点登陆 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/pac4j-cas'>pac4j-cas</a></li>
+                
+                <li><a href='/geek001/tags/shiro'>shiro</a></li>
+                
+                <li><a href='/geek001/tags/serviceValidate'>serviceValidate</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/%E5%89%8D%E7%AB%AF%E8%A7%A3%E5%86%B3Ajax%E8%AF%B7%E6%B1%82%E8%A2%AB%E9%87%8D%E5%AE%9A%E5%90%91%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="前端解决Ajax请求被重定向问题 -- 知识铺">前端解决Ajax请求被重定向问题 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/Springboot%E9%9B%86%E6%88%90Cas%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%A4%BA%E4%BE%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Springboot集成Cas客户端示例 -- 知识铺">Springboot集成Cas客户端示例 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/%E9%85%8D%E7%BD%AECAS%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="配置CAS登录验证 -- 知识铺">配置CAS登录验证 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/SpringBoot%E9%9B%86%E6%88%90CAS&#43;Shiro&#43;Pac4j--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="SpringBoot集成CAS&#43;Shiro&#43;Pac4j -- 知识铺">SpringBoot集成CAS&#43;Shiro&#43;Pac4j -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/%E9%80%9A%E8%BF%87%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95SSO%E7%AE%80%E5%8C%96%E7%94%A8%E6%88%B7%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="通过单点登录（SSO）简化用户登录体验 -- 知识铺">通过单点登录（SSO）简化用户登录体验 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/%E5%9F%BA%E4%BA%8EShiro%E5%92%8CPac4j%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E4%B8%8EJWT%E6%95%B4%E5%90%88--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于Shiro和Pac4j实现单点登录与JWT整合 -- 知识铺">基于Shiro和Pac4j实现单点登录与JWT整合 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/Spring-Boot%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90Shiro%E5%92%8CCAS%E6%97%B6%E8%AE%A4%E8%AF%81%E5%A4%B1%E8%B4%A5%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Spring Boot项目集成Shiro和CAS时认证失败问题解决 -- 知识铺">Spring Boot项目集成Shiro和CAS时认证失败问题解决 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/Spring-Boot%E9%9B%86%E6%88%90CAS&#43;Shiro&#43;Pac4j%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E5%92%8C%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Spring Boot集成CAS&#43;Shiro&#43;Pac4j实现单点登录和权限管理 -- 知识铺">Spring Boot集成CAS&#43;Shiro&#43;Pac4j实现单点登录和权限管理 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/Spring-Boot-2.0-%E9%9B%86%E6%88%90-Shiro-%E5%92%8C-Pac4j-CAS-%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E9%85%8D%E7%BD%AE%E6%95%99%E7%A8%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Spring Boot 2.0 集成 Shiro 和 Pac4j CAS 单点登录配置教程 -- 知识铺">Spring Boot 2.0 集成 Shiro 和 Pac4j CAS 单点登录配置教程 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240428/SpringBoot%E9%9B%86%E6%88%90CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E5%AE%9E%E8%B7%B5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="SpringBoot集成CAS单点登录实践 -- 知识铺">SpringBoot集成CAS单点登录实践 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/AJAX/">AJAX</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Shiro/">Apache Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS5/">CAS5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1/">CAS服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1%E5%99%A8/">CAS服务器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CGLIB%E4%BB%A3%E7%90%86/">CGLIB代理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JFinal/">JFinal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT%E9%AA%8C%E8%AF%81/">JWT验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-Web%E5%AE%89%E5%85%A8/">Java Web安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%85%A5%E9%97%A8/">Java入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j-4.0.0/">Pac4j 4.0.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSO-Shiro-CAS/">SSO-Shiro-CAS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STDOUT/">STDOUT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot-2.0/">Spring Boot 2.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Security/">Spring Security</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/cookie/">cookie</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/serviceValidate/">serviceValidate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/session/">session</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/webStorage/">webStorage</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%90%86%E5%99%A8%E5%86%B2%E7%AA%81/">代理器冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BC%9A%E8%AF%9D%E7%AE%A1%E7%90%86/">分布式会话管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF/">前端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%87%BA/">单点登出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%BA%93/">安全库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%A1%86%E6%9E%B6/">安全框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%9B%86%E6%88%90/">客户端集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84%E5%B8%88/">小企业架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E5%BA%94%E7%94%A8/">开源项目应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%A5%E9%94%99/">报错</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%88%E6%9D%83/">授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B3%A8%E9%94%80%E8%AF%B7%E6%B1%82/">注销请求</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/">用户管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E8%A7%92%E8%89%B2%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">用户角色验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%87%BA%E5%A4%84%E7%90%86/">登出处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C/">登录体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81/">登录验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A4%E8%AF%81/">认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81/">身份认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">身份验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%8D%E7%BD%AE/">配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%AE%9A%E5%90%91/">重定向</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90/">集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E9%85%8D%E7%BD%AE/">集成配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
