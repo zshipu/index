@@ -1,0 +1,1104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-05-06T01:57:32&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240505/CAS%E4%B8%8EFAA%E5%9C%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E4%BF%9D%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#介绍"> 介绍</a></li>
+        <li><a href="#在-java-中使用-cas-的示例">在 Java 中使用 CAS 的示例</a></li>
+        <li><a href="#cas的优缺点">CAS的优缺点</a></li>
+        <li><a href="#faa获取和添加"> FAA（获取和添加）</a></li>
+        <li><a href="#在-java-中使用类似-faa-功能的示例">在 Java 中使用类似 FAA 功能的示例</a></li>
+        <li><a href="#faa的优缺点">FAA的优缺点</a></li>
+        <li><a href="#cas-和-faa-的比较">CAS 和 FAA 的比较</a></li>
+        <li><a href="#结论"> 结论</a></li>
+        <li><a href="#书目"> 书目</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年5月6日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h3 id="介绍"> 介绍</h3>
+<ol>
+<li>
+<p>CAS 和 FAA 的定义 CAS（比较和交换）和 FAA（获取和添加）是原子操作，旨在确保多线程应用程序中的线程安全和同步。</p>
+<p>CAS 允许将变量的值与预期值进行比较，并在比较成功时对其进行原子更新。FAA 提供变量的原子增量或递减，使其成为计数器和聚合器的理想选择。</p>
+</li>
+<li>
+<p>原子操作重要性的证明 原子操作在多线程编程中起着重要作用，因为它们可以在不使用锁的情况下确保线程安全和同步。</p>
+<p>锁通常会导致性能问题，例如吞吐量和可伸缩性问题，以及调试和分析代码的困难。</p>
+<p>原子操作提供了高效、无阻塞的替代方案，可以显著提高多线程应用程序的性能和稳定性。</p>
+</li>
+<li>
+<p>CAS和FAA在多线程应用中的应用概述 CAS和FAA被广泛用于实现各种多线程数据结构和算法。例如，在 Java 中，CAS 用于 AtomicInteger、AtomicLong 和 AtomicReference 等类，以提供对基本数据类型的线程安全原子操作。</p>
+<p>FAA 用于 LongAdder 和 DoubleAdder 等类，以实现高效的变量增量，同时考虑可扩展性。</p>
+</li>
+</ol>
+<p>在本文中，我们将详细研究 CAS 和 FAA 的机制，它们在 Java 中的应用，并比较它们在不同使用场景下的性能、优缺点。</p>
+<h4 id="cas比较和交换"> CAS（比较和交换）</h4>
+<p>1. CAS机制说明 CAS（Compare-and-Swap）是一种原子操作，它将变量的值与期望值进行比较，如果它们匹配，则使用新值更新变量。</p>
+<p>执行 CAS 的整个过程是原子的，这意味着它不能被其他线程或操作中断。</p>
+<p>CAS 操作包括三个操作数：存储单元地址 （V）、预期的旧值 （A） 和新值 （B）。</p>
+<p>如果存储单元中的值与预期的旧值 （A） 匹配，则处理器会以原子方式更新存储单元地址 （V）;否则，不会记录修改。无论哪种情况，都将返回请求之前存在的值。</p>
+<p>CAS 方法的某些变体返回有关操作成功的信息，而不是当前值。从本质上讲，CAS 说：</p>
+<blockquote>
+<p>地址 V 处的值可能等于 A;如果是这样，请将其替换为 B，否则不要更改它，但请务必告诉我当前值。</p>
+</blockquote>
+<h3 id="在-java-中使用-cas-的示例">在 Java 中使用 CAS 的示例</h3>
+<p>AtomicInteger、AtomicLong 和其他原子类 Java 提供了诸如 AtomicInteger、AtomicLong 等类，这些类实现了用于处理基元数据类型的 CAS 机制。下面是使用 AtomicInteger 类实现线程安全计数器的示例。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.concurrent.atomic.AtomicInteger</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Counter</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>AtomicInteger<span style="color:#bbb"> </span>counter<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>AtomicInteger(0);<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">increment</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>counter.<span style="color:#008080">incrementAndGet</span>();<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">int</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getCounter</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>counter.<span style="color:#008080">get</span>();<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>使用 CAS 进行变量操作的流程图：</p>
+<p>
+        <img class="mx-auto" alt="None" src="http://zshipu.com/t/index.html?url=https://miro..com/v2/resize:fit:700/1*T-_PHXV4QWBEWKlRMkdCuw.png" />   
+    </p>
+<h4 id="使用-atomicreferencefieldupdater-类对对象字段进行原子操作">使用 AtomicReferenceFieldUpdater 类对对象字段进行原子操作。</h4>
+<p>AtomicReferenceFieldUpdater 类允许使用 CAS 机制对对象字段执行原子操作。下面是使用 AtomicReferenceFieldUpdater 实现对象状态的线程安全修改的示例。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.concurrent.atomic.AtomicReferenceFieldUpdater</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">BankAccount</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">static</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>AtomicReferenceFieldUpdater<span style="color:#000;font-weight:bold">&lt;</span>BankAccount,<span style="color:#bbb"> </span>Double<span style="color:#000;font-weight:bold">&gt;</span><span style="color:#bbb"> </span>balanceUpdater<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>AtomicReferenceFieldUpdater.<span style="color:#008080">newUpdater</span>(BankAccount.<span style="color:#008080">class</span>,<span style="color:#bbb"> </span>Double.<span style="color:#008080">TYPE</span>,<span style="color:#bbb"> </span><span style="color:#d14">&#34;balance&#34;</span>);<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">volatile</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">double</span><span style="color:#bbb"> </span>balance;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">BankAccount</span>(<span style="color:#458;font-weight:bold">double</span><span style="color:#bbb"> </span>initialBalance)<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">balance</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>initialBalance;<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">boolean</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">withdraw</span>(<span style="color:#458;font-weight:bold">double</span><span style="color:#bbb"> </span>amount)<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">double</span><span style="color:#bbb"> </span>currentBalance;<span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">double</span><span style="color:#bbb"> </span>newBalance;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">do</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>currentBalance<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>balance;<span style="color:#bbb"> </span>newBalance<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>currentBalance<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">-</span><span style="color:#bbb"> </span>amount;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(newBalance<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">&lt;</span><span style="color:#bbb"> </span>0)<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">false</span>;<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">while</span><span style="color:#bbb"> </span>(<span style="color:#000;font-weight:bold">!</span>balanceUpdater.<span style="color:#008080">compareAndSet</span>(<span style="color:#000;font-weight:bold">this</span>,<span style="color:#bbb"> </span>currentBalance,<span style="color:#bbb"> </span>newBalance));<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">true</span>;<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="cas-在硬件级别的操作">CAS 在硬件级别的操作</h4>
+<p>CAS 使用特殊的处理器指令在硬件中实现，这些指令保证了比较和更新操作的原子性。因此，CAS 在更新共享数据时提供高性能和低延迟。</p>
+<p>在硬件层面使用 CAS 的过程中，有几个关键点：</p>
+<ol>
+<li>原子性：CAS指令必须是原子的，也就是说，它必须完全执行或根本不执行。这可确保其他线程不能同时更改变量的值。</li>
+<li>寻址：CAS 指令必须是可寻址的，即必须指定变量在内存中的位置。</li>
+<li>比较：CAS 指令必须将变量的值与预期值进行比较。如果值匹配，则指令将新值写入内存。</li>
+<li>原子写入：CAS 指令必须以原子方式将变量的新值写入内存。</li>
+</ol>
+<p>每个处理器可以以不同的方式实现 CAS 机制。例如，某些处理器可能使用特殊的寄存器来存储变量的当前值和预期值。</p>
+<p>在这种情况下，在寄存器中比较这些值，如果它们匹配，则将新值写入内存。</p>
+<p>其他处理器可能使用更复杂的机制，即使用缓存内存和多线程。在这种情况下，将在缓存中比较这些值，如果值匹配，则将新值写入内存。</p>
+<p>因此，CAS在硬件级别的操作取决于处理器微架构中的具体实现。</p>
+<p>但是，无论具体实现如何，CAS 指令都确保了读取、检查和更改变量值的操作的原子性。</p>
+<p>CAS 机制在硬件级别的具体实现取决于处理器的制造商和型号。以下是一些示例：</p>
+<ol>
+<li>英特尔 x86：英特尔 x86 处理器支持 CAS 指令，该指令将变量的值与预期值进行比较，如果匹配，则写入新值。此指令在实际模式和受保护模式下可用。</li>
+<li>ARM：ARM 处理器支持读取变量值的 LDREX（负载独占）指令，以及 STREX（存储独占）指令，如果变量自读取以来未更改，则将新值写入变量。两条指令必须在单个事务中执行。</li>
+<li>PowerPC：PowerPC 处理器支持 LWARX（加载字和保留）指令来读取变量的值并保留相应的内存，以及 STWCX（存储字条件）指令，如果变量没有被其他处理器修改，则将新值写入变量。</li>
+<li>SPARC：SPARC 处理器支持 CASA（比较和交换原子）指令，将变量的值与预期值进行比较，如果匹配，则写入新值。此指令可用于对 32 位和 64 位值进行原子操作。</li>
+<li>IBM z/Architecture：IBM z/Architecture 处理器支持 CS（比较和交换）指令，用于将变量的值与预期值进行比较，如果匹配，则写入新值。此指令可用于对 32 位和 64 位值进行原子操作。</li>
+</ol>
+<p>从这些示例中可以看出，每个处理器架构都以不同的方式实现 CAS 机制，但总的来说，它们的工作原理相同——将变量的值与预期值进行比较，如果它们匹配，则写入一个新值。</p>
+<h3 id="cas的优缺点">CAS的优缺点</h3>
+<h4 id="cas的优点"> CAS的优点：</h4>
+<ul>
+<li>与传统锁定机构相比，操作速度快，成本低。</li>
+<li>一种非阻塞方法，可降低死锁的可能性并提高应用程序性能。</li>
+<li>启用乐观的同步策略，这些策略可以在低争用（线程之间的竞争）下有效工作。</li>
+</ul>
+<h4 id="cas的缺点"> CAS的缺点：</h4>
+<ul>
+<li>CAS 可能会导致“饥饿”问题，即一个线程不断尝试执行 CAS 操作，但由于与其他线程竞争而无法执行。</li>
+<li>CAS 操作可能导致“ABA 问题”，即变量的值从 A 变为 B，然后再变回 A，这可能会导致某些算法出现错误。</li>
+<li>需要知识和经验才能实现正确的算法，尤其是在解决 ABA 问题时。</li>
+</ul>
+<h4 id="cas-的进展保证">CAS 的进展保证</h4>
+<p>CAS 提供了称为“无障碍”的进度保证，这意味着如果线程在没有与其他线程竞争的情况下执行 CAS 操作（即其他线程不干扰），它将始终能够成功完成该操作。</p>
+<p>但是，在线程之间主动竞争的情况下，无法保证进度，这可能会导致饥饿问题和 ABA 问题等问题。</p>
+<p>为了提供严格的进度保证（例如“无锁”或“无等待”），可能需要其他机制和算法，例如使用双字 CAS、版本控制或其他数据结构（如描述符）。</p>
+<h3 id="faa获取和添加"> FAA（获取和添加）</h3>
+<h4 id="faa机制说明">FAA机制说明</h4>
+<p>Fetch-and-Add （FAA） 是一种原子操作，它读取变量的当前值，向其添加指定的数字，然后返回变量的旧值。FAA 是在多线程应用程序中实现原子操作的关键原语之一。</p>
+<p>FAA 涉及两个操作数：内存位置的地址 （V） 和要添加到存储在内存位置 （V） 的旧值的值 （S）。因此，FAA可以表示如下：提取指定地址（V）处的值并临时存储。</p>
+<p>然后，将先前存储的值（按第二个操作数 （S） 的值递增）写入指定的地址 （V）。需要注意的是，上述所有操作都是以原子方式执行的，并在硬件级别实现。</p>
+<h3 id="在-java-中使用类似-faa-功能的示例">在 Java 中使用类似 FAA 功能的示例</h3>
+<h4 id="atomicinteger-和-atomiclong">AtomicInteger 和 AtomicLong</h4>
+<p>在 Java 中，AtomicInteger 和 AtomicLong 类提供了 getAndAdd（） 和 addAndGet（） 方法，它们实现了类似的 FAA 功能。下面是使用 AtomicInteger 实现线程安全计数器的示例：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">java.util.concurrent.atomic.AtomicInteger</span>;<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Counter</span><span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>AtomicInteger<span style="color:#bbb"> </span>counter<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>AtomicInteger(0);<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">increment</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span>counter.<span style="color:#008080">getAndAdd</span>(1);<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">int</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getCounter</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>counter.<span style="color:#008080">get</span>();<span style="color:#bbb"> </span>}<span style="color:#bbb"> </span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="longadder-和-doubleadder">LongAdder 和 DoubleAdder</h4>
+<p>Java 还提供了 LongAdder 和 DoubleAdder 类，这些类专为高性能和可伸缩的计数器实现而设计。下面是使用 LongAdder 实现线程安全计数器的示例。</p>
+<h4 id="faa在硬件上的操作">FAA在硬件上的操作</h4>
+<p>级别 与 CAS 一样，FAA 使用特殊的处理器指令在硬件级别实现，这些指令保证了读取、添加和更新操作的原子性。这在更新共享数据时提供高性能和低延迟。</p>
+<p>当线程想要执行 FAA 操作时，处理器首先将变量的值加载到寄存器中并返回它。</p>
+<p>然后，处理器在此值和传递的操作数之间执行加法操作，将结果存储在寄存器中，并将新值写回内存。</p>
+<p>因此，FAA 操作包括三个步骤：读取变量的值、执行加法操作和写入新值。</p>
+<p>例如，如果我们想在包含值 10 的变量计数器上执行 FAA 操作并传递操作数 2，处理器将执行以下步骤：</p>
+<ol>
+<li>将计数器变量 （10） 的值加载到寄存器中。</li>
+<li>在此值 （10） 和传递的操作数 （2） 之间执行加法运算，得到 （12）。</li>
+<li>将结果 （12） 存储在寄存器中。</li>
+<li>将变量 （12） 的新值写回内存。</li>
+</ol>
+<p>由于 FAA 操作，计数器变量的值将增加 2。</p>
+<p>与 CAS 一样，处理器必须确保 FAA 操作的原子执行，以确保多线程应用程序的正确运行。</p>
+<p>FAA 机制在硬件级别的确切实现取决于特定的处理器架构，但总的来说，它的工作原理是上述的。</p>
+<p>FAA机制在硬件层面的实施取决于处理器的制造商和型号。一些现代处理器（如 Intel x86 和 ARM）在硬件级别支持原子 FAA 操作。</p>
+<p>例如，从 1990 年代后期开始的 Intel Pentium 架构的 Intel 处理器支持“xadd”指令，该指令对 32 位和 64 位整数值执行 FAA 操作。</p>
+<p>此指令从操作数中读取值，在操作数之间执行加法操作，将结果存储在寄存器中，并将新值写入内存。因此，可以使用此指令在硬件级别以原子方式执行 FAA 操作。</p>
+<p>同样，从 ARMv6K 架构开始的 ARM 处理器也支持用于从内存中读取值的“LDREX”指令和用于将新值写回内存的“STREX”指令。</p>
+<p>这些指令可用于在硬件级别执行原子 FAA 操作。</p>
+<p>FAA机制在其他处理器架构上的实现可能有所不同，但总的来说，工作原理是相似的。</p>
+<h3 id="faa的优缺点">FAA的优缺点</h3>
+<h4 id="faa的优势"> FAA的优势：</h4>
+<ul>
+<li>与传统锁定机构相比，操作速度快，成本低。</li>
+<li>非阻塞方法可降低死锁的可能性，并提高应用程序性能。</li>
+<li>简化原子计数器和聚合器（如 LongAdder 和 DoubleAdder）的实现。</li>
+</ul>
+<h4 id="faa的缺点"> FAA的缺点：</h4>
+<ul>
+<li>可能并不适合所有用例，因为它假设原子增量为固定量，这可能不是所有任务的通用解决方案。</li>
+<li>与 CAS 一样，FAA 需要一定程度的专业知识和知识才能正确实现算法，尤其是在高线程争用的情况下。</li>
+</ul>
+<h4 id="美国联邦航空局faa的进展保证">美国联邦航空局（FAA）的进展保证</h4>
+<p>FAA 还提供称为“无障碍”的进度保证，这意味着如果线程执行 FAA 操作而没有与其他线程争用（即无干扰），它将始终能够成功完成操作。</p>
+<p>但是，在主动线程争用的情况下，无法保证进度，可能需要更复杂的算法和机制来确保严格的进度保证，例如“无锁”或“无等待”。</p>
+<p>在某些情况下，可以使用组合方法来确保严格的进度保证，例如结合 CAS 和 FAA 机制或使用其他数据结构（如描述符）来减少线程之间的争用并提高性能。</p>
+<h3 id="cas-和-faa-的比较">CAS 和 FAA 的比较</h3>
+<h4 id="cas-和-faa-的异同">CAS 和 FAA 的异同</h4>
+<p><strong>CAS 和 FAA 之间的相似之处：</strong></p>
+<ul>
+<li>两者都是原子操作，可确保多线程应用程序中的线程安全。</li>
+<li>这两种机制都是使用特殊的处理器指令在硬件级别实现的。</li>
+<li>两者都提供“无障碍”进度保证。</li>
+</ul>
+<p><strong>CAS 和 FAA 之间的区别：</strong></p>
+<ul>
+<li>CAS 将变量的当前值与预期值进行比较，仅当变量与预期值匹配时，才将其替换为新值。FAA 读取变量的当前值，将其增加一个指定的数字，然后返回变量的旧值。</li>
+<li>CAS 可用于实现更复杂的算法和数据结构，例如非阻塞堆栈和队列。FAA主要用于原子计数器和聚合器。</li>
+<li>CAS 可能会遇到 ABA 问题，而 FAA 通常不会遇到此类问题。</li>
+</ul>
+<h4 id="带宽和可扩展性">带宽和可扩展性</h4>
+<p>与传统的锁定机制相比，CAS 和 FAA 提供了高带宽和可扩展性。但是，由于使用场景和操作特性的差异，带宽和可扩展性可能会有所不同。</p>
+<p>在 CAS 的情况下，由于频繁的更新尝试失败，线程之间的高度竞争可能会降低带宽。</p>
+<p>FAA 通常具有更好的带宽和可伸缩性，尤其是在使用 LongAdder 和 DoubleAdder 等类时，这些类是为了减少线程之间的争用而开发的。</p>
+<h4 id="cas-和-faa-的用例">CAS 和 FAA 的用例</h4>
+<p> <strong>中国科学院：</strong></p>
+<ul>
+<li>实现非阻塞数据结构，例如堆栈、队列和列表。</li>
+<li>在线程之间的争用为低或中等的情况下实现乐观的同步策略。</li>
+<li>解决多线程应用程序中与锁和死锁相关的问题。</li>
+</ul>
+<p> <strong>联邦 航空 局：</strong></p>
+<ul>
+<li>实现线程安全计数器和聚合器，其中高性能和可伸缩性至关重要。</li>
+<li>解决需要变量的原子递增或递减的问题。</li>
+<li>在监测和统计系统中实施累积计数器。</li>
+</ul>
+<p> 代码示例：</p>
+<p> <strong>AtomicInteger 中的 CAS：</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-vbnet" data-lang="vbnet"><span style="display:flex;"><span>AtomicInteger atomicInt <span style="color:#000;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">new</span> AtomicInteger(0)<span style="color:#a61717;background-color:#e3d2d2">;</span> <span style="color:#458;font-weight:bold">boolean</span> success <span style="color:#000;font-weight:bold">=</span> atomicInt.compareAndSet(0, 1)<span style="color:#a61717;background-color:#e3d2d2">;</span> System.out.println(<span style="color:#d14">&#34;CAS success: &#34;</span> <span style="color:#000;font-weight:bold">+</span> success <span style="color:#000;font-weight:bold">+</span> <span style="color:#d14">&#34;, new value: &#34;</span> <span style="color:#000;font-weight:bold">+</span> atomicInt.get())<span style="color:#a61717;background-color:#e3d2d2">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p> <strong>AtomicInteger 中的 FAA：</strong></p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-csharp" data-lang="csharp"><span style="display:flex;"><span>AtomicInteger atomicInt = <span style="color:#000;font-weight:bold">new</span> AtomicInteger(<span style="color:#099">0</span>); <span style="color:#458;font-weight:bold">int</span> oldValue = atomicInt.getAndAdd(<span style="color:#099">1</span>); System.<span style="color:#000;font-weight:bold">out</span>.println(<span style="color:#d14">&#34;Old value: &#34;</span> + oldValue + <span style="color:#d14">&#34;, new value: &#34;</span> + atomicInt.<span style="color:#000;font-weight:bold">get</span>());
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>总之，CAS 和 FAA 为在多线程应用程序中实现线程安全操作提供了强大而灵活的机制。</p>
+<p>与传统的锁定机制相比，它们具有高性能和可扩展性，但需要仔细理解和分析才能在不同的场景和任务中正确使用。</p>
+<h3 id="结论"> 结论</h3>
+<h4 id="文章主要思想摘要">文章主要思想摘要</h4>
+<p>在本文中，我们研究了确保多线程应用程序中线程安全的两种重要机制 — CAS（比较和交换）和 FAA（获取和添加）。</p>
+<p>我们讨论了这些机制如何工作的基本原理，它们在 Java 中的使用示例，并比较了它们的特点、优点和缺点。</p>
+<p>CAS 允许将变量的值与预期值进行原子比较，并在比较成功时对其进行更新。这对于实现非阻塞数据结构和乐观同步策略特别有用。</p>
+<p>FAA 提供变量的原子增量或递减，使其成为计数器和聚合器的理想选择。在 Java 中，LongAdder 和 DoubleAdder 类是专门为在递增变量时提供高性能和可伸缩性而开发的。</p>
+<h4 id="为多线程应用程序选择正确机制的重要性">为多线程应用程序选择正确机制的重要性。</h4>
+<p>选择适当的同步机制对于确保多线程应用程序的性能和可靠性至关重要。不正确的选择可能会导致性能问题、阻塞，甚至竞争条件。</p>
+<p>因此，开发人员需要仔细研究可用的机制，并根据具体任务和使用场景选择最合适的机制。</p>
+<h4 id="进一步研究和发展该主题的方向">进一步研究和发展该主题的方向</h4>
+<p>多线程编程是一个复杂且不断发展的领域，有许多方向需要进一步研究和发展。其中一些包括：</p>
+<ul>
+<li>研究更高级的同步机制，如无锁和无等待算法，提供严格的进度保证，可以确保更高的性能和可扩展性。</li>
+<li>开发和分析新的数据结构和算法，为多线程应用程序提供更高的线程安全性和性能。</li>
+<li>研究不同的内存模型及其对多线程应用程序的行为和性能的影响。</li>
+<li>考虑其他同步方法，例如参与者模型和基于消息的并行编程，可以为开发多线程系统提供其他原则和策略。</li>
+<li>在开发过程中应用形式化方法和静态分析来检测和防止同步问题和竞争条件。</li>
+</ul>
+<p>总之，CAS 和 FAA 为在多线程应用程序中实现线程安全操作提供了强大的工具，开发人员需要仔细研究和应用它们，以在系统的性能、可靠性和可扩展性方面取得最佳结果。</p>
+<h3 id="书目"> 书目</h3>
+<h4 id="文章中使用的信息来源">文章中使用的信息来源：</h4>
+<ol>
+<li>Herlihy，M.和Shavit，N.（2008）。多处理器编程的艺术。爱思唯尔。</li>
+<li>Goetz，B.，Peierls，T.，Bloch，J.，Bowbeer，J.，Lea，D.和Holmes，D.（2006）。Java 并发在实践中。艾迪生-卫斯理。</li>
+<li>兰波特，L.（1984 年）。Dijkstra 并发编程问题的新解决方案。ACM通讯，27（8），770-781。</li>
+<li>甲骨文公司。（2021）. Java® 语言规范，Java SE 17 版。取自 <a href="https://docs.oracle.com/javase/specs/jls/se17/html/index.html">https://docs.oracle.com/javase/specs/jls/se17/html/index.html</a></li>
+<li>麦肯尼，PE（2013 年）。并行编程难吗，如果是这样，你能做些什么？取自 <a href="https://mirrors.edge.kernel.org/pub/linux/kernel/people/paulmck/perfbook/perfbook-1c.2013.12.22a.pdf">https://mirrors.edge.kernel.org/pub/linux/kernel/people/paulmck/perfbook/perfbook-1c.2013.12.22a.pdf</a></li>
+</ol>
+<h4 id="以下是一些推荐的读物以供进一步探索">以下是一些推荐的读物，以供进一步探索：</h4>
+<ol>
+<li>Sutter，H.和Alexandrescu，A.（2004）。C++ 并发在行动：实用的多线程。曼宁出版社。</li>
+<li>Lea，D.（2000 年）。Java 中的并发编程：设计原则和模式。艾迪生-卫斯理。</li>
+<li>雷纳尔，M.（2012 年）。并发编程：算法、原理和基础。斯普林格。</li>
+<li>Shun，J.和Blelloch，GE（2013）。Ligra：用于共享内存的轻量级图形处理框架。ACM SIGPLAN 通知，48（8），135–146。</li>
+</ol>
+<p>本参考书目代表了撰写本文时使用的来源，以及为那些想要深入研究 CAS、FAA 和多线程编程其他方面的人提供进一步阅读的建议。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240505/CAS%E4%B8%8EFAA%E5%9C%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E4%BF%9D%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240505/CAS%E4%B8%8EFAA%E5%9C%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E4%BF%9D%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240505/CAS%E4%B8%8EFAA%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%E5%9C%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E9%87%8D%E8%A6%81%E6%80%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/">CAS与FAA：原子操作在多线程应用程序中的重要性 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/%E9%85%8D%E7%BD%AECAS%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/">配置CAS登录验证 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/SpringBoot%E9%9B%86%E6%88%90CAS&#43;Shiro&#43;Pac4j--%E7%9F%A5%E8%AF%86%E9%93%BA/">SpringBoot集成CAS&#43;Shiro&#43;Pac4j -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/Spring-Boot%E9%A1%B9%E7%9B%AE%E9%9B%86%E6%88%90Shiro%E5%92%8CCAS%E6%97%B6%E8%AE%A4%E8%AF%81%E5%A4%B1%E8%B4%A5%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3--%E7%9F%A5%E8%AF%86%E9%93%BA/">Spring Boot项目集成Shiro和CAS时认证失败问题解决 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/Spring-Boot%E9%9B%86%E6%88%90CAS&#43;Shiro&#43;Pac4j%E5%AE%9E%E7%8E%B0%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95%E5%92%8C%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/">Spring Boot集成CAS&#43;Shiro&#43;Pac4j实现单点登录和权限管理 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/CAS'>CAS</a></li>
+                
+                <li><a href='/geek001/tags/FAA'>FAA</a></li>
+                
+                <li><a href='/geek001/tags/%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8'>线程安全</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/Java-17%E7%9A%84%E6%96%B0%E7%89%B9%E6%80%A7%E5%8F%8A%E8%BF%81%E7%A7%BB%E5%8E%9F%E5%9B%A0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Java 17的新特性及迁移原因 -- 知识铺">Java 17的新特性及迁移原因 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/%E5%A6%82%E4%BD%95%E9%AB%98%E6%95%88%E8%AE%B0%E5%BD%95%E4%BC%9A%E8%AE%AE%E7%AC%94%E8%AE%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="如何高效记录会议笔记 -- 知识铺">如何高效记录会议笔记 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/CAS%E4%B8%8EFAA%E5%9C%A8%E5%A4%9A%E7%BA%BF%E7%A8%8B%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E4%BF%9D%E8%AF%81--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺">CAS与FAA在多线程应用程序中的线程安全保证 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/%E4%BD%BF%E7%94%A8%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95SSO%E6%8F%90%E9%AB%98%E7%94%A8%E6%88%B7%E4%BD%93%E9%AA%8C--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用单点登录（SSO）提高用户体验 -- 知识铺">使用单点登录（SSO）提高用户体验 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E5%8F%8A%E5%9F%BA%E7%A1%80%E5%B7%A5%E7%A8%8B%E5%88%9B%E5%BB%BA%E6%95%99%E7%A8%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="STM32开发环境搭建及基础工程创建教程 -- 知识铺">STM32开发环境搭建及基础工程创建教程 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8%E8%AF%A6%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="STM32微控制器详解 -- 知识铺">STM32微控制器详解 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%85%A5%E9%97%A8%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="STM32入门学习指南 -- 知识铺">STM32入门学习指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%BF%AB%E9%80%9F%E4%B8%8A%E6%89%8B%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="STM32快速上手指南 -- 知识铺">STM32快速上手指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8%E6%8A%80%E6%9C%AF%E6%A6%82%E8%A7%88--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="云服务、金融科技和AI技术最新进展 -- 知识铺">云服务、金融科技和AI技术最新进展 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240505/STM32%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8%E6%A6%82%E8%BF%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="STM32微控制器概述 -- 知识铺">STM32微控制器概述 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AJAX/">AJAX</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ARM/">ARM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Knox/">Apache Knox</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Shiro/">Apache Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Zeppelin/">Apache Zeppelin</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS5/">CAS5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1/">CAS服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1%E5%99%A8/">CAS服务器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CGLIB%E4%BB%A3%E7%90%86/">CGLIB代理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cortex-M3/">Cortex-M3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C%E8%AF%AD%E8%A8%80%E7%BC%96%E7%A8%8B/">C语言编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Dao%E5%B1%82/">Dao层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FAA/">FAA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JFinal/">JFinal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT%E9%AA%8C%E8%AF%81/">JWT验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-17/">Java 17</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-Web%E5%AE%89%E5%85%A8/">Java Web安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%85%A5%E9%97%A8/">Java入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LM393/">LM393</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MCU/">MCU</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MDK5/">MDK5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OAuth-%E9%9B%86%E6%88%90/">OAuth 集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j-4.0.0/">Pac4j 4.0.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST-API/">REST API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSO-Shiro-CAS/">SSO-Shiro-CAS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STDOUT/">STDOUT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STM32/">STM32</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Service%E5%B1%82/">Service层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot-2.0/">Spring Boot 2.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-MVC/">Spring MVC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Security/">Spring Security</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/cookie/">cookie</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/serviceValidate/">serviceValidate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/session/">session</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/webStorage/">webStorage</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E6%9C%8D%E5%8A%A1/">云服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%90%86%E5%99%A8%E5%86%B2%E7%AA%81/">代理器冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%9A%E8%AE%AE%E7%AC%94%E8%AE%B0/">会议笔记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%89%E6%95%8F%E7%94%B5%E9%98%BB/">光敏电阻</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A5%E9%97%A8%E5%AD%A6%E4%B9%A0/">入门学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BC%9A%E8%AF%9D%E7%AE%A1%E7%90%86/">分布式会话管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF/">前端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%87%BA/">单点登出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%89%87%E6%9C%BA/">单片机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">原子操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%BA%93/">安全库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%80%A7/">安全性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%A1%86%E6%9E%B6/">安全框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%9B%86%E6%88%90/">客户端集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84%E5%B8%88/">小企业架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E5%BE%AA%E8%BF%B9/">小车循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E8%AE%BE%E8%AE%A1/">小车设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%BC%80%E5%8F%91/">嵌入式开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E7%B3%BB%E7%BB%9F/">嵌入式系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A1%E7%BA%BF%E5%B0%8F%E8%BD%A6/">巡线小车</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A5%E7%A8%8B%E5%88%9B%E5%BB%BA/">工程创建</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E6%9D%BF/">开发板</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/">开发环境</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E5%BA%94%E7%94%A8/">开源项目应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8/">微控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87/">性能提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%A5%E9%94%99/">报错</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%88%E6%9D%83/">授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3/">接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E7%89%B9%E6%80%A7/">新特性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B3%A8%E9%94%80%E8%AF%B7%E6%B1%82/">注销请求</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/">用户管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E8%A7%92%E8%89%B2%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">用户角色验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E6%9C%BA%E9%A9%B1%E5%8A%A8/">电机驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%87%BA%E5%A4%84%E7%90%86/">登出处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C/">登录体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81/">登录验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0%E7%B3%BB%E7%BB%9F/">笔记系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%B7%A1%E7%BA%BF/">红外巡线</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%BE%AA%E8%BF%B9/">红外循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8/">线程安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%93%9D%E7%89%99%E9%81%A5%E6%8E%A7/">蓝牙遥控</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A4%E8%AF%81/">认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81/">身份认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81/">身份验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">身份验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%81%E7%A7%BB%E5%8E%9F%E5%9B%A0/">迁移原因</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%8D%E7%BD%AE/">配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%AE%9A%E5%90%91/">重定向</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%91%E8%9E%8D%E7%A7%91%E6%8A%80/">金融科技</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%99%80%E8%9E%BA%E4%BB%AA%E6%8E%A7%E5%88%B6/">陀螺仪控制</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90/">集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E9%85%8D%E7%BD%AE/">集成配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
