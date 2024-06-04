@@ -1,0 +1,1939 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>MySQL表锁和行锁详解及如何避免锁表 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="MySQL表锁和行锁详解及如何避免锁表 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-05-23T00:54:53&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="MySQL表锁和行锁详解及如何避免锁表 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240507/MySQL%E8%A1%A8%E9%94%81%E5%92%8C%E8%A1%8C%E9%94%81%E8%AF%A6%E8%A7%A3%E5%8F%8A%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#尼恩说在前面">尼恩说在前面</a></li>
+    <li><a href="#本文目录">本文目录</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+    <li><a href="#本文的2个重量级作者">本文的2个重量级作者：</a></li>
+    <li><a href="#mysql调优的重点目标-避免锁表">Mysql调优的重点目标： 避免锁表</a>
+      <ul>
+        <li><a href="#1-锁表带来的性能问题">1. 锁表带来的性能问题</a></li>
+        <li><a href="#2-锁表引发死锁">2. 锁表引发死锁</a></li>
+        <li><a href="#3-锁表降低系统可用性">3. 锁表降低系统可用性</a></li>
+        <li><a href="#4-锁表引发数据一致性问题">4. 锁表引发数据一致性问题</a></li>
+      </ul>
+    </li>
+    <li><a href="#回顾一下mysql锁的分类">回顾一下mysql锁的分类</a>
+      <ul>
+        <li><a href="#1表级锁">1.表级锁：</a></li>
+        <li><a href="#2行级锁">2.行级锁：</a></li>
+        <li><a href="#3页级锁">3.页级锁：</a></li>
+      </ul>
+    </li>
+    <li><a href="#innodb-存储引擎中的-表锁和行锁">InnoDB 存储引擎中的 表锁和行锁</a></li>
+    <li><a href="#innodb-的表级锁">InnoDB 的表级锁</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+    <li><a href="#innodb-的行级锁">InnoDB 的行级锁</a>
+      <ul>
+        <li><a href="#innodb存储引擎三种行级锁">InnoDB存储引擎三种行级锁</a></li>
+        <li><a href="#行级锁之一记录锁record-locks">行级锁之一：记录锁(Record Locks)</a></li>
+        <li><a href="#行级锁之二间隙锁gap-locks">行级锁之二：间隙锁(Gap Locks)</a></li>
+        <li><a href="#行级锁之三临键锁next-key-locks">行级锁之三：临键锁(Next-Key Locks)</a></li>
+      </ul>
+    </li>
+    <li><a href="#innodb-如何加锁">InnoDB 如何加锁？</a>
+      <ul>
+        <li><a href="#第1个维度innodb-如何加意向锁">第1个维度：InnoDB 如何加意向锁?</a></li>
+        <li><a href="#第2个维度innodb如何加表级锁">第2个维度：InnoDB如何加表级锁?：</a></li>
+        <li><a href="#第3个维度innodb-如何加行级锁">第3个维度：InnoDB 如何加行级锁?：</a></li>
+      </ul>
+    </li>
+    <li><a href="#回到面试题什么情况下mysql会锁定整个表">回到面试题：什么情况下，MySQL会锁定整个表？</a>
+      <ul>
+        <li><a href="#1对表进行结构性修改">1.对表进行结构性修改:</a></li>
+        <li><a href="#2手动锁定表">2.手动锁定表:</a></li>
+        <li><a href="#3myisam写操作">3.MyISAM写操作:</a></li>
+        <li><a href="#4两个或多个事务在同时修改一个表时">4.两个或多个事务在同时修改一个表时:</a></li>
+        <li><a href="#5索引操作">5.索引操作:</a></li>
+        <li><a href="#6并发操作">6.并发操作:</a></li>
+        <li><a href="#7-索引不可用时加锁操作">7 索引不可用时加锁操作:</a></li>
+        <li><a href="#8索引选择不恰当">8.索引选择不恰当:</a></li>
+        <li><a href="#9更新和删除场景where没命中索引最常见场景">9.更新和删除场景，where没命中索引（最常见场景）:</a></li>
+        <li><a href="#10查询场景索引失效的情况下行锁升表锁">10.查询场景，索引失效的情况下，行锁升表锁</a></li>
+        <li><a href="#mysql会锁表的场景总结">MySQL会锁表的场景总结</a></li>
+      </ul>
+    </li>
+    <li><a href="#回到面试题第二问如何减少或避免锁表">回到面试题第二问：如何减少或避免锁表？</a>
+      <ul>
+        <li></li>
+        <li><a href="#技术自由圈几个-和mysql-有关的核心面试真题">技术自由圈几个 和MYSQL 有关的核心面试真题</a></li>
+      </ul>
+    </li>
+    <li><a href="#说在最后有问题找老架构取经">说在最后：有问题找老架构取经</a></li>
+    <li><a href="#部分历史案例">部分历史案例</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">MySQL表锁和行锁详解及如何避免锁表 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年5月23日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h2 id="尼恩说在前面">尼恩说在前面</h2>
+<p>在40岁老架构师 尼恩的<strong>读者交流群</strong>(50+)中，最近有小伙伴拿到了一线企业如 字节、得物、阿里、滴滴、极兔、有赞、希音、百度、网易、美团、蚂蚁、得物的面试资格，遇到很多很重要的面试题：</p>
+<blockquote>
+<p>什么情况下，MySQL会锁定整个表？</p>
+<p>如何减少或避免锁表？</p>
+<p>如何解决提升msyql的性能，避免锁表？</p>
+</blockquote>
+<p>最近有小伙伴在面试字节，都到了这个的面试题。</p>
+<p>小伙伴没回答好，支支吾吾的说了几句，面试官不满意，面试挂了。</p>
+<p>所以，尼恩给大家做一下系统化、体系化的梳理，帮大家展示一下大家雄厚的 “技术肌肉”，<strong>让面试官爱到 “不能自已、口水直流”</strong>，然后实现”offer直提”。</p>
+<p>当然，这道面试题，以及参考答案，也会收入咱们的 《尼恩Java面试宝典PDF》V175版本，供后面的小伙伴参考，提升大家的 3高 架构、设计、开发水平。</p>
+<blockquote>
+<p>《尼恩 架构笔记》《尼恩高并发三部曲》《尼恩Java面试宝典》的PDF，请到文末公号【技术自由圈】获取</p>
+</blockquote>
+<h2 id="本文目录">本文目录</h2>
+<p><strong><strong>-</strong> 尼恩说在前面：</strong></p>
+<p><strong>- 本文的2个重量级作者</strong>：</p>
+<p><strong>- Mysql调优的重点目标： 避免****锁表</strong></p>
+<p> - 1.锁表带来的性能问题</p>
+<p> - 2.锁表引发死锁</p>
+<p> - 3.锁表降低系统可用性</p>
+<p> - 4.锁表引发数据一致性问题</p>
+<p><strong>- 回顾一下mysql锁的分类</strong></p>
+<p> - 1.表级锁：</p>
+<p> - 2.行级锁：</p>
+<p> - 3.页级锁：</p>
+<p><strong>- InnoDB存储引擎中的 表锁和行锁</strong></p>
+<p><strong>- InnoDB的表级锁</strong></p>
+<p> - 表级锁之一：表锁</p>
+<p> - 表级锁之二：元数据锁</p>
+<p> - 表级锁之三：意向锁</p>
+<p><strong>- InnoDB的行级锁</strong></p>
+<p> - InnoDB存储引擎三种行级锁</p>
+<p> - 行级锁之一：记录锁(Record Locks)</p>
+<p> - 行级锁之二：间隙锁(Gap Locks)</p>
+<p> - 行级锁之三：临键锁(Next-Key Locks)</p>
+<p><strong>- InnoDB如何****加锁？</strong></p>
+<p> - 第1个维度：InnoDB 如何加意向锁?</p>
+<p> - 第2个维度：InnoDB如何加表级锁?：</p>
+<p> - 第3个维度：InnoDB 如何加行级锁?：</p>
+<p><strong>- 回到面试题：什么情况下，MySQL会锁定整个表？</strong></p>
+<p> - 1.对表进行结构性修改:</p>
+<p> - 2.手动锁定表:</p>
+<p> - 3.MyISAM写操作:</p>
+<p> - 4.两个或多个事务在同时修改一个表时:</p>
+<p> - 5.索引操作:</p>
+<p> - 6.并发操作:</p>
+<p> - 7索引不可用时加锁操作:</p>
+<p> - 8.索引选择不恰当:</p>
+<p> - 9.更新和删除场景，where没命中索引（最常见场景）:</p>
+<p> - 10.查询场景，索引失效的情况下，行锁升表锁</p>
+<h5 id="-101使用函数或操作符">    -10.1.使用函数或操作符</h5>
+<h5 id="-102模糊查询">    -10.2.模糊查询</h5>
+<h5 id="-103不符合最左前缀原则">    -10.3.不符合最左前缀原则</h5>
+<h5 id="-104数据类型不一致">    -10.4.数据类型不一致</h5>
+<h5 id="-105使用or条件">    -10.5.使用 OR 条件</h5>
+<h5 id="-106隐式类型转换">    -10.6.隐式类型转换</h5>
+<h5 id="-107范围条件">    -10.7.范围条件</h5>
+<h5 id="-108-null判断">    -10.8. NULL判断</h5>
+<h5 id="-109更新频繁的列">    -10.9.更新频繁的列</h5>
+<h5 id="-1010查询优化器选择">    -10.10.查询优化器选择</h5>
+<p> - MySQL会锁表的场景总结</p>
+<p><strong>- 回到面试题第二问：如何减少或避免****锁表？</strong></p>
+<p> - 1.使用合适的存储引擎</p>
+<p> - 2.优化查询和索引</p>
+<p> - 3.分解大事务</p>
+<p> - 4.锁策略和隔离级别</p>
+<p> - 5.分区和分表</p>
+<p> - 6.避免长时间的锁定操作</p>
+<p> - 7.监控和分析</p>
+<p> - 8.读写分离</p>
+<p> - 9.使用合适的锁</p>
+<p> - 10.业务层优化</p>
+<p> - 技术自由圈几个 和MYSQL 有关的核心面试真题</p>
+<p><strong>- 说在最后：有问题找老架构取经</strong></p>
+<h2 id="本文的2个重量级作者">本文的2个重量级作者：</h2>
+<ul>
+<li>
+<p>第一重量级作者 Mark（资深架构师，负责写初稿 ）</p>
+</li>
+<li>
+<p>第二重量级作者 尼恩 （40岁老架构师， 负责提升此文的 技术高度，让大家有一种 俯视 技术的感觉）</p>
+</li>
+</ul>
+<p>《尼恩Java面试宝典》 是大家 面试的杀手锏， 此文当最新PDF版本，可以找43岁老架构师尼恩获取。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="http://zshipu.com/t/index.html?url=https://mmbiz.qpic.cn/sz_mmbiz_jpg/xlgvgPaib7WOToYERT8bIglELZUJAfITnSbsrTODPWrhiaUCIr2LGuskB8YbCIZwhvRh2dRl3jb1O3YH9dghycYA/640?wx_fmt=jpeg&amp;from=appmsg&amp;tp=webp&amp;wxfrom=5&amp;wx_lazy=1&amp;wx_co=1" />   
+    </p>
+<h2 id="mysql调优的重点目标-避免锁表">Mysql调优的重点目标： 避免锁表</h2>
+<p>锁表会带来一系列问题，影响数据库的性能和系统的稳定性。</p>
+<p>主要是下面的四个问题： 性能问题、死锁问题、可用性问题、一致性问题</p>
+<h3 id="1-锁表带来的性能问题">1. 锁表带来的性能问题</h3>
+<p>锁表会阻止其他事务对该表的并发访问，包括读操作和写操作。</p>
+<p>锁表会导致严重的性能问题：</p>
+<ul>
+<li>
+<p><strong>系统吞吐量下降</strong>：多个事务需要依次等待锁的释放，导致系统整体的吞吐量下降。</p>
+</li>
+<li>
+<p><strong>用户体验差</strong>：用户的请求需要长时间等待，导致响应时间变长，影响用户体验。</p>
+</li>
+</ul>
+<h3 id="2-锁表引发死锁">2. 锁表引发死锁</h3>
+<p>在高并发环境下，锁表更容易导致死锁的发生。</p>
+<p>锁表会导致严重的事务问题：</p>
+<ul>
+<li>
+<p><strong>事务回滚</strong>：部分事务被迫回滚，影响数据一致性。</p>
+</li>
+<li>
+<p><strong>系统复杂性增加</strong>：需要数据库管理系统介入来检测和解决死锁问题，增加系统复杂性。</p>
+</li>
+</ul>
+<h3 id="3-锁表降低系统可用性">3. 锁表降低系统可用性</h3>
+<p>长时间的表锁定会影响数据库的可用性，使得应用程序无法及时处理用户请求。</p>
+<p>锁表带来的系统可用性问题：</p>
+<ul>
+<li>
+<p><strong>功能不可用</strong>：系统的部分功能无法使用，影响用户的正常操作。</p>
+</li>
+<li>
+<p><strong>业务中断</strong>：在严重情况下，可能导致整个系统不可用，影响业务连续性。</p>
+</li>
+</ul>
+<h3 id="4-锁表引发数据一致性问题">4. 锁表引发数据一致性问题</h3>
+<p>在高并发写操作场景下，锁表会导致数据一致性问题。</p>
+<p>锁表带来的数据一致性问题：</p>
+<ul>
+<li>
+<p><strong>数据不一致</strong>：无法及时更新数据，影响业务逻辑的正确执行。</p>
+</li>
+<li>
+<p><strong>状态混乱</strong>：例如，订单状态更新时，如果表被锁定，其他更新操作无法及时进行，可能会导致数据状态不一致。</p>
+</li>
+</ul>
+<p>那么，什么情况下导致锁表？ 如何解决锁表的问题呢？</p>
+<h2 id="回顾一下mysql锁的分类">回顾一下mysql锁的分类</h2>
+<p>从操作的粒度可分为表级锁、行级锁和页级锁。</p>
+<h3 id="1表级锁">1.表级锁：</h3>
+<p>每次操作<strong>锁住整张表</strong>。<strong>锁定粒度大</strong>，发生锁冲突的概率最高，<strong>并发度最低</strong>。</p>
+<p><strong>注意： 表级锁应用在MyISAM、InnoDB、BDB 等存储引擎中。</strong></p>
+<p>表锁的特点：</p>
+<ul>
+<li>
+<p>开销小，加锁快</p>
+</li>
+<li>
+<p>不会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度大，发生锁冲突的概率最高，并发度最低</p>
+</li>
+</ul>
+<h3 id="2行级锁">2.行级锁：</h3>
+<p>每次操作锁住<strong>一行数据</strong>。<strong>锁定粒度最小</strong>，发生锁冲突的概率最低，<strong>并发度最高</strong>。</p>
+<p><strong>注意：行级锁应用在InnoDB 存储引擎中。MyISAM 没有行级锁</strong></p>
+<p>行锁的特点：</p>
+<ul>
+<li>
+<p>开销大，加锁慢</p>
+</li>
+<li>
+<p>会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度小，发生锁冲突的概率最低，并发度最高</p>
+</li>
+</ul>
+<h3 id="3页级锁">3.页级锁：</h3>
+<p>每次锁定相邻的一组记录，锁定粒度界于<strong>表锁和行锁</strong>之间，加锁开销和加锁时间界于表锁和行锁之间，并发度一般。</p>
+<p><strong>注意：页级锁 应用在BDB 等存储引擎中。</strong></p>
+<p>页锁的特点：</p>
+<ul>
+<li>
+<p>开销和加锁时间介于表锁和行锁之间</p>
+</li>
+<li>
+<p>会出现死锁</p>
+</li>
+<li>
+<p>锁定粒度介于表锁和行锁之间，并发度一般</p>
+</li>
+</ul>
+<p>MySQL 使用页级锁的情况相对较少，因为 MySQL 默认使用的是行级锁。</p>
+<p>但在特定的情况下，MySQL 可能会使用页级锁，主要包括以下几种情况：</p>
+<ol>
+<li>
+<p><strong>表级锁定转换为页级锁定：</strong> 当表级锁无法满足需求时，MySQL 可能会将表级锁转换为页级锁。这通常发生在使用 BDB 存储引擎时，因为 BDB 存储引擎默认使用表级锁。在某些情况下，MySQL 可能会将表级锁转换为页级锁，以提高并发性能。</p>
+</li>
+<li>
+<p><strong>隐式锁定大量行数据：</strong> 在某些情况下，如果一次性锁定了大量行数据，则 MySQL 可能会使用页级锁来减少锁的数量，从而减轻锁管理的负担。例如，在使用 BDB 存储引擎时，如果一次性锁定了大量行数据，则 MySQL 可能会将表级锁转换为页级锁。</p>
+</li>
+<li>
+<p><strong>DDL 操作：</strong> 在执行对表结构进行修改的 DDL（数据定义语言）操作时，MySQL 可能会使用页级锁来锁定整个表。例如，当执行 ALTER TABLE 操作时，MySQL 可能会锁定整个表的页，以防止其他对表结构的修改和查询操作。</p>
+</li>
+</ol>
+<p>总的来说，MySQL 使用页级锁的情况相对较少，因为页级锁通常会导致锁的粒度过大，影响并发性能。在设计数据库和应用程序时，通常会尽量避免使用页级锁，而是优先使用行级锁或其他更细粒度的锁。</p>
+<blockquote>
+<p>以上内容比较重要，也比较复杂，</p>
+<p>具体的视频讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h2 id="innodb-存储引擎中的-表锁和行锁">InnoDB 存储引擎中的 表锁和行锁</h2>
+<p>对于 MySQL 来说，每种存储引擎都可以实现自己的锁策略和锁粒度，</p>
+<p>比如 InnoDB 引擎支持行级锁和表级锁，不支持 页级锁</p>
+<p>下面主要聚焦介绍 InnoDB 存储引擎中的两大锁：</p>
+<ul>
+<li>
+<p>表级锁</p>
+</li>
+<li>
+<p>行级锁。</p>
+</li>
+</ul>
+<h2 id="innodb-的表级锁">InnoDB 的表级锁</h2>
+<p>表锁，顾名思义就是对某个表加锁。</p>
+<p>表级锁可以分为：表锁、元数据锁、意向锁三种。</p>
+<h4 id="表级锁之一表锁">表级锁之一：表锁</h4>
+<p>那什么时候会使用表锁呢？</p>
+<p>一般情况是对应的存储引擎没有行级锁（例如：MyIASM），或者是对应的 SQL 语句没有匹配到索引。</p>
+<p>对于第一种情况而言，因为对应存储引擎不支持行锁，所以只能是使用更粗粒度的锁来实现，这也比较好理解。</p>
+<p>对于第二种情况而言，如果存储引擎支持行锁，但对应的 SQL 就没有使用索引，那么此时也是会全表扫描，那此时也是会使用表锁。</p>
+<p>例如下面的语句没有指定查询列，或者指定了查询列但是并没有用到索引，那么也是会直接锁定整个表。</p>
+<p>情况1：没有指定查询列</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;br&gt;&lt;span&gt;select * from user; &lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>情况2：指定查询列，但是没有用到索引</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;br&gt;&lt;span&gt;select * from user where name = &#39;zhangsan&#39;; &lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>上面说的索引，其实是判断是否会用行级锁的关键。</p>
+<h4 id="表级锁之二元数据锁">表级锁之二：元数据锁</h4>
+<p>元数据，指的是我们的表结构这些元数据。</p>
+<p>元数据锁（Metadata Lock）自然是执行 DDL 表结构变更语句时，我们对表加上的一个锁了。</p>
+<p>那什么时候会使用元数据锁这个表级锁呢？</p>
+<p>当我们对一个表做增删改查操作的时候，会加上 MDL 读锁；当我们要对表结构做变更时，就会加 MDL 写锁。</p>
+<p>在MySQL中，当对表进行写操作（如INSERT、UPDATE、DELETE）时，需要对相关的数据行加锁以确保数据的一致性和完整性。在某些情况下，MySQL需要锁定整个表而不是部分行，这种情况下会锁定整个表，导致其他会话不能访问表。</p>
+<p>1.使用ALTER TABLE、TRUNCATE TABLE等语句对表进行结构性修改时，MySQL需要锁定整个表以防止其他会话对表进行操作。</p>
+<p>2.使用LOCK TABLES语句手动锁定表时，MySQL将锁定整个表以确保其他会话不能访问它。</p>
+<p>3.在使用MyISAM存储引擎时，当执行写操作时，MySQL会对整个表进行加锁。这是因为MyISAM使用表级锁定而不是行级锁定。</p>
+<p>项目中最常见的锁表问题，都是由于UPDATE语句或者DELETE语句的where条件没有走索引导致的。因此我们需要在条件字段上加索引，从而将表锁变为行锁。</p>
+<h4 id="表级锁之三意向锁">表级锁之三：意向锁</h4>
+<p>意向锁，本质上就是空间换时间的产物，是为了提高行锁效率的一个东西。</p>
+<p>在 InnoDB 中，我们对某条记录进行锁定时，为了提高并发度，通常都只是锁定这一行记录，而不是锁定整个表。</p>
+<p>而当我们需要为整个表加 X 锁的时候，我们就需要遍历整个表的记录，如果每条记录都没有被加锁，才可以给整个表加 X 锁。</p>
+<p>而这个遍历过程就很费时间，这时候就有了意向锁。</p>
+<p>意向锁，其实就是<strong>标记这个表有没有被锁</strong>，如果有某条记录被锁住了，那么就必须获取该表的意向锁。</p>
+<p>所以当我们需要判断这个表的记录有没有被加锁时，直接判断意向锁就可以了，减少了遍历的时间，提高了效率，是典型的用空间换时间的做法。</p>
+<p>那么什么时候会用到意向锁呢？</p>
+<p>很简单，就是在对表中的行记录加锁的时候，就会用到意向锁。</p>
+<p>InnoDB 存储引擎支持 <strong>多粒度（granular）锁定</strong>，就是说<strong>允许事务在行级上的锁和表级上的锁同时存在</strong>。</p>
+<p>那么为了实现行锁和表锁并存，InnoDB 存储引擎就设计出了 <strong>意向锁（Intention Lock）</strong> 这个东西：</p>
+<blockquote>
+<p>Intention locks are <strong>table-level locks</strong> that indicate which type of lock (shared or exclusive) a transaction requires later for a row in a table.</p>
+</blockquote>
+<p>很好理解：意向锁是一个<strong>表级锁</strong>，其作用就是指明接下来的事务将会用到哪种锁。</p>
+<p>有两种意向锁：</p>
+<ul>
+<li>
+<p><strong>意向共享锁（IS Lock）</strong>：当事务想要获得一张表中某几行的共享锁行级锁）时，InnoDB 存储引擎会自动地先获取该表的意向共享锁（表级锁）</p>
+</li>
+<li>
+<p><strong>意向排他锁（IX Lock）</strong>：当事务想要获得一张表中某几行的排他锁（行级锁）时，InnoDB 存储引擎会自动地先获取该表的意向排他锁（表级锁）</p>
+</li>
+</ul>
+<p>各位其实可以直接把 ”意向“ 翻译成 ”想要“，想要共享锁、想要排他锁，你就会发现原来就这东西啊（滑稽）。</p>
+<p>意向锁之间是相互兼容的：</p>
+<p>|</p>
+<table>
+<thead>
+<tr>
+<th>IS 锁</th>
+<th>IX 锁</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>IS 锁</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p>兼容</p>
+<p>|</p>
+<p>兼容</p>
+<p>|
+|</p>
+<p>IX 锁</p>
+<p>|</p>
+<p>兼容</p>
+<p>|</p>
+<p>兼容</p>
+<p>|</p>
+<p>但是与<strong>表级读写锁</strong>之间大部分都是不兼容的：</p>
+<p>|</p>
+<table>
+<thead>
+<tr>
+<th>X 锁</th>
+<th>S 锁</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>IS 锁</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>|</p>
+<p>不兼容</p>
+<p>|</p>
+<p>兼容</p>
+<p>|
+|</p>
+<p>IX 锁</p>
+<p>|</p>
+<p>不兼容</p>
+<p>|</p>
+<p>不兼容</p>
+<p>|</p>
+<p>注意，这里强调一点：上表中的读写锁指的是表级锁，<strong>意向锁不会与行级的读写锁互斥！！！</strong></p>
+<p>来理解一下为什么说意向锁不会与行级的读写锁互斥。举个例子，事务 T1、事务 T2、事务 T3 分别想对某张表中的记录行 r1、r2、r3 进行修改，很普通的并发场景对吧，这三个事务之间并不会发生干扰，所以是可以正常执行的。</p>
+<p>这三个事务都会先对这张表加意向写锁，因为意向锁之间是兼容的嘛，所以这一步没有任何问题。</p>
+<p>那如果意向锁和行级读写锁互斥的话，岂不是这三个事务都没法再执行下去了，对吧。</p>
+<p>OK，看到这里，我们来思考两个问题：</p>
+<p>1）<strong>为什么没有意向锁的话，表锁和行锁不能共存？</strong></p>
+<p>2）<strong>意向锁是如何让表锁和行锁共存的？</strong></p>
+<p>首先来看第一个问题，假设行锁和表锁能共存，举个例子：事务 T1 锁住表中的某一行（行级写锁），事务 T2 锁住整个表（表级写锁）。</p>
+<p>问题很明显，既然事务 T1 锁住了某一行，那么其他事务就不可能修改这一行。这与 ”事务 T2 锁住整个表就能修改表中的任意一行“ 形成了冲突。所以，没有意向锁的时候，行锁与表锁是无法共存的。</p>
+<p>再来看第二个问题，有了意向锁之后，事务 T1 在申请行级写锁之前，MySQL 会先自动给事务 T1 申请这张表的意向排他锁，当表上有意向排他锁时其他事务申请表级写锁会被阻塞，也即事务 T2 申请这张表的写锁就会失败。</p>
+<blockquote>
+<p>以上内容比较重要，也比较复杂，</p>
+<p>具体的视频讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h2 id="innodb-的行级锁">InnoDB 的行级锁</h2>
+<p>行级锁是存储引擎级别的锁，需要存储引擎支持才有效。</p>
+<p>目前 MyISAM 存储引擎不支持行级锁，而 Innodb 存储引擎则支持行级锁。</p>
+<p>而表级锁，则是 MySQL 层面就支持的锁。</p>
+<p>那么什么时候会使用行级锁呢？</p>
+<p>当增删改查匹配到索引时，Innodb 会使用行级锁。</p>
+<p>如果没有匹配不到索引，那么就会直接使用表级锁。</p>
+<h3 id="innodb存储引擎三种行级锁">InnoDB存储引擎三种行级锁</h3>
+<p>InnoDB引擎行锁是通过对索引数据页上的记录加锁实现的，主要实现算法有 3 种：<strong>Record Lock、Gap Lock 和 Next-key Lock</strong>,也就是InnoDB的三种行锁模式。</p>
+<ul>
+<li>
+<p><strong>RecordLock锁</strong>(行锁)：锁定单个行记录的锁。（RecordLock锁 是记录锁，RC、RR隔离级别都支持）</p>
+</li>
+<li>
+<p><strong>GapLock锁</strong>：间隙锁，锁定索引记录间隙(不包括记录本身)，确保索引记录的间隙不变。（GapLock是范围锁，RR隔离级别支持。RC隔离级别不支持）</p>
+</li>
+<li>
+<p><strong>Next-key Lock 锁</strong>(临键锁)：记录锁和间隙锁组合，同时锁住数据，并且锁住数据前后范围。（记录锁+范围锁，RR隔离级别支持。RC隔离级别不支持）</p>
+</li>
+</ul>
+<h3 id="行级锁之一记录锁record-locks">行级锁之一：记录锁(Record Locks)</h3>
+<p>（1）记录锁, 仅仅锁住索引记录的一行，在单条索引记录上加锁。 （2）record lock锁住的永远是索引，而非记录本身，即使该表上没有任何索引，那么innodb会在后台创建一个隐藏的聚集主键索引，那么锁住的就是这个隐藏的聚集主键索引。</p>
+<p>所以说当一条sql没有走任何索引时，那么将会在每一条聚合索引后面加X锁，这个类似于表锁，但原理上和表锁应该是完全不同的。</p>
+<h3 id="行级锁之二间隙锁gap-locks">行级锁之二：间隙锁(Gap Locks)</h3>
+<p>（1）区间锁, 仅仅锁住一个索引区间（开区间，不包括双端端点）。 （2）在索引记录之间的间隙中加锁，或者是在某一条索引记录之前或者之后加锁，并不包括该索引记录本身。</p>
+<p>（3）间隙锁可用于防止幻读，保证索引间的不会被插入数据</p>
+<p>比如在 100、10000中，间隙锁的可能值有 (∞, 100)，(100, 10000)，(10000, ∞)，</p>
+<p>![图片](<a href="http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml">http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml</a> version=&lsquo;1.0&rsquo; encoding=&lsquo;UTF-8&rsquo;%3F%3E%3Csvg width=&lsquo;1px&rsquo; height=&lsquo;1px&rsquo; viewBox=&lsquo;0 0 1 1&rsquo; version=&lsquo;1.1&rsquo; xmlns=&lsquo;<a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a> xmlns:xlink=&lsquo;<a href="http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg">http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg</a> stroke=&lsquo;none&rsquo; stroke-width=&lsquo;1&rsquo; fill=&lsquo;none&rsquo; fill-rule=&lsquo;evenodd&rsquo; fill-opacity=&lsquo;0&rsquo;%3E%3Cg transform=&lsquo;translate(-249.000000, -126.000000)&rsquo; fill=&rsquo;%23FFFFFF&rsquo;%3E%3Crect x=&lsquo;249&rsquo; y=&lsquo;126&rsquo; width=&lsquo;1&rsquo; height=&lsquo;1&rsquo;%3E%3C/rect%3E%3C/g%3E%3C/g%3E%3C/svg%3E)</p>
+<blockquote>
+<p>以上内容比较重要，也比较复杂，</p>
+<p>具体的视频讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h3 id="行级锁之三临键锁next-key-locks">行级锁之三：临键锁(Next-Key Locks)</h3>
+<p>（1）record lock + gap lock, 左开右闭区间。</p>
+<p>（2）默认情况下，innodb使用next-key locks来锁定记录。select … for update （3）但当查询的索引含有唯一属性的时候，Next-Key Lock 会进行优化，将其降级为Record Lock，即仅锁住索引本身，不是范围。 （4）Next-Key Lock在不同的场景中会退化:</p>
+<p>![图片](<a href="http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml">http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml</a> version=&lsquo;1.0&rsquo; encoding=&lsquo;UTF-8&rsquo;%3F%3E%3Csvg width=&lsquo;1px&rsquo; height=&lsquo;1px&rsquo; viewBox=&lsquo;0 0 1 1&rsquo; version=&lsquo;1.1&rsquo; xmlns=&lsquo;<a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a> xmlns:xlink=&lsquo;<a href="http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg">http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg</a> stroke=&lsquo;none&rsquo; stroke-width=&lsquo;1&rsquo; fill=&lsquo;none&rsquo; fill-rule=&lsquo;evenodd&rsquo; fill-opacity=&lsquo;0&rsquo;%3E%3Cg transform=&lsquo;translate(-249.000000, -126.000000)&rsquo; fill=&rsquo;%23FFFFFF&rsquo;%3E%3Crect x=&lsquo;249&rsquo; y=&lsquo;126&rsquo; width=&lsquo;1&rsquo; height=&lsquo;1&rsquo;%3E%3C/rect%3E%3C/g%3E%3C/g%3E%3C/svg%3E)</p>
+<p>比如在 100、10000中，临键锁(Next-Key Locks)的可能有 (∞, 100]，(100, 10000] , 40岁老架构师尼恩提示，这里的关键是左开右闭</p>
+<p>![图片](<a href="http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml">http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml</a> version=&lsquo;1.0&rsquo; encoding=&lsquo;UTF-8&rsquo;%3F%3E%3Csvg width=&lsquo;1px&rsquo; height=&lsquo;1px&rsquo; viewBox=&lsquo;0 0 1 1&rsquo; version=&lsquo;1.1&rsquo; xmlns=&lsquo;<a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a> xmlns:xlink=&lsquo;<a href="http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg">http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg</a> stroke=&lsquo;none&rsquo; stroke-width=&lsquo;1&rsquo; fill=&lsquo;none&rsquo; fill-rule=&lsquo;evenodd&rsquo; fill-opacity=&lsquo;0&rsquo;%3E%3Cg transform=&lsquo;translate(-249.000000, -126.000000)&rsquo; fill=&rsquo;%23FFFFFF&rsquo;%3E%3Crect x=&lsquo;249&rsquo; y=&lsquo;126&rsquo; width=&lsquo;1&rsquo; height=&lsquo;1&rsquo;%3E%3C/rect%3E%3C/g%3E%3C/g%3E%3C/svg%3E)</p>
+<p>在MySQL中，当对表进行写操作（如INSERT、UPDATE、DELETE）时，需要对相关的数据行加锁以确保数据的一致性和完整性。在某些情况下，MySQL需要锁定整个表而不是部分行，这种情况下会锁定整个表，导致其他会话不能访问表。</p>
+<p>1.使用ALTER TABLE、TRUNCATE TABLE等语句对表进行结构性修改时，MySQL需要锁定整个表以防止其他会话对表进行操作。</p>
+<p>2.使用LOCK TABLES语句手动锁定表时，MySQL将锁定整个表以确保其他会话不能访问它。</p>
+<p>3.在使用MyISAM存储引擎时，当执行写操作时，MySQL会对整个表进行加锁。这是因为MyISAM使用表级锁定而不是行级锁定。</p>
+<h2 id="innodb-如何加锁">InnoDB 如何加锁？</h2>
+<p>InnoDB 采用的是<strong>两阶段锁定协议（two-phase locking protocol）</strong>，意思是：对于每一个事务Transaction，分为两个阶段</p>
+<ul>
+<li>第一阶段：增长阶段（Growing Phase）</li>
+</ul>
+<p>在这个阶段，事务可以获得锁定，但不能释放锁定。事务可以继续请求并获得锁定，直到它达到了其锁定点（Lock Point），也就是事务获得最后一个锁定的时间点。一旦事务进入第二阶段，它就不能再获得新的锁定。</p>
+<ul>
+<li>第二阶段：缩减阶段（Shrinking Phase）</li>
+</ul>
+<p>在这个阶段，事务可以释放已经持有的锁定，但不能再获取新的锁定。这个阶段的目的是确保事务不会在已经进入第二阶段后再次请求锁定</p>
+<p><strong>两阶段锁定协议（two-phase locking protocol）</strong>，有下面的两个特点：</p>
+<ul>
+<li>
+<p>特点1：即在事务执行过程中，随时都可以执行加锁操作，</p>
+</li>
+<li>
+<p>特点2：但是<strong>只有在事务执行 COMMIT 或者 ROLLBACK 的时候才会释放锁</strong>，并且所有的锁是在同一时刻被释放。</p>
+</li>
+</ul>
+<blockquote>
+<p>以上内容比较重要，也比较复杂，</p>
+<p>具体的视频讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<p>InnoDB 如何加锁？从下面三个维度来分开介绍：</p>
+<h3 id="第1个维度innodb-如何加意向锁">第1个维度：InnoDB 如何加意向锁?</h3>
+<p>它比较特殊，是由 InnoDB 存储引擎自己维护的，用户无法手动操作意向锁，</p>
+<p>在为数据行加读写锁之前，InnoDB 会先获取该数据行所在在数据表的对应意向锁。</p>
+<h3 id="第2个维度innodb如何加表级锁">第2个维度：InnoDB如何加表级锁?：</h3>
+<p>1）隐式锁定：对于常见的 DDL 语句（如 <code>ALTER</code>、<code>CREATE</code>等），InnoDB 会自动给相应的表加表级锁</p>
+<p>2）显示锁定：在执行 SQL 语句时，也可以明确显示指定对某个表进行加锁（<code>lock table user read(write)</code>）</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;lock table user read; # 加表级读锁&lt;br&gt;unlock tables; # 释放表级锁&lt;br&gt;&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><h3 id="第3个维度innodb-如何加行级锁">第3个维度：InnoDB 如何加行级锁?：</h3>
+<p>1）对于常见的 DML 语句（如 <code>UPDATE</code>、<code>DELETE</code> 和 <code>INSERT</code>），InnoDB 会自动给相应的记录行加写锁</p>
+<p>2）默认情况下对于普通 <code>SELECT</code> 语句，InnoDB 不会加任何锁，但是在 Serializable 隔离级别下会加行级读锁</p>
+<p>上面两种是隐式锁定，InnoDB 也支持通过特定的语句进行显式锁定，不过这些语句并不属于 SQL 规范：</p>
+<p>3）<code>SELECT * FROM table_name WHERE ... FOR UPDATE</code>，加行级写锁</p>
+<p>4）<code>SELECT * FROM table_name WHERE ... LOCK IN SHARE MODE</code>，加行级读锁</p>
+<p>另外，需要注意的是，InnoDB 存储引擎的行级锁是基于索引的，也就是说<strong>当索引失效或者说根本没有用索引的时候，行锁就会升级成表锁</strong>。</p>
+<p>举个例子（这里就以比较典型的索引失效情况 “使用 <code>or</code>&quot; 来举例），有数据库如下，id 是主键索引：</p>
+<pre tabindex="0"><code>&lt;section&gt;&lt;span&gt;CREATE TABLE `test` (&lt;br&gt;  `id` int(11) NOT NULL AUTO_INCREMENT,&lt;br&gt;  `username` varchar(255) DEFAULT NULL,&lt;br&gt;  PRIMARY KEY (`id`)&lt;br&gt;) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8;&lt;br&gt;12345&lt;br&gt;&lt;/span&gt;&lt;/section&gt;
+</code></pre><p>新建两个事务，先执行事务 T1 的前两行，也就是不要执行 rollback 也不要 commit：</p>
+<p>![图片](<a href="http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml">http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml</a> version=&lsquo;1.0&rsquo; encoding=&lsquo;UTF-8&rsquo;%3F%3E%3Csvg width=&lsquo;1px&rsquo; height=&lsquo;1px&rsquo; viewBox=&lsquo;0 0 1 1&rsquo; version=&lsquo;1.1&rsquo; xmlns=&lsquo;<a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a> xmlns:xlink=&lsquo;<a href="http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg">http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg</a> stroke=&lsquo;none&rsquo; stroke-width=&lsquo;1&rsquo; fill=&lsquo;none&rsquo; fill-rule=&lsquo;evenodd&rsquo; fill-opacity=&lsquo;0&rsquo;%3E%3Cg transform=&lsquo;translate(-249.000000, -126.000000)&rsquo; fill=&rsquo;%23FFFFFF&rsquo;%3E%3Crect x=&lsquo;249&rsquo; y=&lsquo;126&rsquo; width=&lsquo;1&rsquo; height=&lsquo;1&rsquo;%3E%3C/rect%3E%3C/g%3E%3C/g%3E%3C/svg%3E)</p>
+<p>这个时候事务 T1 没有释放锁，并且由于索引失效事务 T1 其实是锁住了整张表，</p>
+<p>此时再来执行事务 2，你会发现事务 T2 会卡住，最后超时关闭事务：</p>
+<p>![图片](<a href="http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml">http://zshipu.com/t/index.html?url=data:image/svg+xml,%3C%3Fxml</a> version=&lsquo;1.0&rsquo; encoding=&lsquo;UTF-8&rsquo;%3F%3E%3Csvg width=&lsquo;1px&rsquo; height=&lsquo;1px&rsquo; viewBox=&lsquo;0 0 1 1&rsquo; version=&lsquo;1.1&rsquo; xmlns=&lsquo;<a href="http://www.w3.org/2000/svg'">http://www.w3.org/2000/svg'</a> xmlns:xlink=&lsquo;<a href="http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg">http://www.w3.org/1999/xlink'%3E%3Ctitle%3E%3C/title%3E%3Cg</a> stroke=&lsquo;none&rsquo; stroke-width=&lsquo;1&rsquo; fill=&lsquo;none&rsquo; fill-rule=&lsquo;evenodd&rsquo; fill-opacity=&lsquo;0&rsquo;%3E%3Cg transform=&lsquo;translate(-249.000000, -126.000000)&rsquo; fill=&rsquo;%23FFFFFF&rsquo;%3E%3Crect x=&lsquo;249&rsquo; y=&lsquo;126&rsquo; width=&lsquo;1&rsquo; height=&lsquo;1&rsquo;%3E%3C/rect%3E%3C/g%3E%3C/g%3E%3C/svg%3E)</p>
+<h2 id="回到面试题什么情况下mysql会锁定整个表">回到面试题：什么情况下，MySQL会锁定整个表？</h2>
+<p>回到字节的面试题的核心：MySQL什么时候 锁表？</p>
+<p>MySQL会在以下情况下锁定整个表:</p>
+<h3 id="1对表进行结构性修改">1.对表进行结构性修改:</h3>
+<p>当使用ALTER TABLE或TRUNCATE TABLE等语句对表进行结构性修改时，MySQL需要锁定整个表以防止其他会话对表进行操作。</p>
+<h3 id="2手动锁定表">2.手动锁定表:</h3>
+<p>使用LOCK TABLES语句手动锁定表时，MySQL将锁定整个表以确保其他会话不能访问它。</p>
+<h3 id="3myisam写操作">3.MyISAM写操作:</h3>
+<p>在使用MyISAM存储引擎时，执行写操作会导致MySQL对整个表加锁，</p>
+<p>这是因为MyISAM使用表级锁定而不是行级锁定。</p>
+<h3 id="4两个或多个事务在同时修改一个表时">4.两个或多个事务在同时修改一个表时:</h3>
+<p>事务中包含多条对同一个表进行修改的SQL语句时，该表会被锁定。</p>
+<p>这是因为MVSQL采用行锁定机制，但当两个或多个事务在同时修改一个表时，未使用的修改请求会被放入等待队列。</p>
+<h3 id="5索引操作">5.索引操作:</h3>
+<p>对一个大表进行索引操作(如新建或删除索引)时，该表会被锁定。</p>
+<p>索引操作锁定表的时间与表的大小和结构有关。</p>
+<h3 id="6并发操作">6.并发操作:</h3>
+<p>在一张表中插入大量数据的同时，尝试在同一时刻进行查询操作，会导致表被锁定。</p>
+<p>这是因为查询和插入操作都需要获取相应的锁</p>
+<h3 id="7-索引不可用时加锁操作">7 索引不可用时加锁操作:</h3>
+<p>使用SELECT..FOR UPDATE语句进行行级锁定操作时，如果索引不可用，MySQL可能会升级为表锁。</p>
+<h3 id="8索引选择不恰当">8.索引选择不恰当:</h3>
+<p>在某些情况下，如果查询的索引选择不恰当，MVSQL可能会升级为表锁，尤其是当锁住的数据量较大时</p>
+<h3 id="9更新和删除场景where没命中索引最常见场景">9.更新和删除场景，where没命中索引（最常见场景）:</h3>
+<p>项目中最常见的锁表问题，都是由于UPDATE/DELETE时, where条件没有走索引导致的。</p>
+<p>当执行UPDATE或DELETE语句且where条件未使用索引时，可能会导致全表扫描并锁定整个表。</p>
+<p>因此我们需要在条件字段上加索引，从而将表锁变为行锁。</p>
+<blockquote>
+<p>以上内容比较重要，也比较复杂，</p>
+<p>具体的视频讲解，请参见《尼恩Java面试宝典》配套视频。</p>
+</blockquote>
+<h3 id="10查询场景索引失效的情况下行锁升表锁">10.查询场景，索引失效的情况下，行锁升表锁</h3>
+<p>在索引失效的情况下，MySQL会把所有聚集索引记录和间隙都锁上，称之为锁表，或叫行锁升表锁.</p>
+<p>在 MySQL 中，索引对于查询性能至关重要，但是有些情况下索引可能会失效，从而导致查询性能下降</p>
+<p>以下是一些常见的索引失效原因及其解决方法：</p>
+<h4 id="101-使用函数或操作符">10.1. 使用函数或操作符</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在 WHERE 子句中使用函数或操作符（如计算、转换函数）会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE YEAR(date_column) = 2023;</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：在索引列上避免使用函数或操作符。可以改为：<code>SELECT * FROM table WHERE date_column BETWEEN '2023-01-01' AND '2023-12-31';</code></p>
+</li>
+</ul>
+<h4 id="102-模糊查询">10.2. 模糊查询</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在 LIKE 子句中以通配符开头的查询（如 &lsquo;%abc&rsquo;）会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE column LIKE '%value';</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：避免在 LIKE 中使用前置通配符，可以使用后置通配符：<code>SELECT * FROM table WHERE column LIKE 'value%';</code></p>
+</li>
+</ul>
+<h4 id="103-不符合最左前缀原则">10.3. 不符合最左前缀原则</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：复合索引必须按照最左前缀原则使用，否则会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：对于索引 (a, b, c)，查询 <code>WHERE b = 1 AND c = 2</code>会导致索引失效。</p>
+</li>
+<li>
+<p><strong>解决方法</strong>：确保查询条件按照索引的顺序使用，如 <code>WHERE a = 1 AND b = 2 AND c = 3</code>。</p>
+</li>
+</ul>
+<h4 id="104-数据类型不一致">10.4. 数据类型不一致</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：查询条件中的数据类型与索引列的数据类型不一致，会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE varchar_column = 123;</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：确保查询条件的数据类型与索引列的数据类型一致：<code>SELECT * FROM table WHERE varchar_column = '123';</code></p>
+</li>
+</ul>
+<h4 id="105-使用-or-条件">10.5. 使用 OR 条件</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在多个列上使用 OR 条件时，如果其中一个列没有索引，整个查询会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE column1 = 1 OR column2 = 2;</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：可以改为 UNION 查询以使用索引：<code>SELECT * FROM table WHERE column1 = 1 UNION SELECT * FROM table WHERE column2 = 2;</code></p>
+</li>
+</ul>
+<h4 id="106-隐式类型转换">10.6. 隐式类型转换</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：隐式类型转换会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE varchar_column = 123;</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：显式转换查询条件的数据类型：<code>SELECT * FROM table WHERE varchar_column = '123';</code></p>
+</li>
+</ul>
+<h4 id="107-范围条件">10.7. 范围条件</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在复合索引中，范围条件（如 <code>&lt;</code>, <code>&gt;</code>, <code>BETWEEN</code>, <code>LIKE</code>）之后的索引列会失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：对于索引 (a, b)，查询 <code>WHERE a &gt; 1 AND b = 2</code> 会导致索引 b 失效。</p>
+</li>
+<li>
+<p><strong>解决方法</strong>：尽量避免在复合索引中使用范围条件，如果必须使用，考虑调整索引顺序。</p>
+</li>
+</ul>
+<h4 id="108-null-判断">10.8. NULL 判断</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在某些情况下，对 NULL 的判断会导致索引失效。</p>
+</li>
+<li>
+<p><strong>示例</strong>：<code>SELECT * FROM table WHERE column IS NULL;</code></p>
+</li>
+<li>
+<p><strong>解决方法</strong>：确保列上有合适的索引，并且在设计表结构时尽量避免使用 NULL。</p>
+</li>
+</ul>
+<h4 id="109-更新频繁的列">10.9. 更新频繁的列</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：在频繁更新的列上建立索引，可能会导致索引的维护成本高，从而影响查询性能。</p>
+</li>
+<li>
+<p><strong>解决方法</strong>：在设计索引时，尽量避免在频繁更新的列上建立索引。</p>
+</li>
+</ul>
+<h4 id="1010-查询优化器选择">10.10. 查询优化器选择</h4>
+<ul>
+<li>
+<p><strong>原因</strong>：有时候查询优化器可能错误地选择了全表扫描而不是使用索引，特别是在小表或索引列的选择性不高的情况下。</p>
+</li>
+<li>
+<p><strong>解决方法</strong>：可以使用 <code>FORCE INDEX</code> 强制使用特定索引，或调整查询语句和索引设计以帮助优化器选择正确的索引。</p>
+</li>
+</ul>
+<p>通过识别和解决这些索引失效的原因，可以显著提高 MySQL 查询的性能。</p>
+<h3 id="mysql会锁表的场景总结">MySQL会锁表的场景总结</h3>
+<p>总之，MVSQL在执行结构性修改、手动锁定、写操作、事务处理、索引操作、并发操作、加锁操作、以及在特定查询条件下索引失效，都可能需要对表进行锁定。</p>
+<p>了解这些情况，有助于更好地进行MySQL性能优化</p>
+<h2 id="回到面试题第二问如何减少或避免锁表">回到面试题第二问：如何减少或避免锁表？</h2>
+<p>锁表会对系统性能、数据一致性和用户体验产生负面影响，甚至可能引发严重的业务中断和系统崩溃。</p>
+<p>因此，避免锁表是数据库优化和系统设计中的重要任务。</p>
+<p>可以通过优化索引、分解大事务、合理设计表结构、使用适当的事务隔离级别、读写分离等方法来减少锁表问题，提升系统的并发性能和稳定性。</p>
+<p>在 MySQL 中避免锁表问题对于提高数据库性能和并发性至关重要。</p>
+<p>以下是一些调优策略和最佳实践，以减少或避免锁表问题：</p>
+<h4 id="1-使用合适的存储引擎">1. 使用合适的存储引擎</h4>
+<ul>
+<li>
+<p><strong>InnoDB</strong>：使用支持行级锁的存储引擎，如 InnoDB。InnoDB 是 MySQL 的默认存储引擎，支持行级锁定和事务，能够有效减少锁冲突。</p>
+</li>
+<li>
+<p>避免使用 <strong>MyISAM</strong>，因为它只支持表级锁定，容易导致锁表问题。</p>
+</li>
+</ul>
+<h4 id="2-优化查询和索引">2. 优化查询和索引</h4>
+<ul>
+<li>
+<p><strong>索引</strong>：确保查询使用适当的索引来减少扫描的行数，从而减少锁定的范围和时间。</p>
+</li>
+<li>
+<p><strong>覆盖索引</strong>：使用覆盖索引以减少表扫描，提高查询效率。</p>
+</li>
+<li>
+<p><strong>优化查询语句</strong>：避免使用复杂的查询语句，尽量简化查询条件，减少锁定时间。</p>
+</li>
+</ul>
+<h4 id="3-分解大事务">3. 分解大事务</h4>
+<ul>
+<li>
+<p><strong>分解大事务</strong>：将大事务分解成多个小事务，以减少单个事务持有锁的时间，降低锁冲突的概率。</p>
+</li>
+<li>
+<p><strong>事务控制</strong>：在事务中，尽量减少锁定时间。尽量避免在事务中进行用户交互操作。</p>
+</li>
+</ul>
+<h4 id="4-锁策略和隔离级别">4. 锁策略和隔离级别</h4>
+<ul>
+<li>
+<p><strong>锁策略</strong>：尽量使用行级锁定，而不是表级锁定。确保在需要时显式地使用合适的锁策略。</p>
+</li>
+<li>
+<p><strong>隔离级别</strong>：选择适当的事务隔离级别（如 Read Committed 或 Repeatable Read），以平衡一致性和并发性。尽量避免使用 Serializable 隔离级别，因为它会导致更多的锁定和冲突。</p>
+</li>
+</ul>
+<h4 id="5-分区和分表">5. 分区和分表</h4>
+<ul>
+<li>
+<p><strong>表分区</strong>：对大表进行分区，以减少每次操作的行数和锁定范围，提高并发性。</p>
+</li>
+<li>
+<p><strong>分表</strong>：将数据分布到多个表中，以减少单个表的负载和锁定冲突。</p>
+</li>
+</ul>
+<h4 id="6-避免长时间的锁定操作">6. 避免长时间的锁定操作</h4>
+<ul>
+<li>
+<p><strong>批量操作</strong>：将批量操作分成多个小批次，以减少每次操作的锁定时间。</p>
+</li>
+<li>
+<p><strong>在线DDL操作</strong>：使用 InnoDB 的在线 DDL 功能（例如，<code>ALTER TABLE ... ALGORITHM=INPLACE</code>），以减少对表的锁定时间。</p>
+</li>
+</ul>
+<h4 id="7-监控和分析">7. 监控和分析</h4>
+<ul>
+<li>
+<p><strong>监控锁等待</strong>：使用 MySQL 的性能_schema 和相关工具（如 <code>SHOW PROCESSLIST</code>、<code>INFORMATION_SCHEMA.INNODB_LOCKS</code>、<code>INFORMATION_SCHEMA.INNODB_LOCK_WAITS</code>）监控锁等待情况。</p>
+</li>
+<li>
+<p><strong>分析慢查询</strong>：使用 <code>slow query log</code> 分析慢查询日志，找出可能导致锁表的查询，并进行优化。</p>
+</li>
+</ul>
+<h4 id="8-读写分离">8. 读写分离</h4>
+<ul>
+<li><strong>主从复制</strong>：通过主从复制实现读写分离，将读操作分散到从库上，以减轻主库的负载和锁定压力。</li>
+</ul>
+<h4 id="9-使用合适的锁">9. 使用合适的锁</h4>
+<ul>
+<li><strong>显式锁定</strong>：在需要时显式地使用合适的锁定策略（如 <code>SELECT ... FOR UPDATE</code>），但要谨慎使用，避免不必要的长时间锁定。</li>
+</ul>
+<h4 id="10-业务层优化">10. 业务层优化</h4>
+<ul>
+<li>
+<p><strong>批量提交</strong>：在业务逻辑中优化批量提交操作，减少锁冲突。</p>
+</li>
+<li>
+<p><strong>乐观锁定</strong>：在业务层使用乐观锁定机制，以减少数据库锁定冲突。</p>
+</li>
+</ul>
+<p>通过以上策略和最佳实践，可以有效减少或避免 MySQL 中的锁表问题，提高数据库的并发性和性能。</p>
+<h3 id="技术自由圈几个-和mysql-有关的核心面试真题">技术自由圈几个 和MYSQL 有关的核心面试真题</h3>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247501817&amp;idx=1&amp;sn=8e504d8356e7e165f2b45f30fed4478a&amp;scene=21#wechat_redirect">炸裂：MySQL死锁 是什么，如何解决？（史上最全）</a></p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247502190&amp;idx=1&amp;sn=90debf251334529df0c7b816e2e3e7b8&amp;scene=21#wechat_redirect">贝壳面试：MySQL联合索引，最左匹配原则是什么？</a></p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247501901&amp;idx=1&amp;sn=db7a9d223ee5d3bd9ee96bd7b713aa26&amp;scene=21#wechat_redirect">MVCC学习圣经：一文穿透MySQL MVCC，吊打面试官</a></p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247501775&amp;idx=1&amp;sn=f07d149dc3ae36a15122281c11d2acc3&amp;scene=21#wechat_redirect">字节面试： Mysql为什么用B+树，不用跳表？</a></p>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247501801&amp;idx=1&amp;sn=36ec0db469080065aac9ff6f15900f08&amp;scene=21#wechat_redirect">手写一个跳表，跪了。。。</a></p>
+<p>上面的核心面试题，一定要掌握，背到滚瓜烂熟、滚瓜烂熟、滚瓜烂熟</p>
+<p>更多的核心面试题，请参见5000页的鸿篇巨制 ：《尼恩Java面试宝典》</p>
+<h2 id="说在最后有问题找老架构取经">说在最后：有问题找老架构取经</h2>
+<p>MySQL表锁、行锁的相关知识： 如果大家能对答如流，如数家珍，基本上 面试官会被你 震惊到、吸引到。</p>
+<p>最终，<strong>让面试官爱到 “不能自已、口水直流”</strong>。offer， 也就来了。</p>
+<p>在面试之前，建议大家系统化的刷一波 5000页《<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247497474&amp;idx=1&amp;sn=54a7b194a72162e9f13695443eabe186&amp;scene=21#wechat_redirect">尼恩Java面试宝典PDF</a>》，里边有大量的大厂真题、面试难题、架构难题。很多小伙伴刷完后， 吊打面试官， 大厂横着走。</p>
+<p>在刷题过程中，如果有啥问题，大家可以来 找 40岁老架构师尼恩交流。</p>
+<p>另外，如果没有面试机会，<strong>可以找尼恩来改简历、做帮扶。</strong></p>
+<p>遇到职业难题，找老架构取经， 可以省去太多的折腾，省去太多的弯路。</p>
+<p>尼恩指导了大量的小伙伴上岸，前段时间，<strong>刚指导一个40岁+被裁小伙伴，拿到了一个年薪100W的offer。</strong></p>
+<p>狠狠卷，实现 “offer自由” 很容易的， 前段时间一个武汉的跟着尼恩卷了2年的小伙伴， 在极度严寒/痛苦被裁的环境下， offer拿到手软， 实现真正的 “offer自由” 。</p>
+<h2 id="部分历史案例">部分历史案例</h2>
+<ul>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486199&amp;idx=1&amp;sn=de39c68ae34b0aad6ddfe29d9946c411&amp;chksm=97b57b7fa0c2f2694c125d65e8419eedde35a5f8e969fc48e45b59a9c1e9c7fedb487d2720b8&amp;scene=21#wechat_redirect">**被裁太爽：**每月大涨1W，10年CRUD小伙，靠转架构一个月上岸，年薪50W爽歪了！</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486166&amp;idx=1&amp;sn=90d928134542309a25e80a992bef4f5a&amp;chksm=97b57b5ea0c2f2483c47fcf02c5b0aae3ba8e42a77bf5c8af0971bdaa48f28283375f6caeb3e&amp;scene=21#wechat_redirect"><strong>小白转架构</strong>，逆涨30%：CRUD小伙7年，狠卷3个月升级为架构师，爽爆了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">**绝地逢生：**9年经验</a><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486132&amp;idx=1&amp;sn=bb949c992b3a35935bf5fca57f19e2d8&amp;chksm=97b57b3ca0c2f22aeb0e648191801aff933164dcf2b06eb4b6274df6499bffb0bba8e8169205&amp;scene=21#wechat_redirect">自考</a>小伙伴，跟着尼恩狠卷3月硬核技术，面试机会爆表，2周后收3个offer ，满血复活</p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486098&amp;idx=1&amp;sn=bbc5732b071477573bfab8a259d208d3&amp;chksm=97b57b1aa0c2f20c27dd74b490b6062c9eec262a3ac25548534ff70290b172dcc51c6eafe532&amp;scene=21#wechat_redirect">**硬转架构：**35岁被裁6个月 职业绝望，转架构急救上岸，DDD和3高项目太重要了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486077&amp;idx=1&amp;sn=090ad8d19559c727b80e321cd70e3c32&amp;chksm=97b57bf5a0c2f2e32a982b62cfeb2db8744260d7e2d80efdf11ad7c1c5257057ea9b1f7419ec&amp;scene=21#wechat_redirect">**逆天改命：**3年经验2本，卷3个月涨薪60%，进准大厂(得物、乐信、58集团等)，年薪36W</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486059&amp;idx=1&amp;sn=23fa04e6ea781525732f021ab1afaeeb&amp;scene=21#wechat_redirect">女35岁CRUD程序媛，12月被裁后，拿30个机会2个offer上岸，年底大裁员太不容易了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247486028&amp;idx=1&amp;sn=cf10ecda7a986b26e0359eba7a9cfeff&amp;scene=21#wechat_redirect">38还有救吗？有。42岁被裁2年天快塌了，急救1个月上岸，成开发经理offer，起死回生</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485994&amp;idx=1&amp;sn=50b95d3ae3009d395458c8740595977f&amp;scene=21#wechat_redirect">被裁不慌，9年小伙1个月喜提年薪60W offer，做中间件架构，爽歪了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485972&amp;idx=1&amp;sn=9f2b5059aaad70c8018b7c6c95a08994&amp;scene=21#wechat_redirect">12年小伙转架构，1小时蜕变收年薪55万offer，秘诀：GO+Java双栖架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485942&amp;idx=1&amp;sn=faa999fc9508435db7a88af2716492d9&amp;chksm=97b5787ea0c2f168ac80d344670df16be12614d37161a893ebed88d4c915384fcbc024996403&amp;scene=21#wechat_redirect">**年薪百万：**40岁小伙被裁6个月，跟着尼恩猛卷3月硬核技术，100W年薪逆袭 ，上岸秘诀：首席架构/总架构</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485914&amp;idx=1&amp;sn=7832d0b63155f12eb8036321a99991c8&amp;scene=21#wechat_redirect">不怕裁员，8年小伙去中年危机，秘诀：换架构师赛道，上得厅堂，下得厨房，越早越好</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485881&amp;idx=1&amp;sn=97aae4d5edf8ea30d363e22ca86b5955&amp;scene=21#wechat_redirect">被裁员后因祸得福，拿N+1后，逆涨30%，如何实现？</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485855&amp;idx=1&amp;sn=e9f6b1de7352f09d686c1481632fc454&amp;scene=21#wechat_redirect">逆天啦：4年crud小伙收shein+银行两优质offer，狠卷1月收年薪43万大涨30%</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485838&amp;idx=1&amp;sn=72d9733544a5310ee5068fc4533173ea&amp;scene=21#wechat_redirect">原来，拿大厂offer 有捷径&hellip;&hellip;</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485812&amp;idx=1&amp;sn=d87729bea8a8e22f3c2b3eb207d3b38b&amp;scene=21#wechat_redirect">太劲爆&hellip;. 被裁4个月，38岁Android转Java，2个月提架构offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485780&amp;idx=1&amp;sn=03be191625369d33ac54b5c5066c7a68&amp;scene=21#wechat_redirect">起死回生：8年小伙高中毕业+频繁跳槽，狠卷2月，提Java高级offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485663&amp;idx=1&amp;sn=357ab76bc6695485b7941e8eb24a0b42&amp;scene=21#wechat_redirect">爽翻了：指导3轮，5年小伙收5大offer，涨50%，领路模式太牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485643&amp;idx=1&amp;sn=ce71b19e7c9745ab2fe8bfc75f54d993&amp;chksm=97b57943a0c2f055e5c085eec48586e9ba05ae661acabe4cfb7e984c5aeb03d6beeafd204eba&amp;scene=21#wechat_redirect">降维攻击，37年大龄老伙喜提60W年薪offer，1个月顺利上岸</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485571&amp;idx=1&amp;sn=c0096484fd2e1202c14a4bd9d37427c2&amp;chksm=97b5790ba0c2f01da764b8b7b5e3c8a5b02f42d2ed30809f9d7b2d8e73a5bebc9102ef502bc8&amp;scene=21#wechat_redirect">架构速成：从一面杀到一次过，记7年女架构的速成经历</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485452&amp;idx=1&amp;sn=68102559298564895b1496e2230dddb2&amp;chksm=97b57984a0c2f0927d80f8719a7dc56f43ff13e373eb3886d39be98538180f919225b5ac05f2&amp;scene=21#wechat_redirect">极速拿offer：阿里P6被裁后极速上岸，1个月内喜提2优质offer(含滴滴)</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247496226&amp;idx=1&amp;sn=459a566cfa5915a720e80e1880fd730d&amp;chksm=c14148a6f636c1b08a321d08384c5d76e184c22f8f4457f980452c45c163bdc5ab91ca17b919&amp;scene=21#wechat_redirect">大逆袭：做化工12年，35岁转Java，被裁4个月后，1个月收架构Offer，大龄跨行，超级牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492928&amp;idx=1&amp;sn=82fd1c530d0ad8ad798b5c35c040641b&amp;chksm=c1415fc4f636d6d25f16e12a73a2635073994ef742efdddcc1185c5d7727785c98fac14e8de8&amp;scene=21#wechat_redirect">被裁后炸爽：10年小伙12天火速上岸，反涨20%，爽暴了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492621&amp;idx=1&amp;sn=f6ada03c596baedcf995e5cb60d255b2&amp;chksm=c1415e89f636d79f13b25d7f3691fb79931515f15b421d65fab1c5e34d4cce4165b6d1772737&amp;scene=21#wechat_redirect">裁就裁，6年小伙60W极速上岸，白拿20W还游一圈拉萨，真香</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491450&amp;idx=1&amp;sn=98379c07e430562a8a244121e63f47d7&amp;chksm=c142a5fef6352ce8e3ee64090a6d0619a9d40484f358302d96990e7655ec16f8d8e7624ca88e&amp;scene=21#wechat_redirect">极速拿offer：被毕业3个月，11年经验小伙0.5个月极速拿offer，领路模式的巨大威力</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491496&amp;idx=1&amp;sn=cb31f7510a7c2efb7daf6cad793860ad&amp;scene=21#wechat_redirect">惊天大逆袭：8年小伙20天时间提75W年薪offer，逆涨50%，秘诀在这</a></p>
+</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240507/MySQL%E8%A1%A8%E9%94%81%E5%92%8C%E8%A1%8C%E9%94%81%E8%AF%A6%E8%A7%A3%E5%8F%8A%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240507/MySQL%E8%A1%A8%E9%94%81%E5%92%8C%E8%A1%8C%E9%94%81%E8%AF%A6%E8%A7%A3%E5%8F%8A%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240507/Docker%E9%83%A8%E7%BD%B2Logstash%E5%B9%B6%E9%85%8D%E7%BD%AEMySQL%E8%BE%93%E5%85%A5%E5%88%B0Elasticsearch%E8%BE%93%E5%87%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">Docker部署Logstash并配置MySQL输入到Elasticsearch输出 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240507/%E5%A6%82%E4%BD%95%E5%B0%86MySQL%E6%95%B0%E6%8D%AE%E5%90%8C%E6%AD%A5%E5%88%B0Elasticsearch--%E7%9F%A5%E8%AF%86%E9%93%BA/">如何将MySQL数据同步到Elasticsearch -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240428/CAS%E7%B3%BB%E7%BB%9F%E5%AE%9E%E7%8E%B0MySQL%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81%E7%9A%84%E9%85%8D%E7%BD%AE--%E7%9F%A5%E8%AF%86%E9%93%BA/">CAS系统实现MySQL登录验证的配置 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/%E4%BD%BF%E7%94%A8-Nest.js-&#43;-GraphQL-&#43;-Prisma-&#43;-MySQL-%E5%AE%9E%E7%8E%B0%E5%A2%9E%E5%88%A0%E6%94%B9%E6%9F%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/">使用 Nest.js &#43; GraphQL &#43; Prisma &#43; MySQL 实现增删改查 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240424/MySQL-MVCC%E6%9C%BA%E5%88%B6%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">MySQL MVCC机制深入解析 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/MySQL'>MySQL</a></li>
+                
+                <li><a href='/geek001/tags/%E9%94%81%E8%A1%A8'>锁表</a></li>
+                
+                <li><a href='/geek001/tags/%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8'>避免锁表</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/%E6%B7%B1%E5%85%A5%E8%A7%A3%E6%9E%90DevOps%E6%89%93%E7%A0%B4%E5%AD%A4%E5%B2%9B%E4%BF%83%E8%BF%9B%E5%8D%8F%E4%BD%9C%E6%8B%A5%E6%8A%B1%E6%8C%81%E7%BB%AD%E6%94%B9%E8%BF%9B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="深入解析DevOps：打破孤岛，促进协作，拥抱持续改进 -- 知识铺">深入解析DevOps：打破孤岛，促进协作，拥抱持续改进 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90-SSG-%E5%9C%A8-Next.js-%E4%B8%AD%E7%9A%84%E5%AE%9E%E7%8E%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="静态站点生成 (SSG) 在 Next.js 中的实现 -- 知识铺">静态站点生成 (SSG) 在 Next.js 中的实现 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/Anything-LLM%E4%B8%80%E4%B8%AA%E9%9B%86%E6%88%90%E4%BA%86-RAG-%E5%92%8C-AI-Agent-%E5%8A%9F%E8%83%BD%E7%9A%84-AI-%E6%A1%8C%E9%9D%A2%E5%BA%94%E7%94%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Anything LLM：一个集成了 RAG 和 AI Agent 功能的 AI 桌面应用 -- 知识铺">Anything LLM：一个集成了 RAG 和 AI Agent 功能的 AI 桌面应用 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/Next.js-%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E4%B8%AD%E7%9A%84%E8%B7%AF%E7%94%B1%E5%92%8C%E5%AF%BC%E8%88%AA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Next.js 应用程序中的路由和导航 -- 知识铺">Next.js 应用程序中的路由和导航 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/Kinnect%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E5%B8%AE%E5%8A%A9%E4%BA%BA%E4%BB%AC%E4%BF%9D%E5%AD%98%E8%AE%B0%E5%BF%86%E4%BC%A0%E7%BB%9F%E9%A3%9F%E8%B0%B1%E7%AD%89--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Kinnect应用程序帮助人们保存记忆、传统、食谱等 -- 知识铺">Kinnect应用程序帮助人们保存记忆、传统、食谱等 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/SpringCloud-&#43;-Python-%E6%B7%B7%E5%90%88%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E6%89%93%E9%80%A0AI%E5%88%86%E5%B8%83%E5%BC%8F%E5%BA%94%E7%94%A8%E7%9A%84%E6%8A%80%E6%9C%AF%E5%BA%95%E5%B1%82.md--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="-- 知识铺">-- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/Coze%E5%AE%A3%E5%B8%83%E9%9B%86%E6%88%90OpenAI%E6%9C%80%E6%96%B0AI%E5%8A%A9%E6%89%8BGPT-4o%E6%89%93%E9%80%A0%E6%9B%B4%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9%E4%BD%93%E9%AA%8C--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="Coze宣布集成OpenAI最新AI助手GPT-4o，打造更智能聊天体验 -- 知识铺">Coze宣布集成OpenAI最新AI助手GPT-4o，打造更智能聊天体验 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/MySQL%E8%A1%A8%E9%94%81%E5%92%8C%E8%A1%8C%E9%94%81%E8%AF%A6%E8%A7%A3%E5%8F%8A%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="MySQL表锁和行锁详解及如何避免锁表 -- 知识铺">MySQL表锁和行锁详解及如何避免锁表 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/%E4%BD%BF%E7%94%A8Logstash%E7%9A%84Multiline%E6%8F%92%E4%BB%B6%E6%94%B6%E9%9B%86%E5%A4%9A%E8%A1%8C%E6%97%A5%E5%BF%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="使用Logstash的Multiline插件收集多行日志 -- 知识铺">使用Logstash的Multiline插件收集多行日志 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240507/FileBeat%E5%92%8CLogstash%E7%9A%84%E5%AF%B9%E6%AF%94%E4%B8%8E%E7%BB%93%E5%90%88%E4%BD%BF%E7%94%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="FileBeat和Logstash的对比与结合使用 -- 知识铺">FileBeat和Logstash的对比与结合使用 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/404/">404</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AJAX/">AJAX</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ARM/">ARM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Angular/">Angular</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Knox/">Apache Knox</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Shiro/">Apache Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Zeppelin/">Apache Zeppelin</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/App-Router/">App Router</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Bootstrap/">Bootstrap</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ByteBuffer/">ByteBuffer</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS5/">CAS5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1/">CAS服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1%E5%99%A8/">CAS服务器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CGLIB%E4%BB%A3%E7%90%86/">CGLIB代理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CI/CD/">CI/CD</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD-Operations/">CRUD Operations</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS/">CSS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS-%E5%A1%AB%E5%85%85/">CSS 填充</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Canvas/">Canvas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CentOS-7.x/">CentOS 7.x</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Class-%E7%B1%BB/">Class 类</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cortex-M3/">Cortex-M3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Coze%E5%B9%B3%E5%8F%B0/">Coze平台</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C%E8%AF%AD%E8%A8%80%E7%BC%96%E7%A8%8B/">C语言编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Dao%E5%B1%82/">Dao层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DataOutputStream/">DataOutputStream</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DevOps/">DevOps</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK/">ELK</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK-Stack/">ELK Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elastic-Stack/">Elastic Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FAA/">FAA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FreeMarker/">FreeMarker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GPT-4o/">GPT-4o</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML/">HTML</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML5/">HTML5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-423/">JEP 423</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-447/">JEP 447</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-454/">JEP 454</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-456/">JEP 456</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-457/">JEP 457</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-458/">JEP 458</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-459/">JEP 459</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-460/">JEP 460</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-461/">JEP 461</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-462/">JEP 462</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-463/">JEP 463</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-464/">JEP 464</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JFinal/">JFinal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT%E9%AA%8C%E8%AF%81/">JWT验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-17/">Java 17</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-22/">Java 22</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-Web%E5%AE%89%E5%85%A8/">Java Web安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%85%A5%E9%97%A8/">Java入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E8%BF%90%E8%A1%8C%E6%97%A5%E5%BF%97/">Java运行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LM393/">LM393</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Lepod-Pro/">Lepod Pro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MCU/">MCU</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MDK5/">MDK5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Multiline%E6%8F%92%E4%BB%B6/">Multiline插件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Mybatis-Plus/">Mybatis-Plus</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NIO/">NIO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Netty/">Netty</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OAuth-%E9%9B%86%E6%88%90/">OAuth 集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j-4.0.0/">Pac4j 4.0.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST-API/">REST API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RubyGems/">RubyGems</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSG/">SSG</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSO-Shiro-CAS/">SSO-Shiro-CAS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STDOUT/">STDOUT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STM32/">STM32</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Service%E5%B1%82/">Service层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Socket-%E7%BC%96%E7%A8%8B/">Socket 编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot-2.0/">Spring Boot 2.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Framework/">Spring Framework</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-MVC/">Spring MVC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Security/">Spring Security</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Validation/">Spring Validation</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TCP%E7%B2%98%E5%8C%85%E9%97%AE%E9%A2%98/">TCP粘包问题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Word%E6%96%87%E6%A1%A3/">Word文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/bundler/">bundler</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/cookie/">cookie</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gem-install-redis/">gem install redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/macOS/">macOS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/multiline/">multiline</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/openssl/">openssl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/serviceValidate/">serviceValidate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/session/">session</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/systemctl/">systemctl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/webStorage/">webStorage</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/zlib/">zlib</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%9E%8B/">事件驱动模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E6%9C%8D%E5%8A%A1/">云服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%90%86%E5%99%A8%E5%86%B2%E7%AA%81/">代理器冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8/">代码生成器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%9A%E8%AE%AE%E7%AC%94%E8%AE%B0/">会议笔记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%8D%E6%93%8D%E4%BD%9C/">位操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%81%A5%E5%BA%B7%E7%AE%A1%E7%90%86/">健康管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%89%E6%95%8F%E7%94%B5%E9%98%BB/">光敏电阻</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A5%E9%97%A8%E5%AD%A6%E4%B9%A0/">入门学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%B3%E9%97%AD%E8%A1%8C%E4%B8%BA/">关闭行为</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BC%9A%E8%AF%9D%E7%AE%A1%E7%90%86/">分布式会话管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF/">前端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%87%BA/">单点登出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%89%87%E6%9C%BA/">单片机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">原子操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%8D%E5%B0%84/">反射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E6%8C%81%E7%BB%AD%E5%8F%91%E5%B1%95/">可持续发展</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8E%E5%8F%B0%E8%BF%90%E8%A1%8C/">后台运行</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E5%90%88%E5%B9%B6/">多行合并</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E6%97%A5%E5%BF%97/">多行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E6%AE%B5%E5%90%8D%E5%BC%82%E5%B8%B8/">字段名异常</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E7%AC%A6%E4%B8%B2/">字符串</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%BA%93/">安全库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%80%A7/">安全性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%A1%86%E6%9E%B6/">安全框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%9B%86%E6%88%90/">客户端集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B6%E5%BA%AD%E5%88%86%E4%BA%AB/">家庭分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">容器化部署</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AF%BC%E8%88%AA/">导航</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84%E5%B8%88/">小企业架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E5%BE%AA%E8%BF%B9/">小车循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E8%AE%BE%E8%AE%A1/">小车设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%BC%80%E5%8F%91/">嵌入式开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E7%B3%BB%E7%BB%9F/">嵌入式系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A1%E7%BA%BF%E5%B0%8F%E8%BD%A6/">巡线小车</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A5%E7%A8%8B%E5%88%9B%E5%BB%BA/">工程创建</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E6%9D%BF/">开发板</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/">开发环境</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E5%BA%94%E7%94%A8/">开源项目应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E6%AD%A5%E5%A4%84%E7%90%86/">异步处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BD%A2%E7%8A%B6/">形状</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8/">微控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%94%B5%E7%9B%91%E6%B5%8B/">心电监测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%9F%A5%E4%BA%86/">心知了</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87/">性能提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%A5%E9%94%99/">报错</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%81%E7%BB%AD%E9%9B%86%E6%88%90/">持续集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%87%E5%8D%97/">指南</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%88%E6%9D%83/">授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3/">接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E5%AD%97%E7%9B%B8%E5%86%8C/">数字相册</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%87%87%E9%9B%86/">数据采集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%A1%A3%E7%AE%A1%E7%90%86/">文档管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E7%89%B9%E6%80%A7/">新特性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86/">日志处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E6%94%B6%E9%9B%86/">日志收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%99%BA%E8%83%BD%E7%A1%AC%E4%BB%B6/">智能硬件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%80%81%E6%A1%86/">模态框</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%9D%BF%E7%94%9F%E6%88%90/">模板生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/">正则表达式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B3%A8%E9%94%80%E8%AF%B7%E6%B1%82/">注销请求</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B5%8B%E8%AF%95/">测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B6%88%E6%81%AF%E8%BE%B9%E7%95%8C%E6%A0%87%E8%AE%B0/">消息边界标记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E4%BF%9D/">环保</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E5%A2%83%E5%BD%B1%E5%93%8D/">环境影响</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E4%BD%93%E9%AA%8C/">用户体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/">用户管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E8%A7%92%E8%89%B2%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">用户角色验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E6%9C%BA%E9%A9%B1%E5%8A%A8/">电机驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%87%BA%E5%A4%84%E7%90%86/">登出处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C/">登录体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81/">登录验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81/">示例代码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0%E7%B3%BB%E7%BB%9F/">笔记系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%97%E6%B3%95%E6%95%88%E7%8E%87/">算法效率</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B4%A2%E5%BC%95%E6%98%A0%E5%B0%84/">索引映射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%B7%A1%E7%BA%BF/">红外巡线</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%BE%AA%E8%BF%B9/">红外循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8/">线程安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%BF%E8%89%B2%E7%BC%96%E7%A0%81/">绿色编码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E7%AB%99%E8%AE%BE%E8%AE%A1/">网站设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E9%A1%B5%E6%A0%B7%E5%BC%8F/">网页样式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%93%9D%E7%89%99%E9%81%A5%E6%8E%A7/">蓝牙遥控</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A4%E8%AF%81/">认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%B0%E5%BF%86%E4%BF%9D%E5%AD%98/">记忆保存</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%BE%E7%A8%8B/">课程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1/">路由</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E5%99%A8/">路由器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E7%BA%A6%E5%AE%9A/">路由约定</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81/">身份认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81/">身份验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">身份验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%81%E7%A7%BB%E5%8E%9F%E5%9B%A0/">迁移原因</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8/">避免锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%8D%E7%BD%AE/">配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%AE%9A%E5%90%91/">重定向</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%91%E8%9E%8D%E7%A7%91%E6%8A%80/">金融科技</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%94%81%E8%A1%A8/">锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%95%BF%E5%BA%A6/">长度</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BB%E5%A1%9E-IO/">阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%99%80%E8%9E%BA%E4%BB%AA%E6%8E%A7%E5%88%B6/">陀螺仪控制</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90/">集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E9%85%8D%E7%BD%AE/">集成配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%B6%E6%8B%B7%E8%B4%9D/">零拷贝</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90/">静态站点生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%9E%E9%98%BB%E5%A1%9E-IO/">非阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84/">项目结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E6%B8%85%E6%B8%B2%E6%9F%93/">高清渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E7%BA%A7%E5%8D%8F%E8%AE%AE%E6%94%AF%E6%8C%81/">高级协议支持</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
