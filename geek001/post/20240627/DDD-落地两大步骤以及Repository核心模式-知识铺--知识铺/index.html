@@ -1,0 +1,2585 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-07-09T04:09:47&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240627/DDD-%E8%90%BD%E5%9C%B0%E4%B8%A4%E5%A4%A7%E6%AD%A5%E9%AA%A4%E4%BB%A5%E5%8F%8ARepository%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%BC%8F-%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#说在前面">说在前面</a></li>
+    <li><a href="#本文目录">本文目录</a></li>
+    <li><a href="#本文说明">本文说明：</a></li>
+    <li><a href="#尼恩总结ddd的本质和最终收益">尼恩总结：DDD的本质和最终收益</a></li>
+    <li><a href="#第三章---ddd-落地实践两大步骤">第三章 - DDD 落地实践两大步骤</a>
+      <ul>
+        <li><a href="#业务需求说明">业务需求说明</a></li>
+        <li><a href="#ddd设计的两个阶段">DDD设计的两个阶段</a></li>
+        <li><a href="#第1步战略设计-1">第1步：战略设计</a></li>
+        <li><a href="#第2步战术设计-1">第2步：战术设计</a></li>
+      </ul>
+    </li>
+    <li><a href="#第四章---repository模式">第四章 - Repository模式</a>
+      <ul>
+        <li><a href="#0-回顾一下ddd的概念">0. 回顾一下DDD的概念</a></li>
+        <li><a href="#1-为什么要用repository">1. 为什么要用Repository</a></li>
+        <li><a href="#2-模型对象代码规范">2. 模型对象代码规范</a></li>
+        <li><a href="#3-repository代码规范">3. Repository代码规范</a></li>
+        <li><a href="#4-repository迁移路径">4. Repository迁移路径</a></li>
+      </ul>
+    </li>
+    <li><a href="#未完待续尼恩说在最后">未完待续，尼恩说在最后</a></li>
+    <li><a href="#部分历史案例">部分历史案例</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年7月9日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>FSAC未来超级架构师</p>
+<p>架构师总动员<br>
+实现架构转型，再无中年危机</p>
+<h2 id="说在前面">说在前面</h2>
+<p>在40岁老架构师 尼恩的<strong>读者交流群</strong>(50+)中，最近有小伙伴拿到了一线互联网企业如阿里、滴滴、极兔、有赞、希音、百度、网易、美团的面试资格，遇到很多很重要的面试题：</p>
+<blockquote>
+<p>谈谈你的DDD落地经验？</p>
+<p>谈谈你对DDD的理解？</p>
+</blockquote>
+<p>最近有小伙伴在字节，又遇到了相关的面试题。小伙伴懵了， 他从来没有用过DDD，面挂了。关于DDD，尼恩之前给大家梳理过一篇很全的文章：<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247489054&amp;idx=1&amp;sn=670863d4522f265b73d0417b01bb2c17&amp;scene=21#wechat_redirect">阿里一面：谈一下你对DDD的理解？2W字，帮你实现DDD自由</a></p>
+<p>但是尼恩的文章， 太过理论化，不适合刚入门的人员。所以，尼恩也在不断的为大家找更好的学习资料。</p>
+<p>前段时间，尼恩在阿里的技术公众号上看到了一篇文章《殷浩详解DDD：领域层设计规范》 作者是阿里 技术大佬殷浩，非常适合与初学者入门，同时也足够的有深度。</p>
+<p>美中不足的是， 殷浩那篇文章的行文风格，对初学者不太友好， 尼恩刚开始看的时候，也比较晦涩。</p>
+<p>于是，尼恩在读的过程中，把哪些晦涩的内容，给大家用尼恩的语言， 浅化了一下， 这样大家更容易懂。</p>
+<p>本着技术学习、技术交流的目的，这里，把尼恩修改过的 《殷浩详解DDD：领域层设计规范》，通过尼恩的公众号《技术自由圈》发布出来。</p>
+<blockquote>
+<p>特别声明，由于没有殷浩同学的联系方式，这里没有找殷浩的授权，</p>
+<p>如果殷浩同学或者阿里技术公众号不同意我的修改，不同意我的发布， 我即刻从《技术自由圈》公众号扯下来。</p>
+</blockquote>
+<p>另外， 文章也特别长， 我也特别准备了PDF版本。如果需要尼恩修改过的PDF版本，也可以通过《技术自由圈》公众号找到尼恩来获取。</p>
+<h2 id="本文目录">本文目录</h2>
+<p><strong>- 说在前面</strong></p>
+<p><strong>- 本文说明：</strong></p>
+<p><strong>- 尼恩总结：DDD的本质和最终收益</strong></p>
+<p><strong>- 第三章 - DDD 落地实践两大步骤</strong></p>
+<p>  - 业务需求说明</p>
+<p>  - DDD设计的两个阶段</p>
+<p>    - 第1步：战略设计</p>
+<p>    - 第2步：战术设计</p>
+<p>  - 第1步：战略设计</p>
+<p>    - 1、业务分析</p>
+<p>      - 事件风暴业务分析的核心环节</p>
+<p>    - 2、领域建模</p>
+<p>    - 3、划分边界上下文</p>
+<p>  - 第2步：战术设计</p>
+<p>    - 1、微服务拆分</p>
+<p>    - 2、领域分层</p>
+<p>    - 3、代码结构</p>
+<p><strong>- 第四章 - Repository模式</strong></p>
+<p>  - 0. 回顾一下DDD的概念</p>
+<p>    - （1）实体Entity</p>
+<p>    - （2）值对象value object</p>
+<p>    - （3）聚合根Aggregate Root</p>
+<p>    - （4）Domain Services(领域服务)</p>
+<p>    - （5） Domain Events(领域事件)</p>
+<p>    - （6）Factory(工厂模式)</p>
+<p>    - （7）Repository Model(仓储模式)</p>
+<p>  - 1. 为什么要用Repository</p>
+<p>    - 1.1 - 实体模型 vs. 贫血模型</p>
+<p>      - 数据模型（Data Model）和业务模型/领域模型（Domain Model）的混淆</p>
+<p>    - 1.2 - Repository的价值</p>
+<p>  - 2. 模型对象代码规范</p>
+<p>    - 2.1 - 对象类型</p>
+<p>    - 2.2 - 模型对象之间的关系</p>
+<p>    - 2.3 - 模型所在模块和转化器</p>
+<p>    - 2.4 - 模型规范总结</p>
+<p>  - 3. Repository代码规范</p>
+<p>    - 3.1 - 接口规范</p>
+<p>    - 3.2 - Repository基础实现</p>
+<p>    - 3.3 - Repository复杂实现</p>
+<p>    - 3.4 - Change-Tracking 变更追踪</p>
+<p>    - 3.5 - 其他注意事项</p>
+<p>  - 4. Repository迁移路径</p>
+<p><strong>- 未完待续，尼恩说在最后</strong></p>
+<p><strong>- 部分历史案例</strong></p>
+<h2 id="本文说明">本文说明：</h2>
+<p>本文是 《阿里DDD大佬：从0到1，带大家精通DDD》系列的第二篇</p>
+<p>第一篇的链接地址是：</p>
+<p>《<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247498807&amp;idx=1&amp;sn=65adada2af6ebcf058f8cae2d768e559&amp;scene=21#wechat_redirect">阿里DDD大佬：从0到1，带大家精通DDD</a>》</p>
+<h2 id="尼恩总结ddd的本质和最终收益">尼恩总结：DDD的本质和最终收益</h2>
+<p>在正式开始第二篇之前，尼恩说一下自己对DDD的 亲身体验、和深入思考。</p>
+<p><strong>DDD的本质</strong>：</p>
+<ul>
+<li>
+<p>大大提升 核心代码  <strong>业务纯度</strong></p>
+<p>老的mvc架构，代码中紧紧的耦合着特定ORM框架、特定DB存储、特定的缓存、特定的事务框架、特定中间件，特定对外依赖解耦， 很多很多。</p>
+<p>总之就是 业务和技术紧密耦合，代码的 业务纯度低， 导致软件“固化”， 没法做快速扩展和升级。</p>
+</li>
+<li>
+<p>大大提升 代码工程  <strong>测维扩 能力</strong></p>
+<p>DDD进行了多个层次的解耦，包括 持久层的DB解耦，外依第三方赖的隔离解耦，大大提升了  可测试度、可维护度、可扩展度</p>
+</li>
+<li>
+<p>更大限度  积累 <strong>业务领域模型 资产</strong></p>
+<p>由于spring mvc 模式下， 代码的业务纯度不高， 导致尼恩的曾经一个项目，10年多时间， 衍生出  50多个不同的版本，推导重来5次，付出巨大的 时间成本、经济成本</p>
+</li>
+</ul>
+<p><strong>DDD的收益</strong>：</p>
+<ul>
+<li>
+<p>极大的降低升级的工作量</p>
+</li>
+<li>
+<p>极大的降低推到重来的风险</p>
+</li>
+<li>
+<p>极大提升代码的核心代码业务纯度，积累更多的代码资产</p>
+</li>
+</ul>
+<p><strong>不用DDD的反面案例，尼恩曾经见过一个项目</strong>：</p>
+<ul>
+<li>
+<p>10年多时间， 衍生出  50多个不同的版本， 每个版本80%的功能相同，但是代码各种冲突，没有合并</p>
+</li>
+<li>
+<p>10年多时间，经历过至少 5次推倒重来， 基本换一个领导，恨不得推导重来一次， 感觉老的版本都是不行，只有自己设计的才好</p>
+</li>
+<li>
+<p>5次推倒重来，每次都是 风风火火/加班到进ICU， 投入了大量的人力/财力。其实大多是重复投入、重复建设</p>
+</li>
+<li>
+<p>可谓,  一将不才累死三军， 所以， 一个优秀的架构师，对一个项目来说是多么的重要</p>
+</li>
+</ul>
+<h2 id="第三章---ddd-落地实践两大步骤">第三章 - DDD 落地实践两大步骤</h2>
+<p>学习 DDD 理论以及方法不是最终的目的，而通过DDD 达到至少三个目的：</p>
+<ul>
+<li>
+<p>实现业务复杂度治理</p>
+</li>
+<li>
+<p>以及优化微服务设计</p>
+</li>
+<li>
+<p>提升代码的长远质量才是真正的目的。</p>
+</li>
+</ul>
+<p>这里假设一个  DDD 落地实践  业务场景， 咱们首先做一下 业务需求 的简单说明</p>
+<h3 id="业务需求说明">业务需求说明</h3>
+<p>拿电商场景来进行说明，优惠券的关键业务流程如下：</p>
+<p>（1）优惠券创建流程：</p>
+<p>运营  需要选定对应的商品，创建创建优惠券。</p>
+<p>（2）营销活动创建流程</p>
+<p>运营 创建营销活动，制定对应的营销活动规则，</p>
+<p>比如什么满减 活动  ，跨店减 类 运营规则，</p>
+<p>然后关联相应的优惠券，最后提交活动审批。</p>
+<p>审批通过后，进行营销活动发布。</p>
+<p>（3）提交活动审批后，审批人员  进行营销活动审批。</p>
+<p>（4）优惠券使用流程</p>
+<p>用户在营销页面,  领取优惠券之后，</p>
+<p>下单购买商品之后，在付款的时候根据对应的优惠券进行付费金额计算并完成支付。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagebf7836ebedc997655c80695b.png" />   
+    </p>
+<blockquote>
+<p><strong>注意：请点击图像以查看清晰的视图！</strong></p>
+</blockquote>
+<p>那么我们就要着手开始通过ＤＤＤ来进行领域驱动设计的过程了。</p>
+<h3 id="ddd设计的两个阶段">DDD设计的两个阶段</h3>
+<p>DDD设计的两个阶段包括两部分，战略设计部分和战术设计部分：</p>
+<h4 id="第1步战略设计">第1步：战略设计</h4>
+<p>战略设计主要从业务视角出发，包括了业务场景分析、领域建模、划分边界上下文三个阶段。</p>
+<p>限界上下文可以作为微服务设计的参考边界。</p>
+<p>DDD战略设计会建立领域模型， 这四个字放一起会让人觉得很高深，</p>
+<p>但是， 通俗来说就是模拟某个领域的的一种模型， 这个模型比较抽象， 但便于人们交流，</p>
+<p>举个例子：</p>
+<p>公园有一棵桃树， 如果我们想好好研究桃树该怎么研究 ？</p>
+<p>桃子好吃吗？贵不贵？品种？怎么种植？种在什么地方 ？做成桃木剑？桃子树叶药用价值？</p>
+<p>你看， 这样研究每一个问题都很有道理， 但是又很混乱。</p>
+<p>再回忆一下初中生物书上是这么研究的： 先将植物根据大家的理解分成多个器官组成， 像桃子、桃叶、桃花等等， 然后将每一个器官再根据功能细分成组织， 再根据这个组织中各个细胞的形态等作用分成不同的细胞， 你看看这是不是一种很有条理的分析方法。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage1d888b5eab2b5d702bf01834.png" />   
+    </p>
+<blockquote>
+<p><strong>注意：请点击图像以查看清晰的视图！</strong></p>
+</blockquote>
+<p>DDD也是如此，</p>
+<p>当我们面对桃树这种复杂的业务的时候，先根据固有的认识分成多个器官(领域)，然后再在每一个领域中根据某些维度(这儿是功能)分为多个组织(聚合)， 而每一个组织中由很多细胞(实体)组成，这就是一种战略，</p>
+<p>做DDD战略设计， 有哪些好处呢 ？</p>
+<p>可以确保我们讨论的边界， 也就是讨论的东西是一个领域一个维度的， 对于桃树来说， 桃子 、桃花、桃叶、树干都是不同的领域， 划分不同领域的就是边界， 我们这儿叫领域边界，</p>
+<p>当我们确定好这些领域之后， 就可以确保我们讨论的是同一个领域的东西，这样的好处就是我们可以规定好一些概念， 或者说术语， 以后大家讨论的时候就尽可能少的信息丢失。</p>
+<h4 id="第2步战术设计">第2步：战术设计</h4>
+<p>战术设计则从技术视角出发，侧重于领域模型的技术实现，完成软件开发和落地，</p>
+<p>战术设计包括：聚合根、实体、值对象、领域服务、应用服务和资源库等代码逻辑的技术设计和技术设计。</p>
+<h3 id="第1步战略设计-1">第1步：战略设计</h3>
+<p>在战略设计阶段，我们最主要的过程大致包括了业务场景分析、领域建模、划分边界上下文三个阶段。</p>
+<p>实际上战略设计是 DDD 过程中的核心步骤。</p>
+<h4 id="1业务分析">1、业务分析</h4>
+<p>在这个阶段我们所有做的就是进行全面的业务梳理，把业务中涉及到的所有细节都梳理出来，为后续进行领域建模分析提供足够的、全面的业务输入。</p>
+<p>战略设计 经常使用到的业务场景分析方法主要包括</p>
+<ul>
+<li>
+<p>用例分析法</p>
+</li>
+<li>
+<p>事件风暴法</p>
+</li>
+<li>
+<p>四色建模法。</p>
+</li>
+</ul>
+<h5 id="事件风暴业务分析的核心环节">事件风暴业务分析的核心环节</h5>
+<p>这里我们使用事件风暴进行业务场景的分析以及梳理。</p>
+<p><strong>（1）事前准备</strong></p>
+<p>在进行事件风暴之前我们需要进行一些准备，主要包括贴纸、笔以及讨论的会议室，</p>
+<p>会议室中最好不要有椅子，目的是想让大家都能够站立在一起、全神贯注的去进行业务讨论。</p>
+<p><strong>（2）邀请参会的人</strong></p>
+<p>会议的参与方主要包括用户、产品经理、PD、研发、测试、架构师等。</p>
+<p>其中，PD为产品设计师，也可能叫产品规划师、需求分析师、小产品经理。</p>
+<p>PD侧重于将对应用做功能级的设计，在这个模块上，PD类似是一个小产品经理、模块级别的产品经理。</p>
+<p>架构师（系统分析师）会与PD紧密合作，架构师 这时候开始考虑技术可行性，性价比。</p>
+<p>PD的职位描述：</p>
+<p>（1）调查市场并研究需求，形成市场需求文档。</p>
+<p>（2）负责新产品设计，拟定设计规划和方案。</p>
+<p>（3）负责新产品的原型设计。</p>
+<p>（4）组织产品开发团队，协调资源，跟进产品的开发，保证日程进度。</p>
+<p>（5）分析产品运营数据，收集运营意见，及时调整产品形态，优化产品，并提出合理的运营建议。</p>
+<p>（6） 以用户体验为中心，改进现有产品，或设计新产品。</p>
+<p><strong>（3）业务讨论</strong></p>
+<p>首先确定我们今天需要讨论的业务是什么，目标是什么。</p>
+<p>咱们业务场景中，如果讨论的业务就是营销活动的优惠券业务，那么，目标就是完成优惠券的业务梳理，确保没有业务方面的理解 gap，在团队中达成业务理解的的一致性。</p>
+<p>事件风暴过程需要问题驱动，一般通过提问的方式来驱动交流。</p>
+<p>a、分析业务中的事件，搞清楚事件发生的前因后果</p>
+<ul>
+<li>
+<p>什么动作会导致当前事件的发生，</p>
+</li>
+<li>
+<p>当前这个事件发生后又会导致怎样的后果。</p>
+</li>
+</ul>
+<p>这些我们都需要梳理清楚。</p>
+<p>还有一点需要注意， 需要全面梳理</p>
+<ul>
+<li>
+<p>不但要关注正常的业务流程，</p>
+</li>
+<li>
+<p>还要关注异常的业务流程。</p>
+</li>
+</ul>
+<p>b、寻找业务逻辑和业务规则</p>
+<p>比如我们在提交活动前，需要确定这些优惠券适用哪些人、领取方式是怎样的以及生效事件是怎样的等等，这些都是我们在执行操作之前需要确定的业务规则。</p>
+<p>如下图所示，我们将优惠券的业务流程进行了梳理，分别从操作人、事件、命令的方式来描述整个优惠券业务流转的过程。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage1f84d818944e17cc2bd2ac49.png" />   
+    </p>
+<blockquote>
+<p><strong>注意：请点击图像以查看清晰的视图！</strong></p>
+</blockquote>
+<p><strong>注</strong>：在进行事件风暴过程中，所有的参与人都要全身投入整个过程，</p>
+<p>大家都是站立形式，聚焦全部注意力，</p>
+<p>大家都放下手机以及电脑，一起参与整个业务梳理过程，只有这样，事件风暴才可能有比较好的效果。</p>
+<h4 id="2领域建模">2、领域建模</h4>
+<p>在前面的事件风暴业务梳理中，我们已经把优惠券业务涉及到的参与者、动作以及事件等都进行了全面的梳理。</p>
+<p>参与者、动作以及事件 整个协作流程，是一个粗粒度的 业务流程， 非常粗。</p>
+<p>那么接下来我们就要在此基础之上，进行细粒度的 领域建模，这是整个 DDD 的核心。</p>
+<p>DDD领域模型 细分为两步骤，第一步是发散，产生很多<strong>实体、命令、事件</strong>等领域对象，</p>
+<p>DDD领域模型 细分为两步骤，第二步是收敛，我们从不同的维度对进行聚类形成聚合，建立最终领域模型， 这是一个收敛的过程。</p>
+<p><strong>（1）发散阶段：领域对象分析</strong></p>
+<p>领域对象分析，也就 <strong>实体、值对象、领域事件、领域命令</strong>的分析。</p>
+<p>如上面所示的事件风暴小黑板中的内容，我们需要在这些梳理出来的内容中找到对应的实体、值对象以及围绕这些的领域事件以及命令操作。</p>
+<p>根据分析，我们总整个业务过程中提取的实体如下：</p>
+<ul>
+<li>
+<p>优惠券</p>
+</li>
+<li>
+<p>营销活动</p>
+</li>
+<li>
+<p>活动审批单</p>
+</li>
+<li>
+<p>活动规则</p>
+</li>
+<li>
+<p>审批意见</p>
+</li>
+</ul>
+<p>大致如下图所示</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagea3393523cfb0c79f95131284.png" />   
+    </p>
+<blockquote>
+<p><strong>注意：请点击图像以查看清晰的视图！</strong></p>
+</blockquote>
+<p><strong>（2）收敛阶段：构建业务聚合</strong></p>
+<p>完成领域对象分析之后，我们需要构建业务聚合。</p>
+<p>想要构建聚合，那么首先就要在实体中找到聚合根。</p>
+<p>来看看，一个 聚合根的特点：</p>
+<ul>
+<li>
+<p>聚合根一定是实体，那么它具有全局唯一的标识，</p>
+</li>
+<li>
+<p>聚合根是具备生命周期的</p>
+</li>
+<li>
+<p>聚合根需要专门的模块来进行管理。</p>
+</li>
+</ul>
+<p>根据这样的标准，在领域对象中我们发现优惠券、营销活动以及活动审批单是具备聚合根特征的，</p>
+<p>而营销规则、营销内容等是和营销活动紧密相关的，因此他们构成营销活动聚合关系。</p>
+<p>而 优惠券规则、优惠券类型等是和优惠券聚合根紧密相连的，所以他们构成优惠券聚合关系。</p>
+<p>同理活动审批单也会构成聚合关系。最终我们形成如下的聚合关系。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImageae177767a5e6b71724e25819.png" />   
+    </p>
+<blockquote>
+<p><strong>注意：请点击图像以查看清晰的视图！</strong></p>
+</blockquote>
+<h4 id="3划分边界上下文">3、划分边界上下文</h4>
+<p>获得了整个业务流程中的所有聚合后，我们需要更具业务语义上下文将具体的聚合划分到对应的上下文中，</p>
+<p>这里，我们可以把优惠券的业务分为优惠券、营销活动以及审批三个限界上下文。</p>
+<h3 id="第2步战术设计-1">第2步：战术设计</h3>
+<p>在战略设计阶段，我们通过事件风暴法对整体的业务进行了全部的梳理，同时构建了领域模型，以及划分了边界下文。</p>
+<p>那么接下来我们就要将领域模型映射到工程结构，以及代码中实现最终的实现落地。</p>
+<p>另外在这个阶段实际还有很多细节需要明确的。</p>
+<p>比如，拿优惠券来说，它包含哪些属性，需要哪些领域服务，哪些需要设计为实体，哪些需要设计为值对象，这些都是需要在战术设计阶段明确下来。</p>
+<h4 id="1微服务拆分">1、微服务拆分</h4>
+<p>我们根据已经划分的边界上下文，我们可以拆分为优惠券服务、营销活动服务以及审批中心三个微服务，</p>
+<p>至于用户支付使用这块，还是由原先已存在支付服务来完成，只是在付款核算的时候需要使用到优惠券进行最后的金额计算。</p>
+<h4 id="2领域分层">2、领域分层</h4>
+<p>在领域分层方面，可以按照cola分层结构来进行，这个后面结合cola框架进行说明。</p>
+<h4 id="3代码结构">3、代码结构</h4>
+<p>当我们把领域对象进行进一步的细化之后，同时把对应的领域服务敲定之后，我们可以把这些分析后的内容映射成工程分层后的代码了。</p>
+<p>所以，后续就进入到阶段了，还有很多工作要做，比如详细设计、编写代码以及功能测试，</p>
+<p>特别实在详细设计阶段，我们还要涉及很多的细节问题的敲定，比如数据库表的设计、比如使用什么 MQ，用不用缓存，怎么保证缓存和数据库的数据一致性问题，分布式服务有没有分布式事务的问题，应该怎么解决？</p>
+<p>有没有服务幂等问题，应该怎么解决？</p>
+<p>这些都是需要在详细设计阶段进行确定的。</p>
+<h2 id="第四章---repository模式">第四章 - Repository模式</h2>
+<h3 id="0-回顾一下ddd的概念">0. 回顾一下DDD的概念</h3>
+<p>DDD的宏观理念比较多。</p>
+<p>先看看 ，上面遇到的  Entity（实体）、Aggregate Root（聚合根）、Bounded Context（限界上下文）等概念。</p>
+<h4 id="1实体entity">（1）实体Entity</h4>
+<p>当一个对象可以由标识进行区分时，这种对象称为实体</p>
+<blockquote>
+<p>和数据库中的实体是不同的，这里的实体是从业务角度进行划分的。</p>
+</blockquote>
+<p>实体：</p>
+<ul>
+<li>
+<p>具有唯一标识</p>
+</li>
+<li>
+<p>持久化</p>
+</li>
+<li>
+<p>可变</p>
+</li>
+</ul>
+<p><strong>举例</strong>社交中的用户即为实体，可以通过用户唯一的id进行区分。</p>
+<h4 id="2值对象value-object">（2）值对象value object</h4>
+<p>当一个对象用于对事物进行描述而没有唯一标识时，它被称作值对象。</p>
+<p>在实践中，需要保证值对象创建后就不能被修改，即不允许外部再修改其属性。</p>
+<p>例如：年龄，聊天表情符号（ : 吐舌 (U+1F61B)）</p>
+<blockquote>
+<p>习惯了使用数据库的数据建模后，很容易将所有对象看作实体</p>
+</blockquote>
+<h4 id="3聚合根aggregate-root">（3）聚合根Aggregate Root</h4>
+<p>聚合是一组相关对象的集合，作为一个整体被外界访问，聚合根是这个聚合的根节点。</p>
+<p>聚合由根实体，值对象和实体组成。(聚合根里面有多少个实体，由领域建模决定)</p>
+<p>外部对象需要访问聚合内的实体时，只能通过聚合根进行访问，而不能直接访问</p>
+<p><strong>举例</strong>一个订单是一个聚合根，订单购买的商品是实体，收货地址是值对象。</p>
+<h4 id="4domain-services领域服务">（4）Domain Services(领域服务)</h4>
+<p>一些重要的领域行为或操作，可以归类为领域服务。</p>
+<p>它既不是实体，也不是值对象的范畴。</p>
+<h4 id="5-domain-events领域事件">（5） Domain Events(领域事件)</h4>
+<p>领域事件是对领域内发生的活动进行的建模。</p>
+<h4 id="6factory工厂模式">（6）Factory(工厂模式)</h4>
+<p>在创建对象时，有些聚合需要实体或值对象较多，或者关系比较复杂，为了确保聚合内所有对象都能同时被创建，同时避免在聚合根中加入与其本身领域无关的内容，一般会将这些内容交给Factory处理。</p>
+<p>Factory的主要作用：封装聚合内复杂对象的创建过程，完成聚合根、实体、值对象的创建。</p>
+<h4 id="7repository-model仓储模式">（7）Repository Model(仓储模式)</h4>
+<p>为了避免基础层数据处理逻辑渗透到领域层的业务代码中，导致领域层和基础层形成紧密耦合关系，引入Repository层。</p>
+<p>Repository分为Interface和Implement，领域层依赖Repository接口。</p>
+<p>（8）其他概念</p>
+<p>DDD的新概念，很多， 如何理解 这些概念。</p>
+<p>上面的Entity 、value object 、Aggregate Root 都比较抽象。</p>
+<p>按理，要一个一个来。但是本文反向而行，从Repository开始入手，先把可以落地的、能形成规范的东西先确定下来，最后再尝试落地Entity。</p>
+<p>等所有周边的东西都覆盖之后，再详细讲Entity也许会变得不那么抽象。</p>
+<p>但是如同REST一样，DDD也只是一个设计思想，缺少一套完整的规范，导致DDD新手落地困难。</p>
+<h3 id="1-为什么要用repository">1. 为什么要用Repository</h3>
+<h4 id="11---实体模型-vs-贫血模型">1.1 - 实体模型 vs. 贫血模型</h4>
+<p>Entity（实体）这个词，从和而来呢？</p>
+<p>Entity历史悠久， 在计算机领域的最初应用，可能是来自于Peter Chen在1976年的“The Entity-Relationship Model - Toward a Unified View of Data&quot;（ER模型），Entity 用来描述实体之间的关系，而ER模型后来逐渐的演变成为一个数据模型，在关系型数据库中代表了数据的储存方式。</p>
+<p>而2006年的JPA标准，通过@Entity等注解，以及Hibernate等ORM框架的实现，让很多Java开发对Entity的理解停留在了数据映射层面，忽略了Entity实体的本身行为。</p>
+<p>Anemic Domain Model（贫血领域模型）的来源：</p>
+<p>由于ORM框架加持， 今天很多的Entity模型仅包含了实体的数据和属性，而所有的业务逻辑都被分散在多个服务、Controller、Utils工具类中，这个就是Martin Fowler所说的的Anemic Domain Model（贫血领域模型）。</p>
+<p>如何知道你的模型，是不是贫血的呢？</p>
+<p>可以看一下你代码中是否有以下的几个特征：</p>
+<ol>
+<li>
+<p>有大量的XxxDO对象：</p>
+<p>这里DO虽然有时候代表了Domain Object，但实际上仅仅是数据库表结构的映射，里面没有包含业务逻辑，（或包含了很少的）</p>
+</li>
+<li>
+<p>服务和Controller里有大量的业务逻辑：</p>
+<p>比如校验逻辑、计算逻辑、格式转化逻辑、对象关系逻辑、数据存储逻辑等；</p>
+</li>
+<li>
+<p>大量的Utils工具类等。</p>
+</li>
+</ol>
+<p>贫血模型的缺陷，到底是什么呢？其实，缺陷是非常明显的：</p>
+<ol>
+<li>
+<p>无法保护模型对象的完整性和一致性：</p>
+<p>因为对象的所有属性都是公开的，只能由调用方来维护模型的一致性，而由外部来保护模型对象的完整性和一致性，本身是没有保障的；</p>
+<p>之前曾经出现的案例，就是调用方没有能维护模型数据的一致性，导致脏数据，使用时出现bug，而且，这一类的bug还特别隐蔽，很难排查到。</p>
+</li>
+<li>
+<p>对象操作的可发现性极差：</p>
+<p>单纯从对象的属性上很难看出来都有哪些业务逻辑，什么时候可以被调用，以及可以赋值的边界是什么；比如说，Long类型的值是否可以是0或者负数？</p>
+</li>
+<li>
+<p>代码逻辑重复：</p>
+<p>比如校验逻辑、计算逻辑，都很容易出现在多个服务、多个代码块里，提升维护成本和bug出现的概率；</p>
+<p>一类常见的bug就是当贫血模型变更后，校验逻辑由于出现在多个地方，没有能跟着变，导致校验失败或失效。</p>
+</li>
+<li>
+<p>代码的健壮性差：</p>
+<p>比如一个数据模型的变化可能导致从上到下的所有代码的变更。</p>
+</li>
+<li>
+<p>强依赖底层实现：</p>
+<p>业务代码里强依赖了底层数据库、网络/中间件协议、第三方服务等，造成核心逻辑代码的僵化且维护成本高。</p>
+</li>
+</ol>
+<p>虽然贫血模型有很大的缺陷，但是在我们日常的代码中，我见过的99%的代码都是基于贫血模型，为什么呢？</p>
+<p>我总结了以下几点：</p>
+<ol>
+<li>
+<p>数据表驱动的开发模式：</p>
+<p>从有了数据库的那一天起，开发人员的思考方式就习惯于数据表驱动，在“写业务逻辑“之前，首先定义好表的字段， 写代码之前，先”写数据库逻辑”，也就是我们经常说的在写CRUD代码。</p>
+<p>而且做最初版本需求的场景， 使用基于数据表驱动的代码生成工具，能快速的进行代码生成，极大提升开发效率。</p>
+</li>
+<li>
+<p>贫血模型“简单”：</p>
+<p>贫血模型的优势在于“简单”，仅仅是对数据库表的字段映射，所以可以从前到后用统一格式串通。</p>
+<p>当然，一旦未来有模型变更时，你会发现其实并不简单，每次变更都是非常复杂的事情</p>
+</li>
+<li>
+<p>脚本思维：</p>
+<p>很多常见的代码都属于“脚本”或“胶水代码”，也就是流程式代码。脚本代码的好处就是比较容易理解，但长久来看缺乏健壮性，维护成本会越来越高。</p>
+</li>
+</ol>
+<h5 id="数据模型data-model和业务模型领域模型domain-model的混淆">数据模型（Data Model）和业务模型/领域模型（Domain Model）的混淆</h5>
+<p>但是可能最核心的原因在于，实际上我们在日常开发中，混淆了两个概念：</p>
+<ul>
+<li>
+<p>数据模型（Data Model）：指业务数据该如何持久化，以及数据之间的关系，也就是传统的ER模型；</p>
+</li>
+<li>
+<p>业务模型/领域模型（Domain Model）：指业务逻辑中，相关联的数据该如何联动。</p>
+</li>
+</ul>
+<p>所以，解决这个问题的根本方案，就是要在代码里严格区分Data Model和Domain Model。</p>
+<p>在真实代码结构中，Data Model和 Domain Model实际上会分别在不同的层里，Data Model只存在于数据层，而Domain Model在领域层，而链接了这两层的关键对象，就是Repository。</p>
+<h4 id="12---repository的价值">1.2 - Repository的价值</h4>
+<p>在传统的数据库驱动开发中，我们会对数据库操作做一个封装，一般叫做Data Access Object（DAO）。</p>
+<p>DAO的核心价值是封装了拼接SQL、维护数据库连接、事务等琐碎的底层逻辑，让业务开发可以专注于写代码。</p>
+<p>但是在本质上，DAO的操作还是数据库操作，DAO的某个方法还是在直接操作数据库和数据模型，只是少写了部分代码。</p>
+<p>在Uncle Bob的《代码整洁之道》一书里，作者用了一个非常形象的描述：</p>
+<ul>
+<li>
+<p>硬件（Hardware）：指创造了之后不可（或者很难）变更的东西。</p>
+<p>数据库对于开发来说，就属于”硬件“，数据库选型后基本上后面不会再变，比如：用了MySQL就很难再改为MongoDB，改造成本过高。</p>
+</li>
+<li>
+<p>软件（Software）：指创造了之后可以随时修改的东西。</p>
+<p>对于开发来说，业务代码应该追求做”软件“，因为业务流程、规则在不停的变化，我们的代码也应该能随时变化。</p>
+</li>
+<li>
+<p>固件（Firmware）：即那些强烈依赖了硬件的软件。</p>
+<p>我们常见的是路由器里的固件或安卓的固件等等。</p>
+<p>固件的特点是对硬件做了抽象，但仅能适配某款硬件，不能通用。所以今天不存在所谓的通用安卓固件，而是每个手机都需要有自己的固件。</p>
+</li>
+</ul>
+<p>从上面的描述我们能看出来，数据库在本质上属于”硬件“，DAO在本质上属于”固件“，DAO即那些强烈依赖了硬件的软件，而我们自己的代码希望是属于”软件“。</p>
+<p>但是，固件有个非常不好的特性，那就是会传播。</p>
+<p>也就是说当一个软件强依赖了固件时，由于固件的限制，会导致软件也变得难以变更，最终让软件变得跟固件一样难以变更，这就是 软件的“固化”。</p>
+<p>举个软件很容易被“固化”的例子：</p>
+<pre tabindex="0"><code>private OrderDAO orderDAO;  
+  
+public Long addOrder(RequestDTO request) {  
+    // 此处省略很多拼装逻辑  
+    OrderDO orderDO = new OrderDO();  
+    orderDAO.insertOrder(orderDO);  
+    return orderDO.getId();  
+}  
+  
+public void updateOrder(OrderDO orderDO, RequestDTO updateRequest) {  
+    orderDO.setXXX(XXX); // 省略很多  
+    orderDAO.updateOrder(orderDO);  
+}  
+  
+public void doSomeBusiness(Long id) {  
+    OrderDO orderDO = orderDAO.getOrderById(id);  
+    // 此处省略很多业务逻辑  
+}  
+</code></pre><p>在上面的这段简单代码里，该对象依赖了DAO，也就是依赖了DB。</p>
+<p>虽然乍一看感觉并没什么毛病，但是假设未来要加一个缓存逻辑，代码则需要改为如下：</p>
+<pre tabindex="0"><code>private OrderDAO orderDAO;  
+private Cache cache;  
+  
+public Long addOrder(RequestDTO request) {  
+    // 此处省略很多拼装逻辑  
+    OrderDO orderDO = new OrderDO();  
+    orderDAO.insertOrder(orderDO);  
+    cache.put(orderDO.getId(), orderDO);  
+    return orderDO.getId();  
+}  
+  
+public void updateOrder(OrderDO orderDO, RequestDTO updateRequest) {  
+    orderDO.setXXX(XXX); // 省略很多  
+    orderDAO.updateOrder(orderDO);  
+    cache.put(orderDO.getId(), orderDO);  
+}  
+  
+public void doSomeBusiness(Long id) {  
+    OrderDO orderDO = cache.get(id);  
+    if (orderDO == null) {  
+        orderDO = orderDAO.getOrderById(id);  
+    }  
+    // 此处省略很多业务逻辑  
+}  
+</code></pre><p>这时，你会发现因为插入的逻辑变化了，导致在所有的使用数据的地方，都需要从1行代码改为至少3行。</p>
+<p>而当你的代码量变得比较大，然后如果在某个地方你忘记了查缓存，或者在某个地方忘记了更新缓存，轻则需要查数据库，重则是缓存和数据库不一致，导致bug。</p>
+<p>当你的代码量变得越来越多，直接调用DAO、缓存的地方越来越多时，每次底层变更都会变得越来越难，越来越容易导致bug。</p>
+<p>这就是软件被“固化”的后果。</p>
+<p><strong>所以，我们需要一个模式，能够隔离我们的软件（业务逻辑）和固件/硬件（DAO、DB），让我们的软件变得更加健壮，而这个就是Repository的核心价值。</strong></p>
+<h3 id="2-模型对象代码规范">2. 模型对象代码规范</h3>
+<h4 id="21---对象类型">2.1 - 对象类型</h4>
+<p>在讲Repository规范和Repository的核心价值之前，我们需要先讲清楚3种模型的区别，Entity、Data Object (DO)和Data Transfer Object (DTO)：</p>
+<ul>
+<li>
+<p>Data Object （DO、数据对象）：</p>
+<p>Data Object 实际上是我们在日常工作中最常见的数据模型。</p>
+<p>但是在DDD的规范里，DO应该仅仅作为数据库物理表格的<strong>映射</strong>，不能参与到业务逻辑中。</p>
+<p>为了简单明了，DO的字段类型和名称<strong>应该</strong>和数据库物理表格的字段类型和名称一一对应，这样我们不需要去跑到数据库上去查一个字段的类型和名称。（当然，实际上也没必要一摸一样，只要你在Mapper那一层做到字段映射）</p>
+</li>
+<li>
+<p>Entity（实体对象）：</p>
+<p>实体对象是我们正常业务应该用的业务模型，它的字段和方法应该<strong>和业务语言保持一致</strong>，和持久化方式无关。也就是说，Entity和DO很可能有着完全不一样的字段命名和字段类型，甚至嵌套关系。</p>
+<p>Entity的生命周期应该仅存在于内存中，<strong>不需要可序列化和可持久化</strong>。</p>
+</li>
+<li>
+<p>DTO（传输对象）：</p>
+<p>主要作为Application层的入参和出参，比如CQRS里的Command、Query、Event，以及Request、Response等都属于DTO的范畴。</p>
+<p>DTO的价值在于<strong>适配不同的业务场景</strong>的入参和出参，避免让<strong>业务对象变成一个万能大对象</strong>。</p>
+</li>
+</ul>
+<h4 id="22---模型对象之间的关系">2.2 - 模型对象之间的关系</h4>
+<p>在实际开发中DO、Entity和DTO不一定是1:1:1的关系。</p>
+<p>一些常见的<strong>非1:1关系</strong>如下：</p>
+<ul>
+<li>
+<p>复杂的Entity拆分多张数据库表</p>
+</li>
+<li>
+<p>多个关联的Entity合并一张数据库表</p>
+</li>
+<li>
+<p>从复杂Entity里抽取部分信息形成多个DTO</p>
+</li>
+</ul>
+<p><strong>复杂的Entity拆分多张数据库表</strong>：</p>
+<p>常见的原因在于字段过多，导致查询性能降低，需要将非检索、大字段等单独存为一张表，提升基础信息表的检索效率。</p>
+<p>常见的案例如商品模型，将商品详细描述等大字段单独保存，提升查询性能：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagec1218024d423dcfe0056b205.png" />   
+    </p>
+<p><strong>多个关联的Entity合并一张数据库表</strong>：</p>
+<p>这种情况通常出现在拥有复杂的Aggregate Root - Entity关系的情况下，且需要分库分表，为了避免多次查询和分库分表带来的不一致性，牺牲了单表的简洁性，提升查询和插入性能。</p>
+<p>常见的案例如主子订单模型：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage797d6b351a3a07c8da63b5c4.png" />   
+    </p>
+<p><strong>从复杂Entity里抽取部分信息形成多个DTO</strong>：</p>
+<p>这种情况通常在Entity复杂，但是调用方只需要部分核心信息的情况下，通过一个小的DTO降低信息传输成本。</p>
+<p>同样拿商品模型举例，基础DTO可能出现在商品列表里，这个时候不需要复杂详情：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagef1c1f82cc5a2b1cd9702f1ce.png" />   
+    </p>
+<p><strong>合并多个Entity为一个DTO</strong>：</p>
+<p>这种情况通常为了降低网络传输成本，降低服务端请求次数，将多个Entity、DP等对象合并序列化，并且让DTO可以嵌套其他DTO。同样常见的案例是在订单详情里需要展示商品信息：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage3901e1ed9e042660d2563cb0.png" />   
+    </p>
+<h4 id="23---模型所在模块和转化器">2.3 - 模型所在模块和转化器</h4>
+<p>由于现在从一个对象变为3+个对象，对象间需要通过转化器（Converter/Mapper）来互相转化。</p>
+<p>而这三种对象在代码中所在的位置也不一样，简单总结如下：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagee5377df267f9cddba7e1ee89.png" />   
+    </p>
+<p><strong>DTO Assembler</strong>：</p>
+<p>在Application层，Entity到DTO的转化器有一个标准的名称叫DTO Assembler。</p>
+<p>Martin Fowler在P of EAA一书里对于DTO 和 Assembler的描述：Data Transfer Object (<a href="https://martinfowler.com/eaaCatalog/dataTransferObject.html">https://martinfowler.com/eaaCatalog/dataTransferObject.html</a>)。</p>
+<p>DTO Assembler的核心作用就是将1个或多个相关联的Entity转化为1个或多个DTO。</p>
+<p><strong>Data Converter</strong>：</p>
+<p>在Infrastructure层，Entity到DO的转化器没有一个标准名称，但是为了区分Data Mapper，我们叫这种转化器Data Converter。</p>
+<p>这里要注意Data Mapper通常情况下指的是DAO，比如Mybatis的Mapper。</p>
+<p>Data Mapper的出处也在P of EAA一书里：Data Mapper (<a href="https://martinfowler.com/eaaCatalog/dataMapper.html">https://martinfowler.com/eaaCatalog/dataMapper.html</a>)</p>
+<p>如果是手写一个Assembler，通常我们会去实现2种类型的方法，如下；Data Converter的逻辑和此类似，略过。</p>
+<pre tabindex="0"><code>public class DtoAssembler {  
+    // 通过各种实体，生成DTO  
+    public OrderDTO toDTO(Order order, Item item) {  
+        OrderDTO dto = new OrderDTO();  
+        dto.setId(order.getId());  
+        dto.setItemTitle(item.getTitle()); // 从多个对象里取值，且字段名称不一样  
+        dto.setDetailAddress(order.getAddress.getDetail()); // 可以读取复杂嵌套字段  
+        // 省略N行  
+        return dto;  
+    }  
+  
+    // 通过DTO，生成实体  
+    public Item toEntity(ItemDTO itemDTO) {  
+        Item entity = new Item();  
+        entity.setId(itemDTO.getId());  
+        // 省略N行  
+        return entity;  
+    }  
+}  
+</code></pre><p>我们能看出来通过抽象出一个Assembler/Converter对象，我们能把复杂的转化逻辑都收敛到一个对象中，并且可以很好的单元测试。</p>
+<p>这个也很好的收敛了常见代码里的转化逻辑。</p>
+<p>在调用方使用时是非常方便的（请忽略各种异常逻辑）：</p>
+<pre tabindex="0"><code>public class Application {  
+    private DtoAssembler assembler;  
+    private OrderRepository orderRepository;  
+    private ItemRepository itemRepository;  
+    
+    public OrderDTO getOrderDetail(Long orderId) {  
+        Order order = orderRepository.find(orderId);  
+        Item item = itemRepository.find(order.getItemId());  
+        return assembler.toDTO(order, item); // 原来的很多复杂转化逻辑都收敛到一行代码了  
+    }  
+}  
+</code></pre><p>虽然Assembler/Converter是非常好用的对象，但是当业务复杂时，<strong>手写</strong>Assembler/Converter是一件耗时且容易出bug的事情，所以业界会有多种Bean Mapping的解决方案，从本质上分为动态和静态映射。</p>
+<p>动态映射方案包括比较原始的BeanUtils.copyProperties、能通过xml配置的Dozer等，其核心是在运行时根据反射动态赋值。</p>
+<p>动态方案的缺陷在于大量的反射调用，性能比较差，内存占用多，不适合特别高并发的应用场景。</p>
+<p>所以在这里我给用Java的同学推荐一个库叫MapStruct（MapStruct官网 (<a href="https://mapstruct.org/">https://mapstruct.org/</a>)）。</p>
+<p>MapStruct通过注解，在<strong>编译时</strong>静态生成映射代码，其最终编译出来的代码和手写的代码在性能上完全一致，且有强大的注解等能力。</p>
+<p>如果你的IDE支持，甚至可以在编译后看到编译出来的映射代码，用来做check。在这里我就不细讲MapStruct的用法了，具体细节请见官网。</p>
+<p>用了MapStruct之后，会节省大量的成本，让代码变得简洁如下：</p>
+<pre tabindex="0"><code>@org.mapstruct.Mapper  
+public interface DtoAssembler { // 注意这里变成了一个接口，MapStruct会生成实现类  
+    DtoAssembler INSTANCE = Mappers.getMapper(DtoAssembler.class);  
+  
+    // 在这里只需要指出字段不一致的情况，支持复杂嵌套  
+    @Mapping(target = &#34;itemTitle&#34;, source = &#34;item.title&#34;)  
+    @Mapping(target = &#34;detailAddress&#34;, source = &#34;order.address.detail&#34;)  
+    OrderDTO toDTO(Order order, Item item);  
+      
+    // 如果字段没有不一致，一行注解都不需要  
+    Item toEntity(ItemDTO itemDTO);  
+}  
+</code></pre><p>在使用了MapStruct后，你只需要标注出字段不一致的情况，其他的情况都通过Convention over Configuration帮你解决了。</p>
+<p>还有很多复杂的用法我就不一一指出了。</p>
+<h4 id="24---模型规范总结">2.4 - 模型规范总结</h4>
+<p>|</p>
+<table>
+<thead>
+<tr>
+<th>DO</th>
+<th>Entity</th>
+<th>DTO</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目的</td>
+<td>数据库表映射</td>
+<td>业务逻辑</td>
+<td>适配业务场景</td>
+</tr>
+<tr>
+<td>代码层级</td>
+<td>Infrastructure</td>
+<td>Domain</td>
+<td>Application</td>
+</tr>
+<tr>
+<td>命名规范</td>
+<td>XxxDO</td>
+<td>Xxx</td>
+<td>XxxDTO XxxCommand XxxRequest等</td>
+</tr>
+<tr>
+<td>字段名称标准</td>
+<td>数据库表字段名</td>
+<td>业务语言</td>
+<td>和调用方商定</td>
+</tr>
+<tr>
+<td>字段数据类型</td>
+<td>数据库字段类型</td>
+<td>尽量是有业务含义的类型，比如DP</td>
+<td>和调用方商定</td>
+</tr>
+<tr>
+<td>是否需要序列化</td>
+<td>不需要</td>
+<td>不需要</td>
+<td>需要</td>
+</tr>
+<tr>
+<td>转化器</td>
+<td>Data Converter</td>
+<td>Data Converter DTO Assembler</td>
+<td>DTO Assembler</td>
+</tr>
+</tbody>
+</table>
+<p>从使用复杂度角度来看，区分了DO、Entity、DTO之后，会带来了代码量的膨胀（从1个变成了3+2+N个）。</p>
+<p>但是在实际复杂业务场景下，通过<strong>功能</strong>来区分模型带来的价值是功能性的单一和可测试、可预期，最终反而是逻辑复杂性的降低。</p>
+<h3 id="3-repository代码规范">3. Repository代码规范</h3>
+<h4 id="31---接口规范">3.1 - 接口规范</h4>
+<p>上文曾经讲过，传统Data Mapper（DAO）属于“固件”，和底层实现（DB、Cache、文件系统等）强绑定，如果直接使用会导致代码“固化”。</p>
+<p>所以为了在Repository的设计上体现出“软件”的特性，主要需要注意以下三点：</p>
+<ol>
+<li>
+<p><strong>接口名称不应该使用底层实现的语法</strong>：</p>
+<p>我们常见的<code>insert</code>、<code>select</code>、<code>update</code>、<code>delete</code>都属于SQL语法，使用这几个词相当于和DB底层实现做了绑定。</p>
+<p>相反，我们应该把Repository当成一个中性的类似Collection的接口，使用语法如<code>find</code>、<code>save</code>、<code>remove</code>。</p>
+<p>在这里特别需要指出的是区分<code>insert</code>/<code>add</code>和<code>update</code>本身也是一种和底层强绑定的逻辑，一些储存如缓存实际上不存在<code>insert</code>和<code>update</code>的差异，在这个case 里，使用中性的<code>save</code>接口，然后在具体实现上根据情况调用DAO的<code>insert</code>或<code>update</code>接口。</p>
+</li>
+<li>
+<p><strong>出参入参不应该使用底层数据格式</strong>：</p>
+<p>需要记得的是Repository操作的是Entity对象（实际上应该是Aggregate Root），而不应该直接操作底层的DO。更近一步，Repository接口实际上应该存在于Domain层，根本看不到DO的实现。这个也是为了避免底层实现逻辑渗透到业务代码中的强保障。</p>
+</li>
+<li>
+<p><strong>应该避免所谓的“通用”Repository模式</strong>：</p>
+<p>很多ORM框架都提供一个“通用”的Repository接口，然后框架通过注解自动实现接口，比较典型的例子是Spring Data、Entity Framework等，这种框架的好处是在简单场景下很容易通过配置实现，但是坏处是基本上无扩展的可能性（比如加定制缓存逻辑），在未来有可能还是会被推翻重做。当然，这里避免通用不代表不能有基础接口和通用的帮助类，具体如下。</p>
+</li>
+</ol>
+<p>我们先定义一个基础的Repository基础接口类，以及一些Marker接口类：</p>
+<pre tabindex="0"><code>public interface Repository&amp;lt;T extends Aggregate&amp;lt;ID&amp;gt;, ID extends Identifier&amp;gt; {  
+  
+    /**  
+     * 将一个Aggregate附属到一个Repository，让它变为可追踪。  
+     * Change-Tracking在下文会讲，非必须  
+     */  
+    void attach(@NotNull T aggregate);  
+  
+    /**  
+     * 解除一个Aggregate的追踪  
+     * Change-Tracking在下文会讲，非必须  
+     */  
+    void detach(@NotNull T aggregate);  
+  
+    /**  
+     * 通过ID寻找Aggregate。  
+     * 找到的Aggregate自动是可追踪的  
+     */  
+    T find(@NotNull ID id);  
+  
+    /**  
+     * 将一个Aggregate从Repository移除  
+     * 操作后的aggregate对象自动取消追踪  
+     */  
+    void remove(@NotNull T aggregate);  
+  
+    /**  
+     * 保存一个Aggregate  
+     * 保存后自动重置追踪条件  
+     */  
+    void save(@NotNull T aggregate);  
+}  
+  
+// 聚合根的Marker接口  
+public interface Aggregate&amp;lt;ID extends Identifier&amp;gt; extends Entity&amp;lt;ID&amp;gt; {  
+    
+}  
+  
+// 实体类的Marker接口  
+public interface Entity&amp;lt;ID extends Identifier&amp;gt; extends Identifiable&amp;lt;ID&amp;gt; {  
+    
+}  
+  
+public interface Identifiable&amp;lt;ID extends Identifier&amp;gt; {  
+    ID getId();  
+}  
+  
+// ID类型DP的Marker接口  
+public interface Identifier extends Serializable {  
+  
+}  
+</code></pre><p>业务自己的接口只需要在基础接口上进行扩展，举个订单的例子：</p>
+<pre tabindex="0"><code>// 代码在Domain层  
+public interface OrderRepository extends Repository&amp;lt;Order, OrderId&amp;gt; {  
+      
+    // 自定义Count接口，在这里OrderQuery是一个自定义的DTO  
+    Long count(OrderQuery query);  
+    
+    // 自定义分页查询接口  
+    Page&amp;lt;Order&amp;gt; query(OrderQuery query);  
+    
+    // 自定义有多个条件的查询接口  
+    Order findInStore(OrderId id, StoreId storeId);  
+}  
+</code></pre><p>每个业务需要根据自己的业务场景来定义各种查询逻辑。</p>
+<p>这里需要再次强调的是Repository的接口是在Domain层，但是实现类是在Infrastructure层。</p>
+<h4 id="32---repository基础实现">3.2 - Repository基础实现</h4>
+<p>先举个Repository的最简单实现的例子。</p>
+<p>注意<code>OrderRepositoryImpl</code>在Infrastructure层：</p>
+<pre tabindex="0"><code>// 代码在Infrastructure层  
+@Repository // Spring的注解  
+public class OrderRepositoryImpl implements OrderRepository {  
+    private final OrderDAO dao; // 具体的DAO接口  
+    private final OrderDataConverter converter; // 转化器  
+  
+    public OrderRepositoryImpl(OrderDAO dao) {  
+        this.dao = dao;  
+        this.converter = OrderDataConverter.INSTANCE;  
+    }  
+  
+    @Override  
+    public Order find(OrderId orderId) {  
+        OrderDO orderDO = dao.findById(orderId.getValue());  
+        return converter.fromData(orderDO);  
+    }  
+  
+    @Override  
+    public void remove(Order aggregate) {  
+        OrderDO orderDO = converter.toData(aggregate);  
+        dao.delete(orderDO);  
+    }  
+  
+    @Override  
+    public void save(Order aggregate) {  
+        if (aggregate.getId() != null &amp;amp;&amp;amp; aggregate.getId().getValue() &amp;gt; 0) {  
+            // update  
+            OrderDO orderDO = converter.toData(aggregate);  
+            dao.update(orderDO);  
+        } else {  
+            // insert  
+            OrderDO orderDO = converter.toData(aggregate);  
+            dao.insert(orderDO);  
+            aggregate.setId(converter.fromData(orderDO).getId());  
+        }  
+    }  
+  
+    @Override  
+    public Page&amp;lt;Order&amp;gt; query(OrderQuery query) {  
+        List&amp;lt;OrderDO&amp;gt; orderDOS = dao.queryPaged(query);  
+        long count = dao.count(query);  
+        List&amp;lt;Order&amp;gt; result = orderDOS.stream().map(converter::fromData).collect(Collectors.toList());  
+        return Page.with(result, query, count);  
+    }  
+  
+    @Override  
+    public Order findInStore(OrderId id, StoreId storeId) {  
+        OrderDO orderDO = dao.findInStore(id.getValue(), storeId.getValue());  
+        return converter.fromData(orderDO);  
+    }  
+  
+}  
+</code></pre><p>从上面的实现能看出来一些套路：所有的Entity/Aggregate会被转化为DO，然后根据业务场景，调用相应的DAO方法进行操作，事后如果需要则把DO转换回Entity。代码基本很简单，唯一需要注意的是<code>save</code>方法，需要根据Aggregate的ID是否存在且大于0来判断一个Aggregate是否需要更新还是插入。</p>
+<h4 id="33---repository复杂实现">3.3 - Repository复杂实现</h4>
+<p>针对单一Entity的Repository实现一般比较简单，但是当涉及到多Entity的Aggregate Root时，就会比较麻烦，最主要的原因是在一次操作中，并不是所有Aggregate里的Entity都需要变更，但是如果用简单的写法，会导致大量的无用DB操作。</p>
+<p>举一个常见的例子，在主子订单的场景下，一个主订单Order会包含多个子订单LineItem，假设有个改某个子订单价格的操作，会同时改变主订单价格，但是对其他子订单无影响：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage66c119b3199710ea0655a506.png" />   
+    </p>
+<p>如果用一个非常naive的实现来完成，会导致多出来两个无用的更新操作，如下：</p>
+<pre tabindex="0"><code>public class OrderRepositoryImpl extends implements OrderRepository {  
+    private OrderDAO orderDAO;  
+    private LineItemDAO lineItemDAO;  
+    private OrderDataConverter orderConverter;  
+    private LineItemDataConverter lineItemConverter;  
+  
+    // 其他逻辑省略  
+    
+    @Override  
+    public void save(Order aggregate) {  
+        if (aggregate.getId() != null &amp;amp;&amp;amp; aggregate.getId().getValue() &amp;gt; 0) {  
+            // 每次都将Order和所有LineItem全量更新  
+            OrderDO orderDO = orderConverter.toData(aggregate);  
+            orderDAO.update(orderDO);  
+            for (LineItem lineItem: aggregate.getLineItems()) {  
+                save(lineItem);  
+            }  
+        } else {  
+            // 插入逻辑省略  
+        }  
+    }  
+  
+    private void save(LineItem lineItem) {  
+        if (lineItem.getId() != null &amp;amp;&amp;amp; lineItem.getId().getValue() &amp;gt; 0) {  
+            LineItemDO lineItemDO = lineItemConverter.toData(lineItem);  
+            lineItemDAO.update(lineItemDO);  
+        } else {  
+            LineItemDO lineItemDO = lineItemConverter.toData(lineItem);  
+            lineItemDAO.insert(lineItemDO);  
+            lineItem.setId(lineItemConverter.fromData(lineItemDO).getId());  
+        }  
+    }  
+}  
+</code></pre><p>在这个情况下，会导致4个UPDATE操作，但实际上只需要2个。在绝大部分情况下，这个成本不高，可以接受，但是在极端情况下（当非Aggregate Root的Entity非常多时），会导致大量的无用写操作。</p>
+<h4 id="34---change-tracking-变更追踪">3.4 - Change-Tracking 变更追踪</h4>
+<p>在上面那个案例里，核心的问题是由于Repository接口规范的限制，让调用方仅能操作Aggregate Root，而无法单独针对某个非Aggregate Root的Entity直接操作。这个和直接调用DAO的方式很不一样。</p>
+<p>这个的解决方案是需要能识别到底哪些Entity有变更，并且只针对那些变更过的Entity做操作，就需要加上变更追踪的能力。</p>
+<p>换一句话说就是原来很多人为判断的代码逻辑，现在可以通过变更追踪来自动实现，让使用方真正只关心Aggregate的操作。</p>
+<p>在上一个案例里，通过变更追踪，系统可以判断出来只有LineItem2 和 Order 有变更，所以只需要生成两个UPDATE即可。</p>
+<p>业界有两个主流的变更追踪方案：</p>
+<ol>
+<li>
+<p>基于Snapshot的方案：当数据从DB里取出来后，在内存中保存一份snapshot，然后在数据写入时和snapshot比较。常见的实现如Hibernate</p>
+</li>
+<li>
+<p>基于Proxy的方案：当数据从DB里取出来后，通过weaving的方式将所有setter都增加一个切面来判断setter是否被调用以及值是否变更，如果变更则标记为Dirty。在保存时根据Dirty判断是否需要更新。常见的实现如Entity Framework。</p>
+</li>
+</ol>
+<p>Snapshot方案的好处是比较简单，成本在于每次保存时全量Diff的操作（一般用Reflection），以及保存Snapshot的内存消耗。</p>
+<p>Proxy方案的好处是性能很高，几乎没有增加的成本，但是坏处是实现起来比较困难，且当有嵌套关系存在时不容易发现嵌套对象的变化（比如子List的增加和删除等），有可能导致bug。</p>
+<p>由于Proxy方案的复杂度，业界主流（包括EF Core）都在使用Snapshot方案。这里面还有另一个好处就是通过Diff可以发现哪些字段有变更，然后只更新变更过的字段，再一次降低UPDATE的成本。</p>
+<p>在这里我简单贴一下我们自己Snapshot的实现，代码并不复杂，每个团队自己实现起来也很简单，部分代码仅供参考：</p>
+<p><strong>DbRepositorySupport</strong></p>
+<pre tabindex="0"><code>// 这个类是一个通用的支撑类，为了减少开发者的重复劳动。在用的时候需要继承这个类  
+public abstract class DbRepositorySupport&amp;lt;T extends Aggregate&amp;lt;ID&amp;gt;, ID extends Identifier&amp;gt; implements Repository&amp;lt;T, ID&amp;gt; {  
+  
+    @Getter  
+    private final Class&amp;lt;T&amp;gt; targetClass;  
+  
+    // 让AggregateManager去维护Snapshot  
+    @Getter(AccessLevel.PROTECTED)  
+    private AggregateManager&amp;lt;T, ID&amp;gt; aggregateManager;  
+  
+    protected DbRepositorySupport(Class&amp;lt;T&amp;gt; targetClass) {  
+        this.targetClass = targetClass;  
+        this.aggregateManager = AggregateManager.newInstance(targetClass);  
+    }  
+  
+    /**  
+     * 这几个方法是继承的子类应该去实现的  
+     */  
+    protected abstract void onInsert(T aggregate);  
+    protected abstract T onSelect(ID id);  
+    protected abstract void onUpdate(T aggregate, EntityDiff diff);  
+    protected abstract void onDelete(T aggregate);  
+  
+    /**  
+     * Attach的操作就是让Aggregate可以被追踪  
+     */  
+    @Override  
+    public void attach(@NotNull T aggregate) {  
+        this.aggregateManager.attach(aggregate);  
+    }  
+  
+    /**  
+     * Detach的操作就是让Aggregate停止追踪  
+     */  
+    @Override  
+    public void detach(@NotNull T aggregate) {  
+        this.aggregateManager.detach(aggregate);  
+    }  
+  
+    @Override  
+    public T find(@NotNull ID id) {  
+        T aggregate = this.onSelect(id);  
+        if (aggregate != null) {  
+            // 这里的就是让查询出来的对象能够被追踪。  
+            // 如果自己实现了一个定制查询接口，要记得单独调用attach。  
+            this.attach(aggregate);  
+        }  
+        return aggregate;  
+    }  
+  
+    @Override  
+    public void remove(@NotNull T aggregate) {  
+        this.onDelete(aggregate);  
+        // 删除停止追踪  
+        this.detach(aggregate);  
+    }  
+    
+    @Override  
+    public void save(@NotNull T aggregate) {  
+        // 如果没有ID，直接插入  
+        if (aggregate.getId() == null) {  
+            this.onInsert(aggregate);  
+            this.attach(aggregate);  
+            return;  
+        }  
+          
+        // 做Diff  
+        EntityDiff diff = aggregateManager.detectChanges(aggregate);  
+        if (diff.isEmpty()) {  
+            return;  
+        }  
+  
+        // 调用UPDATE  
+        this.onUpdate(aggregate, diff);  
+          
+        // 最终将DB带来的变化更新回AggregateManager  
+        aggregateManager.merge(aggregate);  
+    }  
+}  
+</code></pre><p>使用方只需要继承DbRepositorySupport：</p>
+<pre tabindex="0"><code>public class OrderRepositoryImpl extends DbRepositorySupport&amp;lt;Order, OrderId&amp;gt; implements OrderRepository {  
+    private OrderDAO orderDAO;  
+    private LineItemDAO lineItemDAO;  
+    private OrderDataConverter orderConverter;  
+    private LineItemDataConverter lineItemConverter;  
+      
+    // 部分代码省略，见上文  
+    
+    @Override  
+    protected void onUpdate(Order aggregate, EntityDiff diff) {  
+        if (diff.isSelfModified()) {  
+            OrderDO orderDO = converter.toData(aggregate);  
+            orderDAO.update(orderDO);  
+        }  
+  
+        Diff lineItemDiffs = diff.getDiff(&#34;lineItems&#34;);  
+        if (lineItemDiffs instanceof ListDiff) {  
+            ListDiff diffList = (ListDiff) lineItemDiffs;  
+            for (Diff itemDiff : diffList) {  
+                if (itemDiff.getType() == DiffType.Removed) {  
+                    LineItem line = (LineItem) itemDiff.getOldValue();  
+                    LineItemDO lineDO = lineItemConverter.toData(line);  
+                    lineItemDAO.delete(lineDO);  
+                }  
+                if (itemDiff.getType() == DiffType.Added) {  
+                    LineItem line = (LineItem) itemDiff.getNewValue();  
+                    LineItemDO lineDO = lineItemConverter.toData(line);  
+                    lineItemDAO.insert(lineDO);  
+                }  
+                if (itemDiff.getType() == DiffType.Modified) {  
+                    LineItem line = (LineItem) itemDiff.getNewValue();  
+                    LineItemDO lineDO = lineItemConverter.toData(line);  
+                    lineItemDAO.update(lineDO);  
+                }  
+            }  
+        }  
+    }  
+}  
+</code></pre><p>AggregateManager实现，主要是通过ThreadLocal避免多线程公用同一个Entity的情况</p>
+<pre tabindex="0"><code>class ThreadLocalAggregateManager&amp;lt;T extends Aggregate&amp;lt;ID&amp;gt;, ID extends Identifier&amp;gt; implements AggregateManager&amp;lt;T, ID&amp;gt; {  
+  
+    private ThreadLocal&amp;lt;DbContext&amp;lt;T, ID&amp;gt;&amp;gt; context;  
+    private Class&amp;lt;? extends T&amp;gt; targetClass;  
+  
+    public ThreadLocalAggregateManager(Class&amp;lt;? extends T&amp;gt; targetClass) {  
+        this.targetClass = targetClass;  
+        this.context = ThreadLocal.withInitial(() -&amp;gt; new DbContext&amp;lt;&amp;gt;(targetClass));  
+    }  
+  
+    public void attach(T aggregate) {  
+        context.get().attach(aggregate);  
+    }  
+  
+    @Override  
+    public void attach(T aggregate, ID id) {  
+        context.get().setId(aggregate, id);  
+        context.get().attach(aggregate);  
+    }  
+  
+    @Override  
+    public void detach(T aggregate) {  
+        context.get().detach(aggregate);  
+    }  
+  
+    @Override  
+    public T find(ID id) {  
+        return context.get().find(id);  
+    }  
+  
+    @Override  
+    public EntityDiff detectChanges(T aggregate) {  
+        return context.get().detectChanges(aggregate);  
+    }  
+  
+    public void merge(T aggregate) {  
+        context.get().merge(aggregate);  
+    }  
+}  
+class DbContext&amp;lt;T extends Aggregate&amp;lt;ID&amp;gt;, ID extends Identifier&amp;gt; {  
+  
+    @Getter  
+    private Class&amp;lt;? extends T&amp;gt; aggregateClass;  
+  
+    private Map&amp;lt;ID, T&amp;gt; aggregateMap = new HashMap&amp;lt;&amp;gt;();  
+  
+    public DbContext(Class&amp;lt;? extends T&amp;gt; aggregateClass) {  
+        this.aggregateClass = aggregateClass;  
+    }  
+  
+    public void attach(T aggregate) {  
+        if (aggregate.getId() != null) {  
+            if (!aggregateMap.containsKey(aggregate.getId())) {  
+                this.merge(aggregate);  
+            }  
+        }  
+    }  
+  
+    public void detach(T aggregate) {  
+        if (aggregate.getId() != null) {  
+            aggregateMap.remove(aggregate.getId());  
+        }  
+    }  
+  
+    public EntityDiff detectChanges(T aggregate) {  
+        if (aggregate.getId() == null) {  
+            return EntityDiff.EMPTY;  
+        }  
+        T snapshot = aggregateMap.get(aggregate.getId());  
+        if (snapshot == null) {  
+            attach(aggregate);  
+        }  
+        return DiffUtils.diff(snapshot, aggregate);  
+    }  
+  
+    public T find(ID id) {  
+        return aggregateMap.get(id);  
+    }  
+  
+    public void merge(T aggregate) {  
+        if (aggregate.getId() != null) {  
+            T snapshot = SnapshotUtils.snapshot(aggregate);  
+            aggregateMap.put(aggregate.getId(), snapshot);  
+        }  
+    }  
+  
+    public void setId(T aggregate, ID id) {  
+        ReflectionUtils.writeField(&#34;id&#34;, aggregate, id);  
+    }  
+}  
+</code></pre><p>跑个单测（注意在这个case里我把Order和LineItem合并单表了）：</p>
+<pre tabindex="0"><code>@Test  
+public void multiInsert() {  
+    OrderDAO dao = new MockOrderDAO();  
+    OrderRepository repo = new OrderRepositoryImpl(dao);  
+  
+    Order order = new Order();  
+    order.setUserId(new UserId(11L));  
+    order.setStatus(OrderState.ENABLED);  
+    order.addLineItem(new ItemId(13L), new Quantity(5), new Money(4));  
+    order.addLineItem(new ItemId(14L), new Quantity(2), new Money(3));  
+  
+    System.out.println(&#34;第一次保存前&#34;);  
+    System.out.println(order);  
+  
+    repo.save(order);  
+    System.out.println(&#34;第一次保存后&#34;);  
+    System.out.println(order);  
+  
+    order.getLineItems().get(0).setQuantity(new Quantity(3));  
+    order.pay();  
+    repo.save(order);  
+  
+    System.out.println(&#34;第二次保存后&#34;);  
+    System.out.println(order);  
+}  
+</code></pre><p>单测结果：</p>
+<pre tabindex="0"><code>第一次保存前  
+Order(id=null, userId=11, lineItems=[LineItem(id=null, itemId=13, quantity=5, price=4), LineItem(id=null, itemId=14, quantity=2, price=3)], status=ENABLED)  
+  
+INSERT OrderDO: OrderDO(id=null, parentId=null, itemId=0, userId=11, quantity=0, price=0, status=2)  
+UPDATE OrderDO: OrderDO(id=1001, parentId=1001, itemId=0, userId=11, quantity=0, price=0, status=2)  
+INSERT OrderDO: OrderDO(id=null, parentId=1001, itemId=13, userId=11, quantity=5, price=4, status=2)  
+INSERT OrderDO: OrderDO(id=null, parentId=1001, itemId=14, userId=11, quantity=2, price=3, status=2)  
+  
+第一次保存后  
+Order(id=1001, userId=11, lineItems=[LineItem(id=1002, itemId=13, quantity=5, price=4), LineItem(id=1003, itemId=14, quantity=2, price=3)], status=ENABLED)  
+  
+UPDATE OrderDO: OrderDO(id=1001, parentId=1001, itemId=0, userId=11, quantity=0, price=0, status=3)  
+UPDATE OrderDO: OrderDO(id=1002, parentId=1001, itemId=13, userId=11, quantity=3, price=4, status=3)  
+  
+第二次保存后  
+Order(id=1001, userId=11, lineItems=[LineItem(id=1002, itemId=13, quantity=3, price=4), LineItem(id=1003, itemId=14, quantity=2, price=3)], status=PAID)  
+</code></pre><h4 id="35---其他注意事项">3.5 - 其他注意事项</h4>
+<p><strong>并发乐观锁</strong></p>
+<p>在高并发情况下，如果使用上面的Change-Tracking方法，由于Snapshot在本地内存的数据_有可能_ 和DB数据不一致，会导致并发冲突的问题，这个时候需要在更新时加入乐观锁。当然，正常数据库操作的Best Practice应该也要有乐观锁，只不过在这个case 里，需要在乐观锁冲突后，记得更新本地Snapshot里的值。</p>
+<p><strong>一个可能的BUG</strong></p>
+<p>这个其实算不上bug，但是单独指出来希望大家能注意一下，使用Snapshot的一个副作用就是如果没更新Entity然后调用了<code>save</code>方法，这时候实际上是不会去更新DB的。这个逻辑跟Hibernate的逻辑一致，是Snapshot方法的天生特性。如果要强制更新到DB，建议手动更改一个字段如<code>gmtModified</code>，然后再调用<code>save</code>。</p>
+<h3 id="4-repository迁移路径">4. Repository迁移路径</h3>
+<p>在我们日常的代码中，使用Repository模式是一个很简单，但是又能得到很多收益的事情。</p>
+<p>最大的收益就是可以彻底和底层实现解耦，让上层业务可以快速自发展。</p>
+<p>我们假设现有的传统代码包含了以下几个类（还是用订单举例）：</p>
+<ul>
+<li>
+<p>OrderDO</p>
+</li>
+<li>
+<p>OrderDAO</p>
+</li>
+</ul>
+<p>可以通过以下几个步骤逐渐的实现Repository模式：</p>
+<ol>
+<li>
+<p>生成Order实体类，初期字段可以和OrderDO保持一致</p>
+</li>
+<li>
+<p>生成OrderDataConverter，通过MapStruct基本上2行代码就能完成</p>
+</li>
+<li>
+<p>写单元测试，确保Order和OrderDO之间的转化100%正确</p>
+</li>
+<li>
+<p>生成OrderRepository接口和实现，通过单测确保OrderRepository的正确性</p>
+</li>
+<li>
+<p>将原有代码里使用了OrderDO的地方改为Order</p>
+</li>
+<li>
+<p>将原有代码里使用了OrderDAO的地方都改为用OrderRepository</p>
+</li>
+<li>
+<p>通过单测确保业务逻辑的一致性。</p>
+</li>
+</ol>
+<p>恭喜你！</p>
+<p>从现在开始Order实体类和其业务逻辑可以随意更改，每次修改你唯一需要做的就是变更一下Converter，已经和底层实现完全解藕了。</p>
+<h2 id="未完待续尼恩说在最后">未完待续，尼恩说在最后</h2>
+<p>DDD 面试题，是非常常见的面试题。DDD的学习材料， 汗牛塞屋，又缺乏经典。</p>
+<p>《殷浩详解DDD：领域层设计规范》做到从0到1带大家精通DDD，非常难得。</p>
+<p>这里，把尼恩修改过的 《殷浩详解DDD：领域层设计规范》，通过尼恩的公众号《技术自由圈》发布出来。</p>
+<p>大家面试的时候， 可以参考以上的内容去组织答案，如果大家能做到对答如流，如数家珍，基本上 面试官会被你 震惊到、吸引到。</p>
+<p>另外在面试之前，建议大家系统化的刷一波 5000页《<a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247497474&amp;idx=1&amp;sn=54a7b194a72162e9f13695443eabe186&amp;scene=21#wechat_redirect">尼恩Java面试宝典PDF</a>》，并且在刷题过程中，如果有啥问题，大家可以来 找 40岁老架构师尼恩交流。</p>
+<p>最终，<strong>让面试官爱到 “不能自已、口水直流”</strong>。offer， 也就来了。</p>
+<p>当然，关于DDD，尼恩即将给大家发布一波视频  《第34章：DDD的顶奢面经》。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage06a948206a685e7cdb27450d.png" />   
+    </p>
+<h2 id="部分历史案例">部分历史案例</h2>
+<ul>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485753&amp;idx=1&amp;sn=b17a9f8d8674b70ad1c69ada4bc110dd&amp;scene=21#wechat_redirect">一个顶奢、塔尖的简历黄金项目：18Wqps单体Netty API网关的架构与实操</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485697&amp;idx=1&amp;sn=f903bd45e5167d6ef6b8e2bb2f2e6d1a&amp;scene=21#wechat_redirect">太炸了：3年小伙入Swing大坑，靠2个黄金项目1个月脱坑，提顶级后端offer</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485678&amp;idx=1&amp;sn=cf809e4345ef95c8531f1685d9b4867e&amp;scene=21#wechat_redirect">一年裸辞2次，一次提4个offer，一次提6个offer，这个3年小伙太牛了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=https://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485663&amp;idx=1&amp;sn=357ab76bc6695485b7941e8eb24a0b42&amp;scene=21#wechat_redirect">爽翻了：指导3轮，5年小伙收5大offer，涨50%，领路模式太牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485643&amp;idx=1&amp;sn=ce71b19e7c9745ab2fe8bfc75f54d993&amp;chksm=97b57943a0c2f055e5c085eec48586e9ba05ae661acabe4cfb7e984c5aeb03d6beeafd204eba&amp;scene=21#wechat_redirect">降维攻击，37年大龄老伙喜提60W年薪offer，1个月顺利上岸</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485571&amp;idx=1&amp;sn=c0096484fd2e1202c14a4bd9d37427c2&amp;chksm=97b5790ba0c2f01da764b8b7b5e3c8a5b02f42d2ed30809f9d7b2d8e73a5bebc9102ef502bc8&amp;scene=21#wechat_redirect">架构速成：从一面杀到一次过，记7年女架构的速成经历</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzIxMzYwODY3OQ==&amp;mid=2247485452&amp;idx=1&amp;sn=68102559298564895b1496e2230dddb2&amp;chksm=97b57984a0c2f0927d80f8719a7dc56f43ff13e373eb3886d39be98538180f919225b5ac05f2&amp;scene=21#wechat_redirect">极速拿offer：阿里P6被裁后极速上岸，1个月内喜提2优质offer(含滴滴)</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247496226&amp;idx=1&amp;sn=459a566cfa5915a720e80e1880fd730d&amp;chksm=c14148a6f636c1b08a321d08384c5d76e184c22f8f4457f980452c45c163bdc5ab91ca17b919&amp;scene=21#wechat_redirect">惊天大逆袭：失业4个月，3年小伙1个月喜提架构Offer，而且是大龄跨行，超级牛</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247495923&amp;idx=1&amp;sn=dbc5303128ad3c38d77f9809b2e489fb&amp;chksm=c1414a77f636c361ecd94369c480a51ba96643e7cf5189b69a455778e9e9a3fa8e58b751f875&amp;scene=21#wechat_redirect">裁就裁：6年专科火速上岸，从外包逆袭到甲方，还是专科，他是怎么做到的？</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247494735&amp;idx=1&amp;sn=d9a5d92f27cc10e40ae8a316adaf6c6b&amp;chksm=c14156cbf636dfdda10de84c0758e8a1243bb173e027f6f2976a3d807cb6ad188e04043ac9ef&amp;scene=21#wechat_redirect">地狱级难，但我15天上岸了！</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492928&amp;idx=1&amp;sn=82fd1c530d0ad8ad798b5c35c040641b&amp;chksm=c1415fc4f636d6d25f16e12a73a2635073994ef742efdddcc1185c5d7727785c98fac14e8de8&amp;scene=21#wechat_redirect">被裁后炸爽：10年小伙12天火速上岸，反涨20%，爽暴了</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247492621&amp;idx=1&amp;sn=f6ada03c596baedcf995e5cb60d255b2&amp;chksm=c1415e89f636d79f13b25d7f3691fb79931515f15b421d65fab1c5e34d4cce4165b6d1772737&amp;scene=21#wechat_redirect">裁就裁，6年小伙60W极速上岸，白拿20W还游一圈拉萨，真香</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491496&amp;idx=1&amp;sn=cb31f7510a7c2efb7daf6cad793860ad&amp;chksm=c142a52cf6352c3a3ec5fa1d53b9f1ebbdda32abaaa20214a7b5023773f9b33a933b72b15273&amp;scene=21#wechat_redirect">惊天大逆袭：8年小伙20天时间提75W年薪offer，逆涨50%，秘诀在这</a></p>
+</li>
+<li>
+<p><a href="http://zshipu.com/t/index.html?url=http://mp.weixin.qq.com/s?__biz=MzkxNzIyMTM1NQ==&amp;mid=2247491450&amp;idx=1&amp;sn=98379c07e430562a8a244121e63f47d7&amp;chksm=c142a5fef6352ce8e3ee64090a6d0619a9d40484f358302d96990e7655ec16f8d8e7624ca88e&amp;scene=21#wechat_redirect">极速拿offer：被毕业3个月，11年经验小伙0.5个月极速拿offer，领路模式的巨大威力</a></p>
+</li>
+</ul>
+<p><strong>职业救助站</strong></p>
+<p>实现职业转型，极速上岸</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagee0242dd88a49e04c58a99c14.jpeg" />   
+    </p>
+<p>关注<strong>职业救助站</strong>公众号，获取每天职业干货<br>
+助您实现<strong>职业转型、职业升级、极速上岸</strong><br>
+-&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;</p>
+<p><strong>技术自由圈</strong></p>
+<p>实现架构转型，再无中年危机</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImageb5ac1ad3248d6141917c2011.jpeg" />   
+    </p>
+<p>关注<strong>技术自由圈</strong>公众号，获取每天技术千货<br>
+一起成为牛逼的<strong>未来超级架构师</strong></p>
+<p><strong>几十篇架构笔记、5000页面试宝典、20个技术圣经<br>
+请加尼恩个人微信 免费拿走</strong></p>
+<p><strong>暗号，请在 公众号后台 发送消息：领电子书</strong></p>
+<p>如有收获，请点击底部的&quot;在看&quot;和&quot;赞&quot;，谢谢</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240627/DDD-%E8%90%BD%E5%9C%B0%E4%B8%A4%E5%A4%A7%E6%AD%A5%E9%AA%A4%E4%BB%A5%E5%8F%8ARepository%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%BC%8F-%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240627/DDD-%E8%90%BD%E5%9C%B0%E4%B8%A4%E5%A4%A7%E6%AD%A5%E9%AA%A4%E4%BB%A5%E5%8F%8ARepository%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%BC%8F-%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240627/DDD%E6%9E%B6%E6%9E%84%E8%90%BD%E5%9C%B0%E5%AE%9E%E6%93%8D%E6%8C%87%E5%8D%97%E4%B8%8E%E9%9D%A2%E8%AF%95%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">DDD架构落地实操指南与面试解析 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240627/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4%E6%96%87%E5%A8%B1%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1%E5%AE%9E%E8%B7%B5%E8%A7%A3%E6%9E%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">阿里巴巴文娱领域驱动设计实践解析 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240627/AI%E6%8A%80%E6%9C%AF%E8%B5%8B%E8%83%BD%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C%E5%85%A8%E6%A1%88%E8%AE%BE%E8%AE%A1%E5%B8%88%E4%BB%AC%E5%B7%B2%E7%BB%8F%E8%B5%A2%E9%BA%BB%E4%BA%86--%E7%9F%A5%E8%AF%86%E9%93%BA/">AI技术赋能内容创作，全案设计师们已经赢麻了！ -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240627/%E4%BB%8E0%E5%88%B01%E5%B8%A6%E5%A4%A7%E5%AE%B6%E7%B2%BE%E9%80%9ADDD---%E7%9F%A5%E8%AF%86%E9%93%BA/">从0到1，带大家精通DDD -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240627/DDD%E8%90%BD%E5%9C%B0%E4%BB%8E%E8%85%BE%E8%AE%AF%E8%A7%86%E9%A2%91DDD%E9%87%8D%E6%9E%84%E4%B9%8B%E8%B7%AF%E7%9C%8BDDD%E6%9E%81%E5%A4%A7%E4%BB%B7%E5%80%BC--%E7%9F%A5%E8%AF%86%E9%93%BA/">DDD落地：从腾讯视频DDD重构之路，看DDD极大价值 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84'>软件架构</a></li>
+                
+                <li><a href='/geek001/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1'>领域驱动设计</a></li>
+                
+                <li><a href='/geek001/tags/%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91'>企业级应用开发</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1DDD%E5%AD%A6%E4%B9%A0%E5%BA%94%E7%94%A8-%E5%B0%8F%E8%AF%9A%E4%BF%A1%E9%A9%BF%E7%AB%99%E7%9A%84%E5%AE%9E%E8%B7%B5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="领域驱动设计（DDD）学习应用 - 小诚信驿站的实践 -- 知识铺">领域驱动设计（DDD）学习应用 - 小诚信驿站的实践 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/DDD%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1%E5%AD%A6%E4%B9%A0%E5%BA%94%E7%94%A8%E5%B0%8F%E8%AF%9A%E4%BF%A1%E9%A9%BF%E7%AB%99InfoQ%E5%86%99%E4%BD%9C%E7%A4%BE%E5%8C%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="DDD领域驱动设计学习应用·小诚信驿站·InfoQ写作社区 -- 知识铺">DDD领域驱动设计学习应用·小诚信驿站·InfoQ写作社区 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1-DDD-CSDN%E5%8D%9A%E5%AE%A2--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="领域驱动设计 (DDD) - CSDN博客 -- 知识铺">领域驱动设计 (DDD) - CSDN博客 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/DDD-%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1%E7%AE%80%E4%BB%8B-3ddd%E6%A8%A1%E5%9E%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="DDD 领域驱动设计简介 - 3ddd模型 -- 知识铺">DDD 领域驱动设计简介 - 3ddd模型 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/%E4%BA%86%E8%A7%A3%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1-DDD--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="了解领域驱动设计 (DDD) -- 知识铺">了解领域驱动设计 (DDD) -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/DDD%E8%90%BD%E5%9C%B0%E4%BB%8E%E7%BE%8E%E5%9B%A2%E6%8A%BD%E5%A5%96%E5%B9%B3%E5%8F%B0%E7%9C%8BDDD%E5%9C%A8%E5%A4%A7%E5%8E%82%E5%A6%82%E4%BD%95%E8%90%BD%E5%9C%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="DDD落地：从美团抽奖平台，看DDD在大厂如何落地？ -- 知识铺">DDD落地：从美团抽奖平台，看DDD在大厂如何落地？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/DDD%E4%B8%AD%E7%9A%84%E6%8E%A5%E5%8F%A3%E4%B8%8E%E5%BA%94%E7%94%A8%E5%B1%82%E7%9A%84%E8%AE%BE%E8%AE%A1%E8%A7%84%E8%8C%83-%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="DDD中的接口与应用层的设计规范 - 知识分享 -- 知识铺">DDD中的接口与应用层的设计规范 - 知识分享 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/DDD-%E8%90%BD%E5%9C%B0%E4%B8%A4%E5%A4%A7%E6%AD%A5%E9%AA%A4%E4%BB%A5%E5%8F%8ARepository%E6%A0%B8%E5%BF%83%E6%A8%A1%E5%BC%8F-%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺">DDD 落地两大步骤，以及Repository核心模式 - 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/AI%E6%8A%80%E6%9C%AF%E8%B5%8B%E8%83%BD%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C%E5%85%A8%E6%A1%88%E8%AE%BE%E8%AE%A1%E5%B8%88%E4%BB%AC%E5%B7%B2%E7%BB%8F%E8%B5%A2%E9%BA%BB%E4%BA%86--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="AI技术赋能内容创作，全案设计师们已经赢麻了！ -- 知识铺">AI技术赋能内容创作，全案设计师们已经赢麻了！ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240627/%E4%BB%8E0%E5%88%B01%E5%B8%A6%E5%A4%A7%E5%AE%B6%E7%B2%BE%E9%80%9ADDD---%E7%9F%A5%E8%AF%86%E9%93%BA/" title="从0到1，带大家精通DDD -- 知识铺">从0到1，带大家精通DDD -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/404/">404</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AIGC/">AIGC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E8%B5%8B%E8%83%BD/">AI赋能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AJAX/">AJAX</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ARM/">ARM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Angular/">Angular</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Knox/">Apache Knox</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Shiro/">Apache Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Spark/">Apache Spark</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Zeppelin/">Apache Zeppelin</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/App-Router/">App Router</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ArrayBuffer/">ArrayBuffer</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Bootstrap/">Bootstrap</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Bun/">Bun</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ByteBuffer/">ByteBuffer</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C/C&#43;&#43;/">C/C&#43;&#43;</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS5/">CAS5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1/">CAS服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1%E5%99%A8/">CAS服务器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CGLIB%E4%BB%A3%E7%90%86/">CGLIB代理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CI/CD/">CI/CD</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD-Operations/">CRUD Operations</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS/">CSS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS-%E5%A1%AB%E5%85%85/">CSS 填充</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS%E6%A8%A1%E5%9D%97/">CSS模块</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Canvas/">Canvas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CentOS-7.x/">CentOS 7.x</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Class-%E7%B1%BB/">Class 类</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Clickhouse/">Clickhouse</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Clickhouse/">Clickhouse</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Core-Web-Vitals/">Core Web Vitals</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cortex-M3/">Cortex-M3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Coze%E5%B9%B3%E5%8F%B0/">Coze平台</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C%E8%AF%AD%E8%A8%80%E7%BC%96%E7%A8%8B/">C语言编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD/">DDD</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E6%9E%B6%E6%9E%84/">DDD架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E6%A8%A1%E5%BC%8F/">DDD模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Dao%E5%B1%82/">Dao层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DataOutputStream/">DataOutputStream</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DataView/">DataView</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DevOps/">DevOps</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK/">ELK</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK-Stack/">ELK Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ETL%E5%B7%A5%E5%85%B7/">ETL工具</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elastic-Stack/">Elastic Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FAA/">FAA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Feign/">Feign</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FreeMarker/">FreeMarker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GPT-4o/">GPT-4o</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML/">HTML</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML5/">HTML5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/IT%E7%A4%BE%E5%8C%BA/">IT社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InfoQ%E5%86%99%E4%BD%9C%E7%A4%BE%E5%8C%BA/">InfoQ写作社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-423/">JEP 423</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-447/">JEP 447</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-454/">JEP 454</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-456/">JEP 456</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-457/">JEP 457</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-458/">JEP 458</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-459/">JEP 459</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-460/">JEP 460</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-461/">JEP 461</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-462/">JEP 462</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-463/">JEP 463</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-464/">JEP 464</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JFinal/">JFinal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT%E9%AA%8C%E8%AF%81/">JWT验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-17/">Java 17</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-22/">Java 22</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-Web%E5%AE%89%E5%85%A8/">Java Web安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JavaScript/">JavaScript</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JavaScript-%E8%BF%90%E8%A1%8C%E6%97%B6/">JavaScript 运行时</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%85%A5%E9%97%A8/">Java入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E8%BF%90%E8%A1%8C%E6%97%A5%E5%BF%97/">Java运行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B/">LLM大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LM393/">LM393</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LangChain/">LangChain</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Lepod-Pro/">Lepod Pro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Link-%E7%BB%84%E4%BB%B6/">Link 组件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Link%E7%BB%84%E4%BB%B6/">Link组件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama-3/">Llama 3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MCU/">MCU</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MDK5/">MDK5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Multiline%E6%8F%92%E4%BB%B6/">Multiline插件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Mybatis-Plus/">Mybatis-Plus</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NIO/">NIO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest/">Nest</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Netty/">Netty</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next-Js/">Next Js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js-App-Router/">Next.js App Router</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NextJS/">NextJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js-API/">Node.js API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js-%E6%9B%BF%E4%BB%A3%E5%93%81/">Node.js 替代品</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OAuth-%E9%9B%86%E6%88%90/">OAuth 集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j-4.0.0/">Pac4j 4.0.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Performance-Tuning/">Performance Tuning</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST-API/">REST API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React-Query/">React Query</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Ribbon/">Ribbon</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RubyGems/">RubyGems</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SPL/">SPL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSG/">SSG</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSO-Shiro-CAS/">SSO-Shiro-CAS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STDOUT/">STDOUT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STM32/">STM32</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Server-Rendering/">Server Rendering</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Service%E5%B1%82/">Service层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Socket-%E7%BC%96%E7%A8%8B/">Socket 编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot-2.0/">Spring Boot 2.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Framework/">Spring Framework</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-MVC/">Spring MVC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Security/">Spring Security</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Validation/">Spring Validation</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Storybook/">Storybook</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TCP%E7%B2%98%E5%8C%85%E9%97%AE%E9%A2%98/">TCP粘包问题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Tailwind-CSS/">Tailwind CSS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Troubleshooting/">Troubleshooting</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TypeScript/">TypeScript</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TypedArray/">TypedArray</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web-%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/">Web 应用程序</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web-%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E5%BC%80%E5%8F%91/">Web 应用程序开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web%E5%BC%80%E5%8F%91/">Web开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web%E6%A1%86%E6%9E%B6%E5%92%8C%E5%BA%93/">Web框架和库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Word%E6%96%87%E6%A1%A3/">Word文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/bundler/">bundler</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/cookie/">cookie</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gem-install-redis/">gem install redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/macOS/">macOS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/multiline/">multiline</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/openssl/">openssl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/serviceValidate/">serviceValidate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/session/">session</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/systemctl/">systemctl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/webStorage/">webStorage</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/zlib/">zlib</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E6%96%87%E5%AF%B9%E8%AF%9D%E6%A8%A1%E5%9E%8B/">中文对话模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%9E%8B/">事件驱动模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E6%9C%8D%E5%8A%A1/">云服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E8%AE%A1%E7%AE%97/">云计算</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%8E0%E5%88%B01/">从0到1</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%90%86%E5%99%A8%E5%86%B2%E7%AA%81/">代理器冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8/">代码生成器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%BA%94%E7%94%A8/">企业级应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91/">企业级应用开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%9A%E8%AE%AE%E7%AC%94%E8%AE%B0/">会议笔记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%8D%E6%93%8D%E4%BD%9C/">位操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%9C%E7%94%A8%E5%9F%9F/">作用域</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5/">依赖注入</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%81%A5%E5%BA%B7%E7%AE%A1%E7%90%86/">健康管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%89%E6%95%8F%E7%94%B5%E9%98%BB/">光敏电阻</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A5%E9%97%A8%E5%AD%A6%E4%B9%A0/">入门学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A1%88%E8%AE%BE%E8%AE%A1/">全案设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%AD%E8%BE%B9%E5%BD%A2%E6%9E%B6%E6%9E%84/">六边形架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%B3%E9%97%AD%E8%A1%8C%E4%B8%BA/">关闭行为</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C%E6%88%96%E5%86%85%E5%AE%B9%E8%90%A5%E9%94%80/">内容创作(或&#39;内容营销&#39;)</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BC%9A%E8%AF%9D%E7%AE%A1%E7%90%86/">分布式会话管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF/">前端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8A%A8%E6%80%81%E9%A1%B5%E9%9D%A2/">动态页面</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%87%BA/">单点登出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%89%87%E6%9C%BA/">单片机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">原子操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%8D%E5%B0%84/">反射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E6%8C%81%E7%BB%AD%E5%8F%91%E5%B1%95/">可持续发展</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8E%E5%8F%B0%E8%BF%90%E8%A1%8C/">后台运行</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%BE%E5%83%8F%E4%BC%98%E5%8C%96/">图像优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A2%9E%E9%87%8F%E7%AB%99%E7%82%B9%E9%87%8D%E6%96%B0%E7%94%9F%E6%88%90/">增量站点重新生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E5%90%88%E5%B9%B6/">多行合并</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E6%97%A5%E5%BF%97/">多行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E6%AE%B5%E5%90%8D%E5%BC%82%E5%B8%B8/">字段名异常</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E7%AC%A6%E4%B8%B2/">字符串</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%A6%E4%B9%A0%E5%BA%94%E7%94%A8/">学习应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%BA%93/">安全库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%80%A7/">安全性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%A1%86%E6%9E%B6/">安全框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%9B%86%E6%88%90/">客户端集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B6%E5%BA%AD%E5%88%86%E4%BA%AB/">家庭分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">容器化部署</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AF%BC%E8%88%AA/">导航</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84%E5%B8%88/">小企业架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%AF%9A%E4%BF%A1%E9%A9%BF%E7%AB%99/">小诚信驿站</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E5%BE%AA%E8%BF%B9/">小车循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E8%AE%BE%E8%AE%A1/">小车设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%BC%80%E5%8F%91/">嵌入式开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E7%B3%BB%E7%BB%9F/">嵌入式系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A1%E7%BA%BF%E5%B0%8F%E8%BD%A6/">巡线小车</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A5%E7%A8%8B%E5%88%9B%E5%BB%BA/">工程创建</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E6%9D%BF/">开发板</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/">开发环境</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E5%A4%A7%E6%A8%A1%E5%9E%8B/">开源大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E5%BA%94%E7%94%A8/">开源项目应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E6%AD%A5%E5%A4%84%E7%90%86/">异步处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BD%A2%E7%8A%B6/">形状</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8/">微控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%8B%86%E5%88%86/">微服务拆分</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84/">微服务架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%94%B5%E7%9B%91%E6%B5%8B/">心电监测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%9F%A5%E4%BA%86/">心知了</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87/">性能提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/">性能测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%A5%E9%94%99/">报错</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%81%E7%BB%AD%E9%9B%86%E6%88%90/">持续集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%87%E5%8D%97/">指南</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%88%E6%9D%83/">授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3/">接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A7%E5%88%B6%E5%99%A8/">控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8F%90%E4%BE%9B%E5%99%A8/">提供器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E5%AD%97%E7%9B%B8%E5%86%8C/">数字相册</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/">数据存储</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%87%87%E9%9B%86/">数据采集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%A1%A3%E7%AE%A1%E7%90%86/">文档管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E7%89%B9%E6%80%A7/">新特性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86/">日志处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E6%94%B6%E9%9B%86/">日志收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%99%BA%E8%83%BD%E7%A1%AC%E4%BB%B6/">智能硬件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%AB%AF%E6%B8%B2%E6%9F%93/">服务器端渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84/">架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">架构设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96/">查询优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A0%B7%E5%BC%8F%E8%A1%A8/">样式表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E5%BC%8F%E4%B8%8E%E5%8E%9F%E5%88%99/">模式与原则</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%80%81%E6%A1%86/">模态框</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%9D%BF%E7%94%9F%E6%88%90/">模板生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/">正则表达式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B3%A8%E9%94%80%E8%AF%B7%E6%B1%82/">注销请求</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B5%8B%E8%AF%95/">测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B6%88%E6%81%AF%E8%BE%B9%E7%95%8C%E6%A0%87%E8%AE%B0/">消息边界标记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E4%BF%9D/">环保</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E5%A2%83%E5%BD%B1%E5%93%8D/">环境影响</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E4%BD%93%E9%AA%8C/">用户体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/">用户管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E8%A7%92%E8%89%B2%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">用户角色验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E6%9C%BA%E9%A9%B1%E5%8A%A8/">电机驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%87%BA%E5%A4%84%E7%90%86/">登出处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C/">登录体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81/">登录验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB/">知识分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81/">示例代码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0%E7%B3%BB%E7%BB%9F/">笔记系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%97%E6%B3%95%E6%95%88%E7%8E%87/">算法效率</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B4%A2%E5%BC%95%E6%98%A0%E5%B0%84/">索引映射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%B7%A1%E7%BA%BF/">红外巡线</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%BE%AA%E8%BF%B9/">红外循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8/">线程安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%BF%E8%89%B2%E7%BC%96%E7%A0%81/">绿色编码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BC%93%E5%86%B2%E6%B1%A0/">缓冲池</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/">编程语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E7%AB%99%E8%AE%BE%E8%AE%A1/">网站设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E9%A1%B5%E6%A0%B7%E5%BC%8F/">网页样式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%93%9D%E7%89%99%E9%81%A5%E6%8E%A7/">蓝牙遥控</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A4%E8%AF%81/">认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%B0%E5%BF%86%E4%BF%9D%E5%AD%98/">记忆保存</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%BE%E7%A8%8B/">课程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1/">路由</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E5%99%A8/">路由器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E7%BA%A6%E5%AE%9A/">路由约定</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81/">身份认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81/">身份验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">身份验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E5%B7%A5%E7%A8%8B/">软件工程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91/">软件开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%81%E7%A7%BB%E5%8E%9F%E5%9B%A0/">迁移原因</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%90%E8%A1%8C%E6%97%B6/">运行时</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8/">避免锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%8D%E7%BD%AE/">配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%AE%9A%E5%90%91/">重定向</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%91%E8%9E%8D%E7%A7%91%E6%8A%80/">金融科技</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%94%81%E8%A1%A8/">锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%95%BF%E5%BA%A6/">长度</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BB%E5%A1%9E-IO/">阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%99%80%E8%9E%BA%E4%BB%AA%E6%8E%A7%E5%88%B6/">陀螺仪控制</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90/">集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E9%85%8D%E7%BD%AE/">集成配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%B6%E6%8B%B7%E8%B4%9D/">零拷贝</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90/">静态站点生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90SSG/">静态站点生成(SSG)</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%9E%E9%98%BB%E5%A1%9E-IO/">非阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B5%E9%9D%A2%E5%AF%BC%E8%88%AA/">页面导航</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B5%E9%9D%A2%E9%93%BE%E6%8E%A5/">页面链接</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84/">项目结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%84%E6%B8%B2%E6%9F%93/">预渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">领域驱动设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E6%B8%85%E6%B8%B2%E6%9F%93/">高清渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E7%BA%A7%E5%8D%8F%E8%AE%AE%E6%94%AF%E6%8C%81/">高级协议支持</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
