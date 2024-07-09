@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"io/ioutil"
-	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -377,6 +379,49 @@ func replaceAurl(markdown string) string {
 	}
 	return newMarkdown
 }
+// 正则表达式匹配Markdown中的代码块
+var codeBlockRegex = regexp.MustCompile("(?s)(```.+?```)")
+
+// 正则表达式匹配HTML代码
+var htmlCodeRegex = regexp.MustCompile(`<[^>]+>`)
+
+// 将HTML标签转换为Markdown格式
+func convertHTMLToMarkdown(html string) string {
+	// 这里只是一个示例，实际转换可能需要更复杂的逻辑
+	// 例如，将 <b> 转换为 **，将 <i> 转换为 * 等
+	html = strings.Replace(html, "<b>", "**", -1)
+	html = strings.Replace(html, "</b>", "**", -1)
+	html = strings.Replace(html, "<i>", "*", -1)
+	html = strings.Replace(html, "</i>", "*", -1)
+
+	// 将<br>标签替换为Markdown的换行格式（两个空格加回车）
+	html = strings.Replace(html, "<br>", "  \n", -1)
+	html = strings.Replace(html, "<span>", "", -1)
+	html = strings.Replace(html, "</span>", "", -1)
+	html = strings.Replace(html, "<code>", "", -1)
+	html = strings.Replace(html, "</code>", "", -1)
+	html = strings.Replace(html, "&nbsp;", " ", -1)
+	return html
+}
+// 替换HTML代码块为Markdown格式
+func replaceCodeHTML(content string) string {
+	// 使用正则表达式查找所有代码块
+	matches := codeBlockRegex.FindAllStringSubmatch(content, -1)
+	for _, match := range matches {
+		code := match[1] // 这里的match[1]是捕获组的内容，即代码块
+		// 去除最外层的```，因为FindStringSubmatch包含了整个匹配项
+		innerCode := code[3 : len(code)-3]
+		if htmlCodeRegex.MatchString(innerCode) {
+			// 如果是HTML代码，转换为Markdown
+			code = convertHTMLToMarkdown(innerCode)
+			// 替换原始内容中的代码块为转换后的Markdown代码块
+			content = strings.Replace(content, match[0], fmt.Sprintf("```%s```", code), 1)
+		}
+	}
+	return content
+}
+
+
 func AddTitle(filePath string) (string, error) {
 
 	fmt.Println("filePath:" + filePath)
@@ -421,16 +466,30 @@ func AddTitle(filePath string) (string, error) {
 	// 	tagstr = strings.Join(tags, ",")
 	// 	fmt.Println("tag:" + tagstr)
 	// }
-	result, err := getKeysDify(contentStr)
+	// result, err := getKeysDify(contentStr)
+
+	// if err != nil {
+	// 	result, err = getKeysDify(contentStr)
+	// 	if err != nil {
+	// 		result, err = getKeysDify(contentStr)
+	// 		if err != nil {
+	// 			result, err = getKeysDify(contentStr)
+	// 			if err != nil {
+	// 				result, err = getKeysDify(contentStr)
+	// 			}
+	// 		}
+	// 	}
+	// }	
+	result, err := getKeysDify(newFilename)
 
 	if err != nil {
-		result, err = getKeysDify(contentStr)
+		result, err = getKeysDify(newFilename)
 		if err != nil {
-			result, err = getKeysDify(contentStr)
+			result, err = getKeysDify(newFilename)
 			if err != nil {
-				result, err = getKeysDify(contentStr)
+				result, err = getKeysDify(newFilename)
 				if err != nil {
-					result, err = getKeysDify(contentStr)
+					result, err = getKeysDify(newFilename)
 				}
 			}
 		}
@@ -447,6 +506,8 @@ func AddTitle(filePath string) (string, error) {
 
 	contentStr = str + contentStr
 
+	// 替换带代码片段中的html
+	contentStr = replaceCodeHTML(contentStr)
 	// 将更改写回文件
 	err = ioutil.WriteFile(filePath, []byte(contentStr), os.ModePerm)
 	if err != nil {
@@ -462,6 +523,7 @@ func AddTitle(filePath string) (string, error) {
 // PicGoUploadResponse 定义了PicGo上传接口返回的JSON结构
 type PicGoUploadResponse struct {
 	Success bool     `json:"success"`
+	Message string   `json:"message"`
 	Result  []string `json:"result"` // 假设返回的是一个URL列表
 }
 
@@ -520,7 +582,7 @@ func PicGoUploadLocal(imagePathparm, currentDir string) (string, error) {
 	}
 
 	if !uploadResp.Success || len(uploadResp.Result) == 0 {
-		return "", fmt.Errorf("upload failed: %s", uploadResp.Result)
+		return "", fmt.Errorf("upload failed: %s", uploadResp.Message)
 	}
 
 	return uploadResp.Result[0], nil
@@ -533,9 +595,142 @@ func extractUrl(s string) string {
 	}
 	return s[:index]
 }
+func genFileName() string {
+	// 生成12字节的随机数
+	b := make([]byte, 12)
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
+		panic(err)
+	}
+
+	// 将随机字节转换为十进制字符串
+	randomString := fmt.Sprintf("%x", b)
+	return randomString
+}
+
+var imageSignatures = map[string][]byte{
+	"png":  {137, 'P', 'N', 'G', '\r', '\n', 26, 10}, // PNG图像
+	"jpg":  {255, 216},                               // JPEG图像 (SOI)
+	"jpeg": {255, 216},                               // JPEG图像 (SOI)
+	"gif":  {71, 'A', 'S', 'B'},                      // GIF图像
+	"bmp":  {66, 77},                                 // BMP图像
+	"tiff": {73, 73, 42},                             // TIFF图像 (II*)
+	"webp": {255, 'W', 'E', 'B', 'P'},                // WebP图像
+	"ico":  {0, 0, 1, 0},                             // ICO图像
+	"psd":  {80, 83, 71, 68},                         // Photoshop (PSD)图像
+	"svg":  {65, 118, 103, 83, 84, 82, 65, 86},       // SVG图像
+	// 其他格式可以根据需要添加
+}
+
+// bytesMatch 检查两个字节切片是否匹配
+func bytesMatch(b1, b2 []byte) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	for i := range b1 {
+		if b1[i] != b2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// getExtension 尝试从URL或文件中获取图片的后缀名
+func getExtension(urlOrPath string) (string, error) {
+	u, err := url.Parse(urlOrPath)
+	if err == nil {
+		// 检查域名是否为 qpic.cn
+		if strings.Contains(urlOrPath, "qpic.cn") {
+			// 尝试从查询参数中获取 wx_fmt 作为后缀名
+			wxFmt := u.Query().Get("wx_fmt")
+			if wxFmt != "" {
+				return wxFmt, nil
+			}
+		}
+
+		// 如果不是 qpic.cn 或 wx_fmt 不存在，尝试从URL路径中获取后缀名
+		ext := strings.TrimPrefix(filepath.Ext(u.Path), ".")
+		if ext != "" {
+			return ext, nil
+		}
+	}
+	// 如果URL中没有后缀名或解析失败，尝试通过读取文件头部字节来确定格式
+	file, err := os.Open(urlOrPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 8) // 假设最长签名为8字节
+	_, err = io.ReadFull(file, buffer)
+	if err != nil {
+		return "", err
+	}
+
+	for ext, signature := range imageSignatures {
+		if bytesMatch(buffer, signature) {
+			return ext, nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to determine the file extension")
+}
+
+func PicGoUpload(imgURL string) (string, error) {
+
+	fileFormat, err := getExtension(imgURL)
+	if err != nil {
+		fmt.Println(" get extension err", err)
+	}
+	// 构造文件名
+	fileName := "downloadedImage" + genFileName() + "." + fileFormat
+	filePath := filepath.Join(".", fileName)
+
+	// 下载图片并保存到当前目录
+	resp, err := http.Get(imgURL)
+	if err != nil {
+		fmt.Println("Error downloading image: ", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	out, err := os.Create(filePath)
+	if err != nil {
+		fmt.Println("Error creating file: ", err)
+		return "", err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		fmt.Println("Error writing image to file: ", err)
+		return "", err
+	}
+
+	out.Close()
+
+	// 获取当前工作目录
+	dir, err := os.Getwd()
+
+	imgpath, err := PicGoUploadUp(dir + "/" + filePath)
+	if err != nil {
+		fmt.Println("upload err : ", err)
+		return "", err
+	}
+	// 清理本地文件
+	err = os.Remove(filePath)
+	if err != nil {
+		fmt.Println("Error removing file: ", err)
+		return "", err
+	}
+
+	fmt.Println("Local file cleaned up.")
+
+	return imgpath, nil
+}
 
 // PicGoUpload 上传图片到PicGo并返回新的URL
-func PicGoUpload(imagePath string) (string, error) {
+func PicGoUploadUp(imagePath string) (string, error) {
 	if len(imagePath) > 0 {
 		imagePath = extractUrl(imagePath)
 	}
@@ -568,7 +763,7 @@ func PicGoUpload(imagePath string) (string, error) {
 	}
 
 	if !uploadResp.Success || len(uploadResp.Result) == 0 {
-		return "", fmt.Errorf("upload failed: %s", uploadResp.Result)
+		return "", fmt.Errorf("upload failed: %s", uploadResp.Message)
 	}
 
 	return uploadResp.Result[0], nil
@@ -985,7 +1180,7 @@ func getKeys(content string) string {
 	// Access your API key as an environment variable (see "Set up your API key" above)
 	client, err := genai.NewClient(ctx, option.WithAPIKey("AIzaSyDmmRKrKGWVO_QNrK_Jmar08z5Uy8m3qjo"))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 		return ""
 	}
 	defer client.Close()
@@ -994,24 +1189,24 @@ func getKeys(content string) string {
 	model := client.GenerativeModel("gemini-pro")
 	resp, err := model.GenerateContent(ctx, genai.Text(content+"  请提取这句话的5个关键词,输出逗号分隔字符串"))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 		return ""
 	}
 	// Check if there are any candidates in the response
 	if len(resp.Candidates) == 0 {
-		log.Println("No candidates found in response")
+		fmt.Println("No candidates found in response")
 		return ""
 	}
 
 	// Check if the content of the first candidate is empty
 	if resp.Candidates[0].Content == nil {
-		log.Println("Content of first candidate is empty")
+		fmt.Println("Content of first candidate is empty")
 		return ""
 	}
 
 	// Check if the content of the first candidate is empty
 	if resp.Candidates[0].Content.Parts == nil {
-		log.Println("Content of first candidate parts is empty")
+		fmt.Println("Content of first candidate parts is empty")
 		return ""
 	}
 
@@ -1028,4 +1223,8 @@ func main() {
 
 	watchDir()
 
+	// test
+	// filepath, err := PicGoUpload("https://mmbiz.qpic.cn/mmbiz_jpg/Z6bicxIx5naJ1JkicoQWkTiav2ebicA1DTWv3a4jXeuwq8DBpyyVaS2bibRwP80dQwpmPExFTia0azxYleCdNvalTCwQ/640?wx_fmt=jpeg&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1")
+	// fmt.Println(filepath)
+	// fmt.Println(err)
 }
