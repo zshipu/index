@@ -1,0 +1,2725 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-08-20T02:50:44&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek001/post/20240801/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%88%98%E4%B8%93%E8%A1%A5%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9F%AD%E6%9D%BF%E7%9A%84RAG%E4%B8%8E%E6%8F%90%E5%8D%87%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek001/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek001/css/normalize.css'>
+    <link rel="stylesheet" href='/geek001/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek001">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek001">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#引言大型语言模型llms因其出色的多功能性和智能化已深入我们生活和工作的方方面面然而当应用于实际业务场景时通用的基础大模型往往难以满足具体需求主要原因如下">引言大型语言模型（LLMs）因其出色的多功能性和智能化，已深入我们生活和工作的方方面面。然而，当应用于实际业务场景时，通用的基础大模型往往难以满足具体需求，主要原因如下：</a>
+      <ul>
+        <li><a href="#1-知识的局限性模型的知识库完全依赖于其训练数据而主流大模型如chatgpt文心一言等其训练集多基于网络公开数据对于实时性非公开或离线数据模型则难以触及导致知识覆盖面受限">1. 知识的局限性模型的知识库完全依赖于其训练数据，而主流大模型如ChatGPT、文心一言等，其训练集多基于网络公开数据。对于实时性、非公开或离线数据，模型则难以触及，导致知识覆盖面受限。</a></li>
+        <li><a href="#2-幻觉问题ai模型的输出基于数学概率即使是大型模型也可能在缺乏相关知识或不擅长的领域中产生误导性信息辨别这些信息的真伪需要用户具备相应领域的知识">2. 幻觉问题AI模型的输出基于数学概率，即使是大型模型，也可能在缺乏相关知识或不擅长的领域中产生误导性信息。辨别这些信息的真伪，需要用户具备相应领域的知识。</a></li>
+        <li><a href="#3-数据安全性数据安全对企业至关重要很少有企业愿意将私域数据上传至第三方平台进行训练这限制了完全依赖通用大模型的应用方案在数据安全与效果之间的平衡">3. 数据安全性数据安全对企业至关重要，很少有企业愿意将私域数据上传至第三方平台进行训练，这限制了完全依赖通用大模型的应用方案在数据安全与效果之间的平衡。</a></li>
+      </ul>
+    </li>
+    <li><a href="#检索增强生成技术rag的兴起面对上述挑战检索增强生成技术rag应运而生成为ai领域的新趋势rag通过在生成答案前检索相关文档信息并利用这些信息指导生成过程有效提升了内容的准确性和相关性">检索增强生成技术（RAG）的兴起面对上述挑战，检索增强生成技术（RAG）应运而生，成为AI领域的新趋势。RAG通过在生成答案前检索相关文档信息，并利用这些信息指导生成过程，有效提升了内容的准确性和相关性。</a>
+      <ul>
+        <li><a href="#rag的核心优势">RAG的核心优势</a></li>
+        <li><a href="#rag的应用前景rag的出现为大型语言模型在实际应用中提供了更实用的解决方案是人工智能研究领域的一项重要进展">RAG的应用前景RAG的出现为大型语言模型在实际应用中提供了更实用的解决方案，是人工智能研究领域的一项重要进展。</a></li>
+      </ul>
+    </li>
+    <li><a href="#结语本综述将全面介绍rag技术深入探讨其核心范式关键技术及未来趋势为读者和实践者提供深入和系统的认识同时分析检索增强技术的最新进展和关键挑战">结语本综述将全面介绍RAG技术，深入探讨其核心范式、关键技术及未来趋势，为读者和实践者提供深入和系统的认识，同时分析检索增强技术的最新进展和关键挑战。</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#1-rag-技术概述ragretrieval-augmented-generation技术是一种结合了检索和生成的先进方法它通过从外部知识库中检索相关信息来增强语言模型的生成能力例如在问答系统中当遇到模型训练数据中未涵盖的事件时rag-技术能够通过检索最新文档摘录来弥补知识差距">1. RAG 技术概述RAG（Retrieval-Augmented Generation）技术是一种结合了检索和生成的先进方法，它通过从外部知识库中检索相关信息来增强语言模型的生成能力。例如，在问答系统中，当遇到模型训练数据中未涵盖的事件时，RAG 技术能够通过检索最新文档摘录来弥补知识差距。</a></li>
+    <li><a href="#2-rag-技术案例分析以-openai-ceo-sam-altman-的突然解雇和复职事件为例传统的预训练模型可能因缺乏最新信息而无法回答而-rag-技术通过检索相关新闻文章并将其与问题结合生成一个综合的提示从而使得模型能够给出有根据的回答">2. RAG 技术案例分析以 OpenAI CEO Sam Altman 的突然解雇和复职事件为例，传统的预训练模型可能因缺乏最新信息而无法回答。而 RAG 技术通过检索相关新闻文章，并将其与问题结合，生成一个综合的提示，从而使得模型能够给出有根据的回答。</a></li>
+    <li><a href="#3-rag-技术发展史">3. RAG 技术发展史</a></li>
+    <li><a href="#4-rag-技术的未来展望随着技术的不断进步rag-技术有望在问答系统知识检索和自然语言处理等领域发挥更大的作用提供更加准确和及时的信息">4. RAG 技术的未来展望随着技术的不断进步，RAG 技术有望在问答系统、知识检索和自然语言处理等领域发挥更大的作用，提供更加准确和及时的信息。</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#1-朴素ragnaive-rag朴素rag是rag流程的基础形态包含三个核心步骤">1. 朴素RAG（Naive RAG）朴素RAG是RAG流程的基础形态，包含三个核心步骤：</a></li>
+    <li><a href="#2-进阶ragadvanced-rag为了解决朴素rag在检索质量和生成质量上的挑战进阶rag引入了额外的处理步骤">2. 进阶RAG（Advanced RAG）为了解决朴素RAG在检索质量和生成质量上的挑战，进阶RAG引入了额外的处理步骤：</a></li>
+    <li><a href="#3-模块化ragmodular-rag模块化rag是rag技术的进一步发展它突破了传统的检索-生成框架">3. 模块化RAG（Modular RAG）模块化RAG是RAG技术的进一步发展，它突破了传统的检索-生成框架：</a></li>
+    <li><a href="#技术发展关系rag技术的三个范式之间存在一种继承与发展的关系从朴素到进阶再到模块化每一步都为下一步的创新奠定了基础">技术发展关系RAG技术的三个范式之间存在一种继承与发展的关系。从朴素到进阶再到模块化，每一步都为下一步的创新奠定了基础。</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#检索增强的核心问题">检索增强的核心问题</a></li>
+    <li><a href="#检索增强的阶段">检索增强的阶段</a></li>
+    <li><a href="#检索增强的数据源">检索增强的数据源</a></li>
+    <li><a href="#检索增强的过程">检索增强的过程</a></li>
+    <li><a href="#rag-核心组件的分类体系">RAG 核心组件的分类体系</a>
+      <ul>
+        <li><a href="#rag-特点">RAG 特点</a></li>
+        <li><a href="#微调ft特点">微调（FT）特点</a></li>
+        <li><a href="#适用场景分析">适用场景分析</a></li>
+        <li><a href="#选择建议">选择建议</a></li>
+        <li><a href="#结论rag-和微调是两种不同的优化手段它们各自有独特的优势和适用场景合理选择和应用这两种方法可以有效地提升语言模型的性能">结论RAG 和微调是两种不同的优化手段，它们各自有独特的优势和适用场景。合理选择和应用这两种方法，可以有效地提升语言模型的性能。</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#数据准备阶段">数据准备阶段</a>
+      <ul>
+        <li><a href="#数据提取在数据准备的初始阶段需要从各种来源提取所需的数据">数据提取在数据准备的初始阶段，需要从各种来源提取所需的数据。</a></li>
+        <li><a href="#文本分割提取的数据需要进行分割以便于后续处理">文本分割提取的数据需要进行分割，以便于后续处理。</a></li>
+        <li><a href="#向量化embedding将文本数据转换为向量形式这是为了便于模型理解和处理">向量化（Embedding）将文本数据转换为向量形式，这是为了便于模型理解和处理。</a></li>
+        <li><a href="#数据入库向量化后的数据需要构建索引并存储到数据库中以供后续检索使用">数据入库向量化后的数据需要构建索引并存储到数据库中，以供后续检索使用。</a></li>
+      </ul>
+    </li>
+    <li><a href="#应用阶段">应用阶段</a>
+      <ul>
+        <li><a href="#用户提问应用阶段的开始是用户的提问这是触发整个rag流程的关键">用户提问应用阶段的开始是用户的提问，这是触发整个RAG流程的关键。</a></li>
+        <li><a href="#数据检索召回根据用户的问题系统将进行数据检索以找到相关的信息">数据检索（召回）根据用户的问题，系统将进行数据检索，以找到相关的信息。</a></li>
+        <li><a href="#注入prompt检索到的数据将结合特定的prompt以引导模型更准确地生成答案">注入Prompt检索到的数据将结合特定的Prompt，以引导模型更准确地生成答案。</a></li>
+        <li><a href="#llm生成答案最后大型语言模型llm将根据注入的prompt和检索到的数据生成最终答案">LLM生成答案最后，大型语言模型（LLM）将根据注入的Prompt和检索到的数据生成最终答案。</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#数据提取">数据提取</a></li>
+    <li><a href="#文本分割">文本分割</a></li>
+    <li><a href="#向量化embedding">向量化（Embedding）</a></li>
+    <li><a href="#数据入库">数据入库</a></li>
+    <li><a href="#应用阶段-1">应用阶段</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#相似性检索相似性检索的核心在于评估查询向量与数据集中存储向量之间的相似度这种方法通常适用于推荐系统图像识别等领域相似度的计算可以通过以下方式实现">相似性检索相似性检索的核心在于评估查询向量与数据集中存储向量之间的相似度。这种方法通常适用于推荐系统、图像识别等领域。相似度的计算可以通过以下方式实现：</a></li>
+    <li><a href="#全文检索全文检索是一种广泛应用于文本数据的检索技术它通过构建倒排索引来实现快速检索">全文检索全文检索是一种广泛应用于文本数据的检索技术。它通过构建倒排索引来实现快速检索：</a></li>
+    <li><a href="#检索效果优化为了提高检索的准确性和召回率可以采取以下策略">检索效果优化为了提高检索的准确性和召回率，可以采取以下策略：</a></li>
+    <li><a href="#应用场景数据检索技术被广泛应用于搜索引擎推荐系统自然语言处理等多个领域是大数据处理不可或缺的一部分">应用场景数据检索技术被广泛应用于搜索引擎、推荐系统、自然语言处理等多个领域，是大数据处理不可或缺的一部分。</a>
+      <ul>
+        <li><a href="#提升大模型输出准确率的prompt设计">提升大模型输出准确率的Prompt设计</a></li>
+      </ul>
+    </li>
+    <li><a href="#rag评估方法概述">RAG评估方法概述</a>
+      <ul>
+        <li><a href="#质量评分">质量评分</a></li>
+        <li><a href="#关键能力">关键能力</a></li>
+        <li><a href="#评估框架">评估框架</a></li>
+        <li><a href="#评估指标评估rag模型时除了传统的量化指标外还有专门针对rag特性的评估标准这些标准虽然尚未统一但提供了评估模型性能的重要视角">评估指标评估RAG模型时，除了传统的量化指标外，还有专门针对RAG特性的评估标准。这些标准虽然尚未统一，但提供了评估模型性能的重要视角。</a></li>
+        <li><a href="#应用与理解通过上述评估方法和框架可以深入理解rag模型的性能从而更好地应用于实际问题解决中评估结果有助于识别模型的优势和潜在改进空间">应用与理解通过上述评估方法和框架，可以深入理解RAG模型的性能，从而更好地应用于实际问题解决中。评估结果有助于识别模型的优势和潜在改进空间。</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#一rag的垂直优化">一、RAG的垂直优化</a></li>
+    <li><a href="#二rag的多模态拓展">二、RAG的多模态拓展</a></li>
+    <li><a href="#三rag的生态系统构建">三、RAG的生态系统构建</a></li>
+    <li><a href="#结语">结语</a>
+      <ul>
+        <li><a href="#大模型llm学习指南">大模型LLM学习指南</a></li>
+        <li><a href="#篇幅有限部分资料如下">篇幅有限，部分资料如下：</a></li>
+        <li><a href="#大模型入门实战训练">👉大模型入门实战训练👈</a></li>
+        <li><a href="#案例集概览"><strong>案例集概览</strong></a></li>
+        <li><a href="#案例集亮点"><strong>案例集亮点</strong></a></li>
+        <li><a href="#案例集价值"><strong>案例集价值</strong></a></li>
+        <li><a href="#获取方式感兴趣的读者可以通过文末提供的链接领取中国大模型落地应用案例集"><strong>获取方式</strong>感兴趣的读者可以通过文末提供的链接领取《中国大模型落地应用案例集》。</a></li>
+        <li><a href="#注意事项"><strong>注意事项</strong></a></li>
+        <li><a href="#github海量高星开源项目">👉GitHub海量高星开源项目👈</a></li>
+        <li><a href="#llm大模型学习视频">👉LLM大模型学习视频👈</a></li>
+        <li><a href="#获取方式">👉获取方式：</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年8月20日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h1 id="大型语言模型在实际业务中的应用挑战">大型语言模型在实际业务中的应用挑战</h1>
+<h2 id="引言大型语言模型llms因其出色的多功能性和智能化已深入我们生活和工作的方方面面然而当应用于实际业务场景时通用的基础大模型往往难以满足具体需求主要原因如下">引言大型语言模型（LLMs）因其出色的多功能性和智能化，已深入我们生活和工作的方方面面。然而，当应用于实际业务场景时，通用的基础大模型往往难以满足具体需求，主要原因如下：</h2>
+<h3 id="1-知识的局限性模型的知识库完全依赖于其训练数据而主流大模型如chatgpt文心一言等其训练集多基于网络公开数据对于实时性非公开或离线数据模型则难以触及导致知识覆盖面受限">1. 知识的局限性模型的知识库完全依赖于其训练数据，而主流大模型如ChatGPT、文心一言等，其训练集多基于网络公开数据。对于实时性、非公开或离线数据，模型则难以触及，导致知识覆盖面受限。</h3>
+<h3 id="2-幻觉问题ai模型的输出基于数学概率即使是大型模型也可能在缺乏相关知识或不擅长的领域中产生误导性信息辨别这些信息的真伪需要用户具备相应领域的知识">2. 幻觉问题AI模型的输出基于数学概率，即使是大型模型，也可能在缺乏相关知识或不擅长的领域中产生误导性信息。辨别这些信息的真伪，需要用户具备相应领域的知识。</h3>
+<h3 id="3-数据安全性数据安全对企业至关重要很少有企业愿意将私域数据上传至第三方平台进行训练这限制了完全依赖通用大模型的应用方案在数据安全与效果之间的平衡">3. 数据安全性数据安全对企业至关重要，很少有企业愿意将私域数据上传至第三方平台进行训练，这限制了完全依赖通用大模型的应用方案在数据安全与效果之间的平衡。</h3>
+<h2 id="检索增强生成技术rag的兴起面对上述挑战检索增强生成技术rag应运而生成为ai领域的新趋势rag通过在生成答案前检索相关文档信息并利用这些信息指导生成过程有效提升了内容的准确性和相关性">检索增强生成技术（RAG）的兴起面对上述挑战，检索增强生成技术（RAG）应运而生，成为AI领域的新趋势。RAG通过在生成答案前检索相关文档信息，并利用这些信息指导生成过程，有效提升了内容的准确性和相关性。</h2>
+<h3 id="rag的核心优势">RAG的核心优势</h3>
+<ul>
+<li><strong>缓解幻觉问题</strong>：通过检索相关信息，RAG减少了模型输出误导性信息的可能性。</li>
+<li><strong>知识更新速度快</strong>：RAG能够快速整合最新信息，保持知识的时效性。</li>
+<li><strong>内容生成可追溯</strong>：增强了生成内容的可追溯性，提高了模型的可信度。</li>
+</ul>
+<h3 id="rag的应用前景rag的出现为大型语言模型在实际应用中提供了更实用的解决方案是人工智能研究领域的一项重要进展">RAG的应用前景RAG的出现为大型语言模型在实际应用中提供了更实用的解决方案，是人工智能研究领域的一项重要进展。</h3>
+<h2 id="结语本综述将全面介绍rag技术深入探讨其核心范式关键技术及未来趋势为读者和实践者提供深入和系统的认识同时分析检索增强技术的最新进展和关键挑战">结语本综述将全面介绍RAG技术，深入探讨其核心范式、关键技术及未来趋势，为读者和实践者提供深入和系统的认识，同时分析检索增强技术的最新进展和关键挑战。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage0766f6ff6237e87d0dcf4340.jpeg" />   
+    </p>
+<h1 id="rag-技术在问答系统中的应用案例">RAG 技术在问答系统中的应用案例</h1>
+<h2 id="1-rag-技术概述ragretrieval-augmented-generation技术是一种结合了检索和生成的先进方法它通过从外部知识库中检索相关信息来增强语言模型的生成能力例如在问答系统中当遇到模型训练数据中未涵盖的事件时rag-技术能够通过检索最新文档摘录来弥补知识差距">1. RAG 技术概述RAG（Retrieval-Augmented Generation）技术是一种结合了检索和生成的先进方法，它通过从外部知识库中检索相关信息来增强语言模型的生成能力。例如，在问答系统中，当遇到模型训练数据中未涵盖的事件时，RAG 技术能够通过检索最新文档摘录来弥补知识差距。</h2>
+<h2 id="2-rag-技术案例分析以-openai-ceo-sam-altman-的突然解雇和复职事件为例传统的预训练模型可能因缺乏最新信息而无法回答而-rag-技术通过检索相关新闻文章并将其与问题结合生成一个综合的提示从而使得模型能够给出有根据的回答">2. RAG 技术案例分析以 OpenAI CEO Sam Altman 的突然解雇和复职事件为例，传统的预训练模型可能因缺乏最新信息而无法回答。而 RAG 技术通过检索相关新闻文章，并将其与问题结合，生成一个综合的提示，从而使得模型能够给出有根据的回答。</h2>
+<h2 id="3-rag-技术发展史">3. RAG 技术发展史</h2>
+<ul>
+<li><strong>早期预训练阶段</strong>：研究集中在如何通过预训练模型注入额外知识，增强模型能力。</li>
+<li><strong>ChatGPT 面世后</strong>：对大型模型进行深层次上下文学习的兴趣推动了 RAG 技术的快速发展。</li>
+<li><strong>LLMs 潜力开发</strong>：研究开始关注模型的可控性，探索微调过程中的改进方法。</li>
+<li><strong>GPT-4 发布</strong>：RAG 技术经历变革，研究重点转向融合 RAG 和微调策略的新方法，同时优化预训练方法。</li>
+</ul>
+<h2 id="4-rag-技术的未来展望随着技术的不断进步rag-技术有望在问答系统知识检索和自然语言处理等领域发挥更大的作用提供更加准确和及时的信息">4. RAG 技术的未来展望随着技术的不断进步，RAG 技术有望在问答系统、知识检索和自然语言处理等领域发挥更大的作用，提供更加准确和及时的信息。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage8af7670c59816e9b20b7c676.jpeg" />   
+    </p>
+<h1 id="rag技术发展概览">RAG技术发展概览</h1>
+<p>RAG技术的发展可以划分为几个阶段，每个阶段都代表了技术范式的演进。以下是对这些阶段的梳理：</p>
+<h2 id="1-朴素ragnaive-rag朴素rag是rag流程的基础形态包含三个核心步骤">1. 朴素RAG（Naive RAG）朴素RAG是RAG流程的基础形态，包含三个核心步骤：</h2>
+<ul>
+<li><strong>索引</strong>：将文档库切分为较短的Chunk，通过编码器构建向量索引。</li>
+<li><strong>检索</strong>：基于问题与chunks的相似度检索相关文档片段。</li>
+<li><strong>生成</strong>：利用检索到的上下文生成问题的回答。</li>
+</ul>
+<h2 id="2-进阶ragadvanced-rag为了解决朴素rag在检索质量和生成质量上的挑战进阶rag引入了额外的处理步骤">2. 进阶RAG（Advanced RAG）为了解决朴素RAG在检索质量和生成质量上的挑战，进阶RAG引入了额外的处理步骤：</h2>
+<ul>
+<li><strong>数据索引</strong>：通过更精细的数据清洗和文档结构设计提升文本一致性。</li>
+<li><strong>检索前处理</strong>：利用问题重写、路由和扩充对齐问题与文档块的语义差异。</li>
+<li><strong>检索后处理</strong>：通过重排序避免信息丢失，或通过上下文筛选与压缩缩短窗口长度。</li>
+</ul>
+<h2 id="3-模块化ragmodular-rag模块化rag是rag技术的进一步发展它突破了传统的检索-生成框架">3. 模块化RAG（Modular RAG）模块化RAG是RAG技术的进一步发展，它突破了传统的检索-生成框架：</h2>
+<ul>
+<li><strong>功能模块</strong>：引入查询搜索引擎、融合多个回答等具体功能模块。</li>
+<li><strong>技术融合</strong>：结合检索与微调、强化学习等技术。</li>
+<li><strong>模块设计</strong>：对RAG模块间进行设计和编排，形成多样的RAG模式。
+模块化RAG并非孤立出现，而是在前两个范式的基础上继承和发展而来。进阶RAG是模块化RAG的一种特例，而朴素RAG则是进阶RAG的一种特例。</li>
+</ul>
+<h2 id="技术发展关系rag技术的三个范式之间存在一种继承与发展的关系从朴素到进阶再到模块化每一步都为下一步的创新奠定了基础">技术发展关系RAG技术的三个范式之间存在一种继承与发展的关系。从朴素到进阶再到模块化，每一步都为下一步的创新奠定了基础。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage8774aef9d1925318047570f5.jpeg" />   
+    </p>
+<h1 id="rag-范式及其检索增强策略">RAG 范式及其检索增强策略</h1>
+<p>RAG（Retrieval-Augmented Generation）系统是一种结合了检索和生成的先进模型，其核心构成包括检索、增强和生成三个部分。下面将详细介绍如何进行检索增强，以及在RAG系统中这三个部分是如何相互配合的。</p>
+<h2 id="检索增强的核心问题">检索增强的核心问题</h2>
+<p>在构建高效的RAG系统时，增强部分扮演着至关重要的角色。要实现有效的检索增强，需要考虑以下三个关键问题：</p>
+<ol>
+<li><strong>检索什么（What to Retrieve）</strong>：确定需要检索的信息类型，这可能包括文本段落、短语、词汇等非结构化数据，或者结构化数据如索引文档、三元组等。</li>
+<li><strong>何时检索（When to Retrieve）</strong>：决定在预训练、微调或推理的哪个阶段进行检索增强，这将影响外部知识参数化的程度和所需的计算资源。</li>
+<li><strong>如何使用检索内容（How to Use Retrieved Content）</strong>：探索如何将检索到的信息有效地整合到生成过程中。</li>
+</ol>
+<h2 id="检索增强的阶段">检索增强的阶段</h2>
+<p>检索增强可以在RAG系统的三个主要阶段进行：</p>
+<ul>
+<li><strong>预训练阶段</strong>：在这个阶段进行检索增强，可以为模型提供广泛的知识基础。</li>
+<li><strong>微调阶段</strong>：在微调过程中进行检索增强，有助于模型更好地适应特定任务。</li>
+<li><strong>推理阶段</strong>：在实际应用中进行检索增强，可以实时地为模型提供最新的信息。</li>
+</ul>
+<h2 id="检索增强的数据源">检索增强的数据源</h2>
+<p>检索增强的数据可以来自多种来源：</p>
+<ul>
+<li><strong>非结构化文本数据</strong>：如文本段落、短语或单个词汇。</li>
+<li><strong>结构化数据</strong>：如带有索引的文档、三元组数据或子图。</li>
+<li><strong>模型内在能力</strong>：不依赖外部信息源，利用大型语言模型（LLMs）的内在生成能力。</li>
+</ul>
+<h2 id="检索增强的过程">检索增强的过程</h2>
+<p>检索增强的过程经历了从简单到复杂的演变：</p>
+<ul>
+<li><strong>一次性检索</strong>：最初的检索方法，一次性完成信息的检索。</li>
+<li><strong>迭代检索</strong>：多次迭代地进行检索，以逐步优化结果。</li>
+<li><strong>递归检索</strong>：通过递归的方式深入挖掘信息。</li>
+<li><strong>自适应检索</strong>：由LLMs根据需要自行判断检索的时刻和内容。
+通过上述策略，RAG系统能够更加灵活和高效地利用外部知识，提升生成内容的质量和相关性。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage2a051c9305da49960d3af2c9.jpeg" />   
+    </li>
+</ul>
+<h2 id="rag-核心组件的分类体系">RAG 核心组件的分类体系</h2>
+<p>在探讨 RAG（Retrieval-Augmented Generation）与微调（Fine-tuning，FT）之间的选择时，我们首先需要了解它们各自的特点以及适用场景。以下是对这两种方法的详细分析：</p>
+<h3 id="rag-特点">RAG 特点</h3>
+<ul>
+<li><strong>外部知识依赖性</strong>：RAG 通过检索外部知识库来增强模型的生成能力。</li>
+<li><strong>模型调整</strong>：不需要对模型进行大规模的参数调整。</li>
+</ul>
+<h3 id="微调ft特点">微调（FT）特点</h3>
+<ul>
+<li><strong>外部知识依赖性</strong>：微调通常依赖于特定领域的数据集。</li>
+<li><strong>模型调整</strong>：需要对模型参数进行调整以适应特定任务。</li>
+</ul>
+<h3 id="适用场景分析">适用场景分析</h3>
+<ol>
+<li><strong>RAG 的适用场景</strong></li>
+</ol>
+<ul>
+<li>当任务需要利用广泛的外部知识时，RAG 是一个不错的选择。</li>
+<li>在数据集更新频繁且难以重新训练模型的情况下，RAG 可以快速适应新信息。</li>
+</ul>
+<ol start="2">
+<li><strong>微调的适用场景</strong></li>
+</ol>
+<ul>
+<li>当有大量特定领域的数据可用时，微调可以提供更好的性能。</li>
+<li>对于需要模型深入理解特定领域知识的复杂任务，微调是更合适的选择。</li>
+</ul>
+<h3 id="选择建议">选择建议</h3>
+<ul>
+<li>根据任务对外部知识的需求和模型调整的难易程度，选择最适合的方法。</li>
+<li>在资源有限的情况下，可以考虑结合使用 RAG 和微调，以发挥各自的优势。</li>
+</ul>
+<h3 id="结论rag-和微调是两种不同的优化手段它们各自有独特的优势和适用场景合理选择和应用这两种方法可以有效地提升语言模型的性能">结论RAG 和微调是两种不同的优化手段，它们各自有独特的优势和适用场景。合理选择和应用这两种方法，可以有效地提升语言模型的性能。</h3>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage2757763dae03328819c638e2.jpeg" />   
+    <br>
+RAG 和 FT 是两种不同的技术，它们各自有独特的优势和应用场景。
+RAG 技术可以类比为一本教科书，它为模型提供了定制化的信息检索能力，非常适合处理特定的查询任务。这种技术能够针对特定的需求，快速检索和整合信息，以提供精确的查询结果。
+FT 技术则类似于一个学生，它能够随着时间的推移逐渐吸收和内化知识。这种技术特别适合于模仿特定的结构、风格或格式，通过不断学习和适应，提高模型的输出质量和效率。然而，FT 在整合新知识或快速迭代新用例方面可能不如RAG灵活。
+尽管RAG 和 FT 各有所长，但它们并不是相互排斥的。实际上，将这两种技术结合起来使用，可以发挥各自的优势，从而实现最佳的性能表现。通过联合应用，RAG 的信息检索能力和 FT 的知识内化能力可以相互补充，共同提升模型的整体性能。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage099d616917b5c0ae2706e56b.jpeg" />   
+    </p>
+<h1 id="rag技术应用流程解析">RAG技术应用流程解析</h1>
+<p>RAG技术，即Retrieval-Augmented Generation，是一种结合了检索和生成的先进模型。其应用流程可分为两个主要阶段，下文将对这两个阶段进行详细解析。</p>
+<h2 id="数据准备阶段">数据准备阶段</h2>
+<h3 id="数据提取在数据准备的初始阶段需要从各种来源提取所需的数据">数据提取在数据准备的初始阶段，需要从各种来源提取所需的数据。</h3>
+<h3 id="文本分割提取的数据需要进行分割以便于后续处理">文本分割提取的数据需要进行分割，以便于后续处理。</h3>
+<h3 id="向量化embedding将文本数据转换为向量形式这是为了便于模型理解和处理">向量化（Embedding）将文本数据转换为向量形式，这是为了便于模型理解和处理。</h3>
+<h3 id="数据入库向量化后的数据需要构建索引并存储到数据库中以供后续检索使用">数据入库向量化后的数据需要构建索引并存储到数据库中，以供后续检索使用。</h3>
+<h2 id="应用阶段">应用阶段</h2>
+<h3 id="用户提问应用阶段的开始是用户的提问这是触发整个rag流程的关键">用户提问应用阶段的开始是用户的提问，这是触发整个RAG流程的关键。</h3>
+<h3 id="数据检索召回根据用户的问题系统将进行数据检索以找到相关的信息">数据检索（召回）根据用户的问题，系统将进行数据检索，以找到相关的信息。</h3>
+<h3 id="注入prompt检索到的数据将结合特定的prompt以引导模型更准确地生成答案">注入Prompt检索到的数据将结合特定的Prompt，以引导模型更准确地生成答案。</h3>
+<h3 id="llm生成答案最后大型语言模型llm将根据注入的prompt和检索到的数据生成最终答案">LLM生成答案最后，大型语言模型（LLM）将根据注入的Prompt和检索到的数据生成最终答案。</h3>
+<p>以上步骤构成了RAG技术应用的完整流程，每个环节都是构建高效、准确的信息检索和生成系统不可或缺的部分。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage8b9d301ccfb5c4674318bf46.jpeg" />   
+    </p>
+<h1 id="数据准备">数据准备</h1>
+<p>数据准备是构建知识检索系统的基础，涉及数据提取、处理和向量化等多个步骤。以下是详细的数据准备流程：</p>
+<h2 id="数据提取">数据提取</h2>
+<ul>
+<li>
+<p><strong>数据加载</strong>：支持多种格式数据的加载，包括不同数据源的整合，将数据统一为统一的标准。</p>
+</li>
+<li>
+<p><strong>数据处理</strong>：包括数据的过滤、压缩和格式化等操作。</p>
+</li>
+<li>
+<p><strong>元数据获取</strong>：提取关键信息，如文件名、标题、时间等。</p>
+</li>
+</ul>
+<h2 id="文本分割">文本分割</h2>
+<p>文本分割是确保语义完整性的重要步骤，主要考虑以下两种方式：</p>
+<ul>
+<li>
+<p><strong>句分割</strong>：以句子为单位进行分割，保留完整语义，常用标点包括句号、感叹号等。</p>
+</li>
+<li>
+<p><strong>固定长度分割</strong>：根据模型的Token限制，将文本分割为固定长度，如256或512个Tokens，可能需要在文本两端添加冗余以减少语义损失。</p>
+</li>
+</ul>
+<h2 id="向量化embedding">向量化（Embedding）</h2>
+<p>向量化是将文本转换为向量矩阵的关键过程，影响检索效果。以下是几种常见的Embedding模型：
+| 模型名称 | 描述 | 获取地址 || &ndash;</p>
+<ul>
+<li>| &ndash;</li>
+<li>| &ndash;</li>
+<li>|| ChatGPT-Embedding | OpenAI提供的接口形式调用的Embedding模型。 | <a href="http://zshipu.com/t/index.html?url=https://platform.openai.com/docs/guides/embeddings/what-are-embeddings">ChatGPT-Embedding</a> || ERNIE-Embedding V1 | 百度提供的依赖于文心大模型能力的接口形式调用的Embedding模型。 | <a href="http://zshipu.com/t/index.html?url=https://cloud.baidu.com/doc/WENXINWORKSHOP/s/alj562vvu">ERNIE-Embedding V1</a> || M3E | 功能强大的开源Embedding模型，包含多个版本，支持微调和本地部署。 | <a href="http://zshipu.com/t/index.html?url=https://huggingface.co/moka-ai/m3e-base">M3E</a> || BGE | 北京智源人工智能研究院发布的支持中英文的开源Embedding模型，支持微调和本地部署。 | <a href="http://zshipu.com/t/index.html?url=https://huggingface.co/BAAI/bge-base-en-v1.5">BGE</a> |</li>
+</ul>
+<h2 id="数据入库">数据入库</h2>
+<p>数据入库是将向量化后的数据构建索引并写入数据库的过程。适用于RAG场景的数据库有FAISS、Chromadb、ES、Milvus等，可以根据业务需求、硬件和性能要求选择合适的数据库。</p>
+<h2 id="应用阶段-1">应用阶段</h2>
+<p>应用阶段主要包括以下关键环节：</p>
+<ul>
+<li>
+<p><strong>数据检索</strong>：根据用户提问，通过高效的检索方法召回最相关的知识。</p>
+</li>
+<li>
+<p><strong>注入Prompt</strong>：将检索到的知识融入Prompt，引导大模型生成答案。
+整个流程需确保数据的准确性和检索的高效性，以实现最佳的问答效果。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage46c583ddba5cb2f86deb2fac.jpeg" />   
+    </p>
+</li>
+</ul>
+<h1 id="数据检索方法概览">数据检索方法概览</h1>
+<p>数据检索是信息检索领域中一项关键技术，其目的是从大量数据中快速准确地找到所需信息。以下是几种常见的数据检索方法：</p>
+<h2 id="相似性检索相似性检索的核心在于评估查询向量与数据集中存储向量之间的相似度这种方法通常适用于推荐系统图像识别等领域相似度的计算可以通过以下方式实现">相似性检索相似性检索的核心在于评估查询向量与数据集中存储向量之间的相似度。这种方法通常适用于推荐系统、图像识别等领域。相似度的计算可以通过以下方式实现：</h2>
+<ul>
+<li><strong>余弦相似性</strong>：计算两个向量的夹角的余弦值，衡量它们的方向相似度。</li>
+<li><strong>欧氏距离</strong>：计算两个向量之间的直线距离，反映它们的大小差异。</li>
+<li><strong>曼哈顿距离</strong>：计算两个点在标准坐标系上的绝对轴距和，适用于多维空间。</li>
+</ul>
+<h2 id="全文检索全文检索是一种广泛应用于文本数据的检索技术它通过构建倒排索引来实现快速检索">全文检索全文检索是一种广泛应用于文本数据的检索技术。它通过构建倒排索引来实现快速检索：</h2>
+<ol>
+<li><strong>数据预处理</strong>：在数据存入前，对文本进行分词、去除停用词等预处理操作。</li>
+<li><strong>倒排索引构建</strong>：将文本中的关键词与文档建立映射关系，形成倒排索引。</li>
+<li><strong>检索过程</strong>：用户输入关键词后，系统通过倒排索引快速定位到包含这些关键词的文档。</li>
+</ol>
+<h2 id="检索效果优化为了提高检索的准确性和召回率可以采取以下策略">检索效果优化为了提高检索的准确性和召回率，可以采取以下策略：</h2>
+<ul>
+<li>结合多种检索方法，利用它们的优势互补。</li>
+<li>调整算法参数，优化相似度计算和索引构建过程。</li>
+<li>应用机器学习技术，不断优化检索模型。</li>
+</ul>
+<h2 id="应用场景数据检索技术被广泛应用于搜索引擎推荐系统自然语言处理等多个领域是大数据处理不可或缺的一部分">应用场景数据检索技术被广泛应用于搜索引擎、推荐系统、自然语言处理等多个领域，是大数据处理不可或缺的一部分。</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage409fd0d108c04a3a0b911057.jpeg" />   
+    </p>
+<h3 id="提升大模型输出准确率的prompt设计">提升大模型输出准确率的Prompt设计</h3>
+<p>在大模型的交互过程中，Prompt的设计至关重要。它不仅决定了模型理解任务的能力，也直接影响到输出的准确性。以下是针对RAG（Retrieval-Augmented Generation）场景的Prompt设计要点：</p>
+<h4 id="1-任务描述">1. 任务描述</h4>
+<ul>
+<li>清晰阐述任务目标，确保模型对任务有基本理解。</li>
+</ul>
+<h4 id="2-背景知识">2. 背景知识</h4>
+<ul>
+<li>引入与任务相关的背景信息，这些信息通常是通过检索得到的，有助于模型构建知识背景。</li>
+</ul>
+<h4 id="3-任务指令">3. 任务指令</h4>
+<ul>
+<li>明确给出用户的具体问题或指令，指导模型进行针对性的回答。</li>
+</ul>
+<h4 id="4-其他指令">4. 其他指令</h4>
+<ul>
+<li>根据任务场景和模型性能，适当添加指令以优化输出结果。</li>
+</ul>
+<h4 id="示例prompt以下是一个简单的知识问答场景的prompt示例">示例Prompt以下是一个简单的知识问答场景的Prompt示例：</h4>
+<p><code>任务描述：回答用户关于历史事件的问题。背景知识：第二次世界大战是20世纪最大规模的战争。任务指令：请描述第二次世界大战的主要参战国家。其他指令：请确保回答简洁明了。</code>
+通过合理设计Prompt，可以显著提升大模型在特定任务场景下的表现。</p>
+<pre tabindex="0"><code>【任务描述】  
+假如你是一个专业的客服机器人，请参考【背景知识】，回  
+【背景知识】  
+{content} // 数据检索得到的相关文本  
+【问题】  
+石头扫地机器人P10的续航时间是多久？
+</code></pre><h2 id="rag评估方法概述">RAG评估方法概述</h2>
+<p>RAG（Retrieval-Augmented Generation）模型的评估涉及多个维度，旨在全面衡量其性能。以下是对RAG模型进行评估的几个关键方面：</p>
+<h3 id="质量评分">质量评分</h3>
+<ol>
+<li><strong>上下文相关性</strong>：评估模型生成的答案与给定上下文的匹配程度。</li>
+<li><strong>答案忠实性</strong>：衡量答案是否忠实于原始信息源。</li>
+<li><strong>答案相关性</strong>：评价答案与问题的相关性。</li>
+</ol>
+<h3 id="关键能力">关键能力</h3>
+<ol>
+<li><strong>噪声鲁棒性</strong>：模型在面对不完整或错误信息时的表现。</li>
+<li><strong>拒答能力</strong>：模型在无法生成合适答案时的拒绝回答能力。</li>
+<li><strong>信息整合</strong>：模型整合不同信息源的能力。</li>
+<li><strong>反事实鲁棒性</strong>：模型在面对反事实情况时的稳定性。</li>
+</ol>
+<h3 id="评估框架">评估框架</h3>
+<ul>
+<li><strong>RGB</strong>：一种基准测试，用于评估模型的多个方面。</li>
+<li><strong>RECALL</strong>：另一种基准测试，专注于模型的信息检索能力。</li>
+<li><strong>RAGAS</strong>：自动化评估工具，针对RAG模型的特性设计。</li>
+<li><strong>ARES</strong>：评估模型在特定任务上的表现。</li>
+<li><strong>TruLens</strong>：评估模型的准确性和透明度。</li>
+</ul>
+<h3 id="评估指标评估rag模型时除了传统的量化指标外还有专门针对rag特性的评估标准这些标准虽然尚未统一但提供了评估模型性能的重要视角">评估指标评估RAG模型时，除了传统的量化指标外，还有专门针对RAG特性的评估标准。这些标准虽然尚未统一，但提供了评估模型性能的重要视角。</h3>
+<h3 id="应用与理解通过上述评估方法和框架可以深入理解rag模型的性能从而更好地应用于实际问题解决中评估结果有助于识别模型的优势和潜在改进空间">应用与理解通过上述评估方法和框架，可以深入理解RAG模型的性能，从而更好地应用于实际问题解决中。评估结果有助于识别模型的优势和潜在改进空间。</h3>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage28bf7a7a7718878571c128ed.jpeg" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagedbb8457f762d18713358d248.jpeg" />   
+    </p>
+<h1 id="rag技术的未来发展前景">RAG技术的未来发展前景</h1>
+<p>RAG技术作为人工智能领域的一个活跃分支，其发展势头强劲，未来的发展可以从以下几个方面进行展望：</p>
+<h2 id="一rag的垂直优化">一、RAG的垂直优化</h2>
+<p>垂直优化主要关注RAG技术在特定领域的深入发展和改进：</p>
+<ol>
+<li><strong>长下文处理</strong>：探索解决长文本处理的挑战，例如检索内容超出窗口限制的解决方案。</li>
+<li><strong>鲁棒性提升</strong>：研究如何对检索到的错误内容进行过滤和验证，提高模型的抗干扰能力。</li>
+<li><strong>与微调的协同</strong>：探讨RAG与微调（Fine-Tuning）的结合方式，实现两者的优势互补。</li>
+<li><strong>Scaling Law研究</strong>：分析RAG模型是否遵循Scaling Law，以及在何种场景下可能出现Inverse Scaling Law现象。</li>
+<li><strong>LLMs的多角色应用</strong>：挖掘大型语言模型（LLMs）在RAG中的潜力，包括检索、生成和评估等。</li>
+<li><strong>工程实践优化</strong>：研究如何降低大规模语料检索的延迟，确保检索内容的安全性。</li>
+</ol>
+<h2 id="二rag的多模态拓展">二、RAG的多模态拓展</h2>
+<p>RAG技术的多模态拓展是其未来发展的重要方向：</p>
+<ol>
+<li><strong>跨模态数据处理</strong>：将RAG技术应用于图片、音频、视频和代码等多模态数据，增强单一模态任务的处理能力。</li>
+<li><strong>多模态融合</strong>：通过RAG思想实现不同模态数据的融合，提供更丰富的信息处理能力。</li>
+</ol>
+<h2 id="三rag的生态系统构建">三、RAG的生态系统构建</h2>
+<p>RAG技术的生态系统正在不断扩展和丰富：</p>
+<ol>
+<li><strong>应用领域拓展</strong>：RAG技术的应用已经从问答系统扩展到推荐系统、信息抽取和报告生成等多个领域。</li>
+<li><strong>技术栈发展</strong>：市场上出现了更多针对性的RAG工具，如Langchain和LlamaIndex等，推动了RAG技术的广泛应用。</li>
+<li><strong>工具的定制化与简易化</strong>：开发更多定制化工具以满足特定场景的需求，同时简化工具的使用，降低技术门槛。</li>
+<li><strong>功能专业化</strong>：面向生产环境，开发更加专业化的RAG工具，以满足实际应用的需求。</li>
+</ol>
+<h2 id="结语">结语</h2>
+<p>RAG技术的未来发展前景广阔，其在垂直优化、多模态拓展和生态系统构建等方面的深入研究将推动人工智能技术的进一步发展。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagedb56be08b076fe22a4f65bb4.jpeg" />   
+    </p>
+<h3 id="大模型llm学习指南">大模型LLM学习指南</h3>
+<p>作为一名在互联网行业深耕多年的资深人士，我深知知识分享的重要性。在过去的十余年中，我有幸指导了许多同行，见证了他们的成长和进步。现在，我希望能够将我的经验和知识，通过有效的途径传递给更多渴望学习和提升的朋友。</p>
+<h4 id="1-学习资源的获取在互联网时代获取学习资源的途径虽然众多但质量参差不齐为此我整理了一系列高质量的ai大模型学习资料包括但不限于">1. 学习资源的获取在互联网时代，获取学习资源的途径虽然众多，但质量参差不齐。为此，我整理了一系列高质量的AI大模型学习资料，包括但不限于：</h4>
+<ul>
+<li><strong>AI大模型入门学习思维导图</strong>：帮助你构建起对AI大模型的基本理解。</li>
+<li><strong>精品AI大模型学习书籍手册</strong>：深入学习AI大模型的理论知识。</li>
+<li><strong>视频教程</strong>：通过视频形式，直观学习AI大模型的应用和实践。</li>
+<li><strong>实战学习录播视频</strong>：通过实战案例，掌握AI大模型的实际操作技巧。</li>
+</ul>
+<h4 id="2-学习路径的规划学习任何新技术都需要有清晰的学习路径以下是我为大家规划的学习路径">2. 学习路径的规划学习任何新技术，都需要有清晰的学习路径。以下是我为大家规划的学习路径：</h4>
+<ul>
+<li><strong>基础阶段</strong>：从AI大模型的基本概念和原理学起，理解其工作原理。</li>
+<li><strong>进阶阶段</strong>：深入学习AI大模型的高级应用，包括模型调优、性能优化等。</li>
+<li><strong>实战阶段</strong>：通过项目实践，将理论知识转化为实际操作能力。</li>
+</ul>
+<h4 id="3-持续更新与反馈学习是一个持续的过程我会不断更新学习资源同时也非常欢迎大家提出宝贵的反馈和建议共同促进学习资源的完善">3. 持续更新与反馈学习是一个持续的过程，我会不断更新学习资源，同时，也非常欢迎大家提出宝贵的反馈和建议，共同促进学习资源的完善。</h4>
+<h4 id="4-获取学习资源如果你对ai大模型的学习感兴趣并且希望获得上述提到的全套学习资源包可以通过以下方式获取">4. 获取学习资源如果你对AI大模型的学习感兴趣，并且希望获得上述提到的全套学习资源包，可以通过以下方式获取：</h4>
+<ul>
+<li>扫描提供的二维码，即可免费获取《<strong>LLM大模型入门+进阶学习资源包</strong>》。
+请大家注意，所有提供的资料均为免费，旨在帮助大家更好地学习和掌握AI大模型的相关知识。</li>
+</ul>
+<hr>
+<p>希望这份指南能够成为你学习AI大模型的起点，让我们一起在人工智能的浪潮中乘风破浪！<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage64ad36c4ca623153ddd457c1.png" />   
+    </p>
+<h3 id="篇幅有限部分资料如下">篇幅有限，部分资料如下：</h3>
+<h4 id="llm大模型学习指南路线汇总">👉LLM大模型学习指南+路线汇总👈</h4>
+<p>💥大模型入门要点，扫盲必看！</p>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage42e8ae8aaf7dd7819caf5ece.jpeg" />   
+    </p>
+<p><strong>💥既然要系统的学习大模型，那么学习路线是必不可少的，这份路线能帮助你快速梳理知识，形成自己的体系。</strong></p>
+<p>路线图很大就不一一展示了 <strong>（文末领取）</strong></p>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage61435c6ce130f739c66ed54d.jpeg" />   
+    </p>
+<h3 id="大模型入门实战训练">👉大模型入门实战训练👈</h3>
+<p>💥光学理论是没用的，要学会跟着一起做，要动手实操，才能将自己的所学运用到实际当中去，这时候可以搞点实战案例来学习。</p>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagee058542004343abfd47f9e96.jpeg" />   
+    <br>
+👉 <strong>国内企业大模型落地应用案例</strong> 👈
+在过去两年中，国内企业在大模型技术的应用上取得了显著进展。《中国大模型落地应用案例集》收录了151个案例，这些案例不仅展示了大模型技术在不同领域的应用，也为研究者和业内人士提供了宝贵的参考。</p>
+<h3 id="案例集概览"><strong>案例集概览</strong></h3>
+<ul>
+<li><strong>收录数量</strong>：151个案例</li>
+<li><strong>覆盖领域</strong>：金融、医疗、教育、交通、制造等</li>
+</ul>
+<h3 id="案例集亮点"><strong>案例集亮点</strong></h3>
+<ol>
+<li><strong>技术研究</strong>：为大模型技术的研究者提供深入案例分析</li>
+<li><strong>业务应用</strong>：展示大模型技术在实际业务中的应用方式</li>
+</ol>
+<h3 id="案例集价值"><strong>案例集价值</strong></h3>
+<ul>
+<li>对于研究者，案例集是理解大模型技术如何影响行业发展的重要资料。</li>
+<li>对于业内人士，案例集提供了大模型技术在不同业务场景下的实际应用示例。</li>
+</ul>
+<h3 id="获取方式感兴趣的读者可以通过文末提供的链接领取中国大模型落地应用案例集"><strong>获取方式</strong>感兴趣的读者可以通过文末提供的链接领取《中国大模型落地应用案例集》。</h3>
+<h3 id="注意事项"><strong>注意事项</strong></h3>
+<ul>
+<li>案例集为专业人士提供了丰富的行业见解和应用策略。</li>
+<li>通过学习这些案例，读者可以更好地理解大模型技术的实际应用和潜在价值。
+<strong>（文末领取）</strong><br>
+
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImagead879ee39377bf8e8946fb90.jpeg" />   
+    </li>
+</ul>
+<h3 id="github海量高星开源项目">👉GitHub海量高星开源项目👈</h3>
+<p>💥收集整理了海量的开源项目，地址、代码、文档等等全都下载共享给大家一起学习！</p>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage9b424a35413e232edc1aaf98.jpeg" />   
+    </p>
+<h3 id="llm大模型学习视频">👉LLM大模型学习视频👈</h3>
+<p>💥观看零基础学习书籍和视频，看书籍和视频学习是最快捷也是最有效果的方式，跟着视频中老师的思路，从基础到深入，还是很容易入门的。 <strong>（文末领取）</strong></p>
+<p>
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage9e9c4a43a1637fa19202e890.jpeg" />   
+    <br>
+👉 <strong>640份AI大模型行业报告合集</strong> 👈
+💥 <strong>报告概览</strong></p>
+<ul>
+<li>
+<p>报告数量：640份</p>
+</li>
+<li>
+<p>内容覆盖：理论研究、技术实现、行业应用
+🔍 <strong>适用人群</strong></p>
+</li>
+<li>
+<p>科研人员</p>
+</li>
+<li>
+<p>工程师</p>
+</li>
+<li>
+<p>AI大模型爱好者
+📚 <strong>报告内容</strong></p>
+</li>
+</ul>
+<ol>
+<li><strong>理论研究</strong>：深入探讨AI大模型的科学基础和理论框架。</li>
+<li><strong>技术实现</strong>：详细解析AI大模型的构建过程和技术细节。</li>
+<li><strong>行业应用</strong>：分析AI大模型在不同行业中的应用案例和效果。
+💡 <strong>报告价值</strong></li>
+</ol>
+<ul>
+<li>提供行业前沿信息</li>
+<li>启发创新思维</li>
+<li>促进技术交流
+📈 <strong>持续更新</strong>  本报告合集将持续更新，以确保信息的时效性和前瞻性。
+<strong>注意</strong>：以上内容为示例，具体报告内容以实际发布为准。<br>
+
+        <img class="mx-auto" alt="在这里插入图片描述" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImage49309c3dd1779013c411ed56.jpeg" />   
+    </li>
+</ul>
+<h3 id="获取方式">👉获取方式：</h3>
+<h6 id="这份完整版的大模型-llm-学习资料已经上传csdn朋友们如果需要可以微信扫描下方csdn官方认证二维码免费领取保证100免费">这份完整版的大模型 LLM 学习资料已经上传CSDN，朋友们如果需要可以微信扫描下方CSDN官方认证二维码免费领取【<code>保证100%免费</code>】</h6>
+<p>😝有需要的小伙伴，可以Vx扫描下方二维码免费领取🆓</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv2@main/2024/downloadedImageb06e015f2e46417548ec31e9.png" />   
+    </p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek001">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek001/post/20240801/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%88%98%E4%B8%93%E8%A1%A5%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9F%AD%E6%9D%BF%E7%9A%84RAG%E4%B8%8E%E6%8F%90%E5%8D%87%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek001/post/20240801/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%88%98%E4%B8%93%E8%A1%A5%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9F%AD%E6%9D%BF%E7%9A%84RAG%E4%B8%8E%E6%8F%90%E5%8D%87%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek001/post/20240801/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%88%98%E4%B8%93%E8%A1%A5%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9F%AD%E6%9D%BF%E7%9A%84RAG%E6%8F%90%E5%8D%87%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/">LLM大模型技术实战：专补大模型短板的RAG提升搜索召回率 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240801/RAG%E5%88%86%E6%9E%90Part1%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E7%9A%84%E4%B8%8D%E8%B6%B3--%E7%9F%A5%E8%AF%86%E9%93%BA/">RAG分析Part1：检索增强生成的不足 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240801/RAG%E5%BC%80%E5%B1%B1%E4%B9%8B%E4%BD%9C%E7%9F%A5%E8%AF%86%E5%AF%86%E9%9B%86%E5%9E%8BNLP%E4%BB%BB%E5%8A%A1%E6%96%B0%E8%A7%A3%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/">RAG开山之作：知识密集型NLP任务新解法 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240801/%E5%88%A9%E7%94%A8RAG%E6%8F%90%E5%8D%87%E5%AE%A2%E6%88%B7%E6%8A%80%E6%9C%AF%E6%94%AF%E6%8C%81%E5%93%8D%E5%BA%94%E6%97%B6%E9%97%B4--%E7%9F%A5%E8%AF%86%E9%93%BA/">利用RAG提升客户技术支持响应时间 -- 知识铺</a></li>
+        
+        <li><a href="/geek001/post/20240801/RAG-%E4%B8%8E-LLMs-%E7%BB%93%E5%90%88%E7%BB%BC%E8%BF%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/">RAG 与 LLMs 结合综述 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek001/tags/LLM'>LLM</a></li>
+                
+                <li><a href='/geek001/tags/RAG'>RAG</a></li>
+                
+                <li><a href='/geek001/tags/%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87'>搜索召回率</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek001">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek001/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek001/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek001">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E9%AB%98%E7%BA%A7%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E6%8A%80%E6%9C%AF%E5%85%A8%E9%9D%A2%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="高级检索增强生成技术全面指南 -- 知识铺">高级检索增强生成技术全面指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E8%9A%82%E8%9A%81%E5%BC%80%E6%BA%90Graph-RAG%E6%A1%86%E6%9E%B6%E8%AE%BE%E8%AE%A1%E8%A7%A3%E8%AF%BB--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="蚂蚁开源Graph RAG框架设计解读 -- 知识铺">蚂蚁开源Graph RAG框架设计解读 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E5%88%A9%E7%94%A8%E5%85%83%E6%95%B0%E6%8D%AE%E8%BF%87%E6%BB%A4Hybrid-SearchAgent%E7%AD%89%E5%8A%9F%E8%83%BD%E6%8F%90%E5%8D%87%E6%82%A8%E7%9A%84RAG%E5%BA%94%E7%94%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="利用元数据过滤、Hybrid Search、Agent等功能提升您的RAG应用 -- 知识铺">利用元数据过滤、Hybrid Search、Agent等功能提升您的RAG应用 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%88%98%E4%B8%93%E8%A1%A5%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9F%AD%E6%9D%BF%E7%9A%84RAG%E4%B8%8E%E6%8F%90%E5%8D%87%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺">LLM大模型技术实战：专补大模型短板的RAG与提升搜索召回率 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/PDF%E6%96%87%E6%A1%A3%E5%90%91%E9%87%8F%E5%8C%96%E8%AF%A6%E7%BB%86%E8%BF%87%E7%A8%8B--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="PDF文档向量化详细过程 -- 知识铺">PDF文档向量化详细过程 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/AI%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%BD%93%E7%B3%BB%E5%9C%A8%E5%85%A8%E9%93%BE%E8%B7%AF%E8%AE%BE%E8%AE%A1%E7%A0%94%E5%8F%91%E4%B8%AD%E7%9A%84%E5%BA%94%E7%94%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="AI工程化体系在全链路设计研发中的应用 -- 知识铺">AI工程化体系在全链路设计研发中的应用 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E5%9F%BA%E4%BA%8EMilvus%E7%9A%84%E8%AF%AD%E4%B9%89%E6%A3%80%E7%B4%A2%E7%B3%BB%E7%BB%9F%E6%90%AD%E5%BB%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="基于Milvus的语义检索系统搭建 -- 知识铺">基于Milvus的语义检索系统搭建 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E7%A6%BB%E7%BA%BF%E7%8E%AF%E5%A2%83%E4%B8%8BMilvus%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="离线环境下Milvus安装指南 -- 知识铺">离线环境下Milvus安装指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/%E6%8F%90%E5%8D%87RAG%E7%B3%BB%E7%BB%9F%E5%9B%9E%E7%AD%94%E8%B4%A8%E9%87%8F%E7%9A%84%E7%AD%96%E7%95%A5--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="提升RAG系统回答质量的策略 -- 知识铺">提升RAG系统回答质量的策略 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek001/post/20240801/CentOS7%E7%B3%BB%E7%BB%9F%E4%B8%8BPython3.8%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="CentOS7系统下Python3.8安装指南 -- 知识铺">CentOS7系统下Python3.8安装指南 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek001/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek001/tags/.NET%E5%BC%80%E6%BA%90%E6%8E%A7%E4%BB%B6%E5%BA%93/">.NET开源控件库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/2PC/">2PC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/3PC/">3PC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/404/">404</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/51CTO%E5%8D%9A%E5%AE%A2/">51CTO博客</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ABP%E6%A1%86%E6%9E%B6/">ABP框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AGI/">AGI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI-Agents/">AI Agents</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI-Native/">AI Native</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AIGC/">AIGC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B/">AI大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E5%A5%97%E4%BB%B6/">AI套件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E5%B7%A5%E7%A8%8B%E5%8C%96/">AI工程化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%90%9C%E7%B4%A2/">AI搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E6%9C%80%E6%96%B0%E5%8A%A8%E6%80%81/">AI最新动态</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7/">AI编程工具</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E8%9E%8D%E5%90%88/">AI融合</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AI%E8%B5%8B%E8%83%BD/">AI赋能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AJAX/">AJAX</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E7%BD%91%E5%85%B3/">API网关</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/API%E8%AE%BE%E8%AE%A1/">API设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/APS/">APS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ARM/">ARM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Angular/">Angular</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Knox/">Apache Knox</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Shiro/">Apache Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Spark/">Apache Spark</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apache-Zeppelin/">Apache Zeppelin</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Apollo/">Apollo</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/App-Router/">App Router</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ArrayBuffer/">ArrayBuffer</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/AspectJ/">AspectJ</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/BERT/">BERT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/BFF%E6%9E%B6%E6%9E%84/">BFF架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Bootstrap/">Bootstrap</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Bun/">Bun</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ByteBuffer/">ByteBuffer</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/B%E7%AB%AF/">B端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/B%E7%AB%AF%E4%B8%9A%E5%8A%A1/">B端业务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/B%E7%AB%AF%E8%90%A5%E9%94%80/">B端营销</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E5%85%A5%E9%97%A8/">C&#43;&#43;入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E8%BF%9B%E9%98%B6/">C&#43;&#43;进阶</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C&#43;&#43;%E9%AB%98%E7%BA%A7/">C&#43;&#43;高级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C/C&#43;&#43;/">C/C&#43;&#43;</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS5/">CAS5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">CAS单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1/">CAS服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CAS%E6%9C%8D%E5%8A%A1%E5%99%A8/">CAS服务器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CGLIB%E4%BB%A3%E7%90%86/">CGLIB代理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CI/CD/">CI/CD</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CQRS/">CQRS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CQRS%E5%92%8C%E4%BA%8B%E4%BB%B6%E6%BA%AF%E6%BA%90/">CQRS和事件溯源</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRM/">CRM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD-Operations/">CRUD Operations</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CRUD%E6%8E%A5%E5%8F%A3/">CRUD接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSDN%E5%8D%9A%E5%AE%A2/">CSDN博客</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS/">CSS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS-%E5%A1%AB%E5%85%85/">CSS 填充</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CSS%E6%A8%A1%E5%9D%97/">CSS模块</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CUDA/">CUDA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Canvas/">Canvas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CentOS-7.x/">CentOS 7.x</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CentOS7/">CentOS7</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Chroma/">Chroma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Class-%E7%B1%BB/">Class 类</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Clickhouse/">Clickhouse</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Clickhouse/">Clickhouse</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cloud-Computing/">Cloud Computing</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CoT/">CoT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Components%E7%9B%AE%E5%BD%95/">Components目录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/CondaSSLError/">CondaSSLError</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Core-Web-Vitals/">Core Web Vitals</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cortex-M3/">Cortex-M3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Coze%E5%B9%B3%E5%8F%B0/">Coze平台</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Curotec/">Curotec</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/C%E8%AF%AD%E8%A8%80%E7%BC%96%E7%A8%8B/">C语言编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD/">DDD</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E6%9E%B6%E6%9E%84/">DDD架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E6%A8%A1%E5%BC%8F/">DDD模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E8%90%BD%E5%9C%B0/">DDD落地</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DDD%E8%AF%8A%E6%89%80/">DDD诊所</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Dao%E5%B1%82/">Dao层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DataOutputStream/">DataOutputStream</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DataView/">DataView</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DeFi/">DeFi</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/DevOps/">DevOps</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Domain-Driven-Design/">Domain-Driven Design</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/EAM/">EAM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK/">ELK</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ELK-Stack/">ELK Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ERP/">ERP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ETL%E5%B7%A5%E5%85%B7/">ETL工具</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elastic-Stack/">Elastic Stack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Embedding/">Embedding</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Event-Storming/">Event Storming</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Expedia/">Expedia</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FAA/">FAA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Faiss/">Faiss</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Feign/">Feign</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Fetch/">Fetch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FinTech/">FinTech</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Flink/">Flink</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Flutter/">Flutter</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/FreeMarker/">FreeMarker</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GPT-4o/">GPT-4o</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GenAI/">GenAI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Genspark/">Genspark</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Geoserver%E6%BC%8F%E6%B4%9E/">Geoserver漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Getting-Started/">Getting Started</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Git/">Git</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go-%E8%AF%AD%E8%A8%80/">Go 语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Golang/">Golang</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Go%E8%AF%AD%E8%A8%80/">Go语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL/">GraphQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphQL%E6%BC%8F%E6%B4%9E/">GraphQL漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/GraphRAG/">GraphRAG</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Guava/">Guava</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML/">HTML</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HTML5/">HTML5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/HZHControls/">HZHControls</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Hybrid-Search/">Hybrid Search</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/IBM/">IBM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ITPUB%E5%8D%9A%E5%AE%A2/">ITPUB博客</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/IT%E7%A4%BE%E5%8C%BA/">IT社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/IaC/">IaC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Idea%E6%8F%92%E4%BB%B6/">Idea插件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InfoQ/">InfoQ</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InfoQ%E5%86%99%E4%BD%9C%E7%A4%BE%E5%8C%BA/">InfoQ写作社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/InnoDB/">InnoDB</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-423/">JEP 423</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-447/">JEP 447</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-454/">JEP 454</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-456/">JEP 456</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-457/">JEP 457</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-458/">JEP 458</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-459/">JEP 459</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-460/">JEP 460</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-461/">JEP 461</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-462/">JEP 462</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-463/">JEP 463</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JEP-464/">JEP 464</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JFinal/">JFinal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JVM/">JVM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JVM%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84/">JVM内存结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JWT%E9%AA%8C%E8%AF%81/">JWT验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-17/">Java 17</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-22/">Java 22</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java-Web%E5%AE%89%E5%85%A8/">Java Web安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JavaScript/">JavaScript</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/JavaScript-%E8%BF%90%E8%A1%8C%E6%97%B6/">JavaScript 运行时</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%85%A5%E9%97%A8/">Java入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%B7%A5%E5%85%B7/">Java工具</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E5%B7%A5%E7%A8%8B%E5%B8%88/">Java工程师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E6%8C%81%E4%B9%85%E6%80%A7/">Java持久性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E8%99%9A%E6%8B%9F%E6%9C%BA/">Java虚拟机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Java%E8%BF%90%E8%A1%8C%E6%97%A5%E5%BF%97/">Java运行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Kimi-API/">Kimi API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLMs/">LLMs</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLM%E5%A4%A7%E6%A8%A1%E5%9E%8B/">LLM大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLM%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/">LLM应用程序</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LLM%E7%BC%96%E7%A8%8B%E6%A1%86%E6%9E%B6/">LLM编程框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LM393/">LM393</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LONGTEXT/">LONGTEXT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LangChain/">LangChain</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Lepod-Pro/">Lepod Pro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Link-%E7%BB%84%E4%BB%B6/">Link 组件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Link%E7%BB%84%E4%BB%B6/">Link组件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Linux%E7%B3%BB%E7%BB%9FRPM%E7%AE%A1%E7%90%86%E5%99%A8/">Linux系统RPM管理器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama-3/">Llama 3</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Llama3%E4%B8%AD%E6%96%87%E6%A8%A1%E5%9E%8B/">Llama3中文模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/LlamaIndex/">LlamaIndex</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Lockfile/">Lockfile</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Lombok/">Lombok</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MCU/">MCU</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MDK5/">MDK5</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MES/">MES</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MVCC/">MVCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Maven/">Maven</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Multiline%E6%8F%92%E4%BB%B6/">Multiline插件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/MySQL/">MySQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Mybatis-Plus/">Mybatis-Plus</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NIO/">NIO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NLP/">NLP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NLP%E4%BB%BB%E5%8A%A1/">NLP任务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest/">Nest</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nest.js/">Nest.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Netty/">Netty</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next-Js/">Next Js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Next.js-App-Router/">Next.js App Router</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/NextJS/">NextJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js-API/">Node.js API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Node.js-%E6%9B%BF%E4%BB%A3%E5%93%81/">Node.js 替代品</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Nuitka/">Nuitka</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OAuth-%E9%9B%86%E6%88%90/">OAuth 集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OLAP/">OLAP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OORT/">OORT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/PDF%E5%90%91%E9%87%8F%E5%8C%96/">PDF向量化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/PDF%E6%96%87%E6%A1%A3%E5%A4%84%E7%90%86/">PDF文档处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/PLM/">PLM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/POM/">POM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j-4.0.0/">Pac4j 4.0.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Performance-Tuning/">Performance Tuning</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pinboard/">Pinboard</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Prisma/">Prisma</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/PyTorch/">PyTorch</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python3.8/">Python3.8</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Python%E5%AE%9E%E7%8E%B0/">Python实现</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/QA%E7%B3%BB%E7%BB%9F/">QA系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/QMS/">QMS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/QQ%E6%9C%BA%E5%99%A8%E4%BA%BA/">QQ机器人</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Qunar/">Qunar</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Quora%E6%9B%BF%E4%BB%A3%E5%93%81/">Quora替代品</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG%E5%BA%94%E7%94%A8/">RAG应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG%E6%8A%80%E6%9C%AF/">RAG技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG%E6%A1%86%E6%9E%B6/">RAG框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG%E6%A8%A1%E5%9E%8B/">RAG模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RAG%E7%B3%BB%E7%BB%9F/">RAG系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST/">REST</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/REST-API/">REST API</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RapidOCR/">RapidOCR</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/React-Query/">React Query</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Redis/">Redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Ribbon/">Ribbon</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/RubyGems/">RubyGems</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SCADA/">SCADA</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SCM/">SCM</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SPL/">SPL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSENSE-TECH/">SSENSE-TECH</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSG/">SSG</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SSO-Shiro-CAS/">SSO-Shiro-CAS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STDOUT/">STDOUT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/STM32/">STM32</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scala/">Scala</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scaled-Agile-Framework/">Scaled Agile Framework</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Scrum-%E5%8F%8D%E6%A8%A1%E5%BC%8F/">Scrum 反模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Sega/">Sega</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Server-Rendering/">Server Rendering</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Service%E5%B1%82/">Service层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Session%E5%85%B1%E4%BA%AB/">Session共享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Sharding-JDBC/">Sharding-JDBC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Socket-%E7%BC%96%E7%A8%8B/">Socket 编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AI/">Spring AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Boot-2.0/">Spring Boot 2.0</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Framework/">Spring Framework</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-MVC/">Spring MVC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Security/">Spring Security</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring-Validation/">Spring Validation</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/SpringBoot/">SpringBoot</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Spring%E7%8A%B6%E6%80%81%E6%9C%BA/">Spring状态机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Storybook/">Storybook</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Swagger%E6%8E%A5%E5%8F%A3%E6%96%87%E6%A1%A3/">Swagger接口文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TCC/">TCC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TCP%E7%B2%98%E5%8C%85%E9%97%AE%E9%A2%98/">TCP粘包问题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TEXT/">TEXT</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Tailwind-CSS/">Tailwind CSS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Text2SQL/">Text2SQL</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThinkJS/">ThinkJS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/ThreadLocal/">ThreadLocal</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Troubleshooting/">Troubleshooting</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TypeScript/">TypeScript</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/TypedArray/">TypedArray</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Vaadin/">Vaadin</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WMS/">WMS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Weaviate/">Weaviate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web-%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F/">Web 应用程序</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web-%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E5%BC%80%E5%8F%91/">Web 应用程序开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WebSocket/">WebSocket</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Webpack/">Webpack</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web%E5%BC%80%E5%8F%91/">Web开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Web%E6%A1%86%E6%9E%B6%E5%92%8C%E5%BA%93/">Web框架和库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WinForms/">WinForms</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/WinFrom%E6%8E%A7%E4%BB%B6/">WinFrom控件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Windows/">Windows</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Windows%E5%AE%89%E8%A3%85/">Windows安装</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Word2Vec/">Word2Vec</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Word%E6%96%87%E6%A1%A3/">Word文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Zilliz/">Zilliz</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/backend-development/">backend development</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/buji-pac4j/">buji-pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/bundler/">bundler</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Cas/">Cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/conda/">conda</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/cookie/">cookie</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/domain-driven-design-pattern/">domain-driven design pattern</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/exchange%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86/">exchange信息收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Filebeat/">Filebeat</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gRPC/">gRPC</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/gem-install-redis/">gem install redis</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/graphql-go-%E5%BA%93/">graphql-go 库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/java-virtual-machine-architecture/">java virtual machine architecture</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/jvm-runtime-data-areas/">jvm runtime data areas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Logstash/">Logstash</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/macOS/">macOS</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/microservices-architecture/">microservices architecture</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/multiline/">multiline</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/openssl/">openssl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Pac4j/">Pac4j</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pac4j-cas/">pac4j-cas</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/pom.xml/">pom.xml</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/serviceValidate/">serviceValidate</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/session/">session</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/Shiro/">Shiro</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/splitChunks/">splitChunks</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/systemctl/">systemctl</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/time.After/">time.After</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/virtual-machine-memory-model/">virtual machine memory model</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/webStorage/">webStorage</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/wisemodel.cn/">wisemodel.cn</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/zlib/">zlib</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%80%E6%96%87%E8%AF%BB%E6%87%82/">一文读懂</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%87%E5%AD%97%E6%80%BB%E7%BB%93/">万字总结</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%93%E4%B8%9A%E8%B5%B7%E6%BA%90/">专业起源</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%9A%E5%8A%A1%E6%9E%B6%E6%9E%84/">业务架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%9A%E5%8A%A1%E6%A8%A1%E5%9E%8B/">业务模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%9A%E5%8A%A1%E7%B3%BB%E7%BB%9F/">业务系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%9A%E5%8A%A1%E8%AE%BE%E8%AE%A1/">业务设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%8F%B0/">中台</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E5%B9%B4%E5%8D%B1%E6%9C%BA/">中年危机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%AD%E6%96%87%E5%AF%B9%E8%AF%9D%E6%A8%A1%E5%9E%8B/">中文对话模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%BB%E5%8A%A8%E5%AD%A6%E4%B9%A0/">主动学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%B8%BB%E5%8A%A8%E9%80%82%E9%85%8D/">主动适配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%8B%E4%BB%B6%E9%A3%8E%E6%9A%B4/">事件风暴</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8/">事件驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%9E%8B/">事件驱动模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/">云原生</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E6%9C%8D%E5%8A%A1/">云服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%91%E8%AE%A1%E7%AE%97/">云计算</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%92%E8%81%94%E7%BD%91%E4%B8%9A%E5%8A%A1/">互联网业务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%A7%E7%94%9F%E6%9D%A1%E4%BB%B6/">产生条件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%AC%E4%B8%9C/">京东</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%AC%E4%B8%9C%E4%BA%91/">京东云</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%AC%E8%A5%BF%E5%95%86%E5%9F%8E/">京西商城</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BA%BA%E6%95%99%E7%89%88/">人教版</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%8E0%E5%88%B01/">从0到1</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%90%86%E5%99%A8%E5%86%B2%E7%AA%81/">代理器冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E4%BC%98%E5%8C%96/">代码优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0/">代码实现</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E5%AE%9E%E8%B7%B5/">代码实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E5%BC%80%E5%8F%91/">代码开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">代码生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90%E5%99%A8/">代码生成器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B/">代码示例</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%A3%E7%A0%81%E7%BB%93%E6%9E%84/">代码结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BB%BB%E5%8A%A1%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">任务解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E6%95%B0%E6%8D%AE/">企业数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%BA%94%E7%94%A8/">企业级应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91/">企业级应用开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%98%E5%8C%96%E5%AE%9E%E8%B7%B5/">优化实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%98%E9%9B%85%E8%AE%BE%E8%AE%A1/">优雅设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BC%9A%E8%AE%AE%E7%AC%94%E8%AE%B0/">会议笔记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%8D%E6%93%8D%E4%BD%9C/">位操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%9C%E7%94%A8/">作用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BD%9C%E7%94%A8%E5%9F%9F/">作用域</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9B%E5%BA%94%E9%93%BE/">供应链</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5/">依赖注入</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86/">依赖管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%81%A5%E5%BA%B7%E7%AE%A1%E7%90%86/">健康管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%83%E6%95%B0%E6%8D%AE%E8%BF%87%E6%BB%A4/">元数据过滤</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%83%E7%A9%BA%E9%97%B4/">元空间</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%85%E8%A1%80%E6%A8%A1%E5%9E%8B/">充血模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%89%E6%95%8F%E7%94%B5%E9%98%BB/">光敏电阻</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%8D%E8%B4%B9%E4%BD%BF%E7%94%A8/">免费使用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A5%E9%97%A8%E5%AD%A6%E4%B9%A0/">入门学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E5%B1%80%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">全局异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E6%A1%88%E8%AE%BE%E8%AE%A1/">全案设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%A8%E9%93%BE%E8%B7%AF/">全链路</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%AD%E6%AD%A5%E6%8B%86%E8%A7%A3/">六步拆解</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%AD%E8%BE%B9%E5%BD%A2%E6%9E%B6%E6%9E%84/">六边形架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%85%B3%E9%97%AD%E8%A1%8C%E4%B8%BA/">关闭行为</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D/">内存分配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2/">内存泄露</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA/">内存溢出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AD%98%E7%BB%93%E6%9E%84/">内存结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C%E6%88%96%E5%86%85%E5%AE%B9%E8%90%A5%E9%94%80/">内容创作(或&#39;内容营销&#39;)</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%86%85%E7%9C%81%E6%BC%8F%E6%B4%9E/">内省漏洞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84/">分层架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BC%9A%E8%AF%9D%E7%AE%A1%E7%90%86/">分布式会话管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E6%8A%80%E6%9C%AF%E6%A0%88/">分布式技术栈</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F/">分布式系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/">分库分表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%86%E9%A1%B5%E6%8A%80%E6%9C%AF/">分页技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%88%9D%E4%B8%AD/">初中</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%99%BE%E5%BA%A6%E9%AB%98%E7%AE%A1/">前百度高管</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF/">前端</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8A%A8%E6%80%81%E9%A1%B5%E9%9D%A2/">动态页面</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8C%BB%E7%96%97%E5%A4%A7%E6%A8%A1%E5%9E%8B/">医疗大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8C%BB%E7%96%97%E9%97%AE%E7%AD%94/">医疗问答</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%8F%E5%90%8C%E5%8A%9E%E5%85%AC/">协同办公</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E6%8D%AE%E7%B3%BB%E7%BB%9F/">单据系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%87%BA/">单点登出</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%82%B9%E7%99%BB%E5%BD%95/">单点登录</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%95%E7%89%87%E6%9C%BA/">单片机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8D%AB%E6%8A%A5/">卫报</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%8B%E6%B5%8B%E5%88%86%E6%9E%90/">压测分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C/">原子操作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8E%BB%E5%93%AA%E5%84%BF%E7%BD%91/">去哪儿网</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%82%E6%95%B0%E6%A0%A1%E9%AA%8C/">参数校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%8D%E5%B0%84/">反射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E6%8C%81%E7%BB%AD%E5%8F%91%E5%B1%95/">可持续发展</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%88%E5%B9%B6%E5%86%B2%E7%AA%81/">合并冲突</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8C%E6%AD%A5%E4%B8%80%E8%87%B4%E6%80%A7%E6%A0%A1%E9%AA%8C/">同步一致性校验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8E%E5%8F%B0%E8%BF%90%E8%A1%8C/">后台运行</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/">后端开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%91%E9%87%8F%E5%8C%96%E6%9F%A5%E8%AF%A2/">向量化查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%91%E9%87%8F%E6%90%9C%E7%B4%A2/">向量搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">向量数据库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%90%91%E9%87%8F%E7%B4%A2%E5%BC%95%E7%AE%97%E6%B3%95/">向量索引算法</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%91%BD%E4%BB%A4%E6%8A%80%E5%B7%A7/">命令技巧</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%91%BD%E4%BB%A4%E6%9F%A5%E8%AF%A2%E5%88%86%E7%A6%BB/">命令查询分离</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%91%BD%E4%BB%A4%E9%A3%8E%E6%9A%B4/">命令风暴</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%93%8D%E5%BA%94%E6%97%B6%E9%97%B4/">响应时间</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%95%86%E5%93%81%E5%9F%9F/">商品域</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%9B%E5%B1%82%E6%9E%B6%E6%9E%84/">四层架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%9B%E9%87%8D%E8%BE%B9%E7%95%8C/">四重边界</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C/">团队协作</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%A2%E9%98%9F%E7%94%9F%E4%BA%A7%E5%8A%9B/">团队生产力</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%BE%E5%83%8F%E4%BC%98%E5%8C%96/">图像优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%BE%E6%95%B0%E6%8D%AE%E5%BA%93/">图数据库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9B%BE%E6%A3%80%E7%B4%A2/">图检索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8/">垃圾收集器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">基本概念</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">基础知识</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">基础设施</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A2%9E%E9%87%8F%E7%AB%99%E7%82%B9%E9%87%8D%E6%96%B0%E7%94%9F%E6%88%90/">增量站点重新生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%8D%E6%9D%82%E6%80%A7%E7%AE%A1%E7%90%86/">复杂性管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%96%E6%8C%82%E7%9F%A5%E8%AF%86%E5%BA%93/">外挂知识库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E4%BA%91%E6%94%BB%E5%87%BB%E9%9D%A2%E8%B5%84%E4%BA%A7%E6%A2%B3%E7%90%86/">多云攻击面资产梳理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E6%AD%A5%E6%8E%A8%E7%90%86/">多步推理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%95%8C%E4%B8%8A%E4%B8%8B%E6%96%87%E9%9B%86%E6%88%90/">多界上下文集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/">多租户</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E7%AB%AF%E6%95%B0%E6%8D%AE%E7%BB%9F%E4%B8%80%E8%AE%BF%E9%97%AE/">多端数据统一访问</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E5%90%88%E5%B9%B6/">多行合并</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%9A%E8%A1%8C%E6%97%A5%E5%BF%97/">多行日志</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大型语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%A7%E6%95%B0%E6%8D%AE/">大数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%A7%8B%E6%99%BAAI/">始智AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%90%E5%9F%9F%E5%88%92%E5%88%86/">子域划分</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E6%AE%B5%E5%90%8D%E5%BC%82%E5%B8%B8/">字段名异常</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E7%AC%A6%E4%B8%B2/">字符串</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%97%E8%8A%82%E8%B7%B3%E5%8A%A8/">字节跳动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%A6%E4%B9%A0%E5%BA%94%E7%94%A8/">学习应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AD%A6%E4%B9%A0%E6%9C%BA%E5%88%B6/">学习机制</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%8C%BB%E7%96%97AI/">安全医疗AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E5%BA%93/">安全库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%80%A7/">安全性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E5%85%A8%E6%A1%86%E6%9E%B6/">安全框架</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%89%E8%A3%85%E6%95%99%E7%A8%8B/">安装教程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%8C%E7%BB%93%E7%AF%87/">完结篇</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%88%98/">实战</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%88%98%E5%88%86%E4%BA%AB/">实战分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0/">实战落地</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%88%98%E8%AF%BE%E7%A8%8B/">实战课程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%96%BD%E6%8C%91%E6%88%98/">实施挑战</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%96%BD%E7%AD%96%E7%95%A5/">实施策略</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%96%BD%E9%9A%BE%E7%82%B9/">实施难点</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E6%95%B0%E6%8D%AE%E6%8E%A8%E9%80%81/">实时数据推送</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E6%97%B6%E8%AE%A1%E7%AE%97/">实时计算</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E7%94%A8%E5%9C%BA%E6%99%AF/">实用场景</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E7%94%A8%E6%8C%87%E5%8D%97/">实用指南</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%B1%BB/">实用程序类</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E8%B7%B5/">实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E8%B7%B5%E5%BA%94%E7%94%A8/">实践应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E8%B7%B5%E8%90%BD%E5%9C%B0/">实践落地</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%9E%E9%AA%8C/">实验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E6%94%AF%E6%8C%81/">客户支持</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%A2%E6%88%B7%E7%AB%AF%E9%9B%86%E6%88%90/">客户端集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B6%E5%BA%AD%E5%88%86%E4%BA%AB/">家庭分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AE%B9%E5%99%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">容器化部署</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AF%B9%E8%B1%A1/">对象</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%AF%BC%E8%88%AA/">导航</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84%E5%B8%88/">小企业架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%AF%9A%E4%BF%A1%E9%A9%BF%E7%AB%99/">小诚信驿站</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E5%BE%AA%E8%BF%B9/">小车循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B0%8F%E8%BD%A6%E8%AE%BE%E8%AE%A1/">小车设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F/">嵌入式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E5%BC%80%E5%8F%91/">嵌入式开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E5%BC%8F%E7%B3%BB%E7%BB%9F/">嵌入式系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B5%8C%E5%85%A5%E6%8A%80%E6%9C%AF/">嵌入技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A1%E7%BA%BF%E5%B0%8F%E8%BD%A6/">巡线小车</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A5%E7%A8%8B%E5%88%9B%E5%BB%BA/">工程创建</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">工程实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%82%E7%AD%89%E6%80%A7/">幂等性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%B9%B3%E8%A1%A1%E6%A0%91/">平衡树</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BA%94%E7%94%A8%E5%AE%9E%E4%BE%8B/">应用实例</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BA%94%E7%94%A8%E6%9E%B6%E6%9E%84/">应用架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BA%94%E7%94%A8%E8%BD%AF%E4%BB%B6/">应用软件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BB%BA%E6%A8%A1/">建模</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BB%BA%E6%A8%A1%E6%96%B9%E6%B3%95%E8%AE%BA/">建模方法论</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91/">开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E5%AE%9E%E8%B7%B5/">开发实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E6%9D%BF/">开发板</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83/">开发环境</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E5%8F%91%E8%80%85%E7%A4%BE%E5%8C%BA/">开发者社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E5%A4%A7%E6%A8%A1%E5%9E%8B/">开源大模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/">开源社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE%E5%BA%94%E7%94%A8/">开源项目应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86/">异常处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E5%B8%B8%E6%A3%80%E6%B5%8B/">异常检测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BC%82%E6%AD%A5%E5%A4%84%E7%90%86/">异步处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BD%A2%E7%8A%B6/">形状</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%97%E7%89%A9%E6%8A%80%E6%9C%AF/">得物技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E4%BF%A1%E5%85%AC%E4%BC%97%E5%8F%B7/">微信公众号</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E5%89%8D%E7%AB%AF%E6%9E%B6%E6%9E%84/">微前端架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%8E%A7%E5%88%B6%E5%99%A8/">微控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%8B%86%E5%88%86/">微服务拆分</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84/">微服务架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%94%B5%E7%9B%91%E6%B5%8B/">心电监测</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E5%BF%83%E7%9F%A5%E4%BA%86/">心知了</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD/">性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%8F%90%E5%8D%87/">性能提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/">性能测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%88%98%E6%9C%AF%E6%A8%A1%E5%BC%8F/">战术模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%88%98%E6%9C%AF%E8%AE%BE%E8%AE%A1/">战术设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%88%98%E7%95%A5/">战略</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%88%98%E7%95%A5%E6%A8%A1%E5%BC%8F/">战略模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%88%98%E7%95%A5%E8%AE%BE%E8%AE%A1/">战略设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%93%E5%8C%85/">打包</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%A7%E8%A1%8C%E5%BC%95%E6%93%8E/">执行引擎</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E5%A4%84%E7%90%86/">批量处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%89%B9%E9%87%8F%E6%89%93%E5%BC%80/">批量打开</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E4%B8%8E%E4%B8%9A%E5%8A%A1/">技术与业务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E5%89%8D%E6%B2%BF/">技术前沿</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E5%8D%93%E8%B6%8A/">技术卓越</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E5%AE%9E%E6%96%BD/">技术实施</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0/">技术实现</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%8F%90%E5%8D%87/">技术提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%96%B9%E6%A1%88/">技术方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84/">技术架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E6%A6%82%E5%BF%B5/">技术概念</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%80%E6%9C%AF%E7%B2%BE%E7%B2%B9/">技术精粹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%A5%E9%94%99/">报错</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%BD%E5%A5%96%E5%B9%B3%E5%8F%B0/">抽奖平台</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8A%BD%E5%A5%96%E7%A7%92%E6%9D%80/">抽奖秒杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8B%86%E5%8C%85/">拆包</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%81%E7%BB%AD%E9%9B%86%E6%88%90/">持续集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8C%87%E5%8D%97/">指南</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%88%E6%9D%83/">授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3/">接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A5%E5%8F%A3%E7%AE%A1%E7%90%86/">接口管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8E%A7%E5%88%B6%E5%99%A8/">控制器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8F%90%E4%BE%9B%E5%99%A8/">提供器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%8F%90%E5%8D%87%E8%B4%A8%E9%87%8F/">提升质量</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%90%9C%E7%B4%A2%E5%8F%AC%E5%9B%9E%E7%8E%87/">搜索召回率</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%90%9C%E7%B4%A2%E6%8A%80%E6%9C%AF/">搜索技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%90%9C%E7%B4%A2%E6%8E%A8%E8%8D%90/">搜索推荐</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%90%BA%E7%A8%8B/">携程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%90%BA%E7%A8%8B%E5%9B%BD%E9%99%85/">携程国际</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%93%8D%E4%BD%9C%E6%96%B9%E6%B3%95/">操作方法</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%94%AF%E4%BB%98%E7%B3%BB%E7%BB%9F/">支付系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%99%E8%82%B2%E8%B4%AC%E5%80%BC/">教育贬值</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E5%AD%97%E7%9B%B8%E5%86%8C/">数字相册</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8/">数据存储</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%B7%A5%E7%A8%8B/">数据工程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%85%A5%E9%97%A8/">数据库入门</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E5%BA%93/">数据库分库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E5%88%86%E8%A1%A8/">数据库分表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%9F%A5%E8%AF%A2/">数据库查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E8%AE%BE%E8%AE%A1/">数据库设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%96%87%E5%8C%96/">数据文化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E6%9F%A5%E8%AF%A2/">数据查询</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E7%89%B9%E5%BE%81/">数据特征</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%87%87%E9%9B%86/">数据采集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%8D%AE%E9%9C%80%E6%B1%82%E5%8F%98%E5%8C%96/">数据需求变化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B0%E6%99%BA%E5%8C%96%E8%BD%AC%E5%9E%8B/">数智化转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%95%B4%E6%B4%81%E6%9E%B6%E6%9E%84/">整洁架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%9C%AC%E5%90%91%E9%87%8F%E5%8C%96/">文本向量化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%9C%AC%E6%90%9C%E7%B4%A2/">文本搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%9C%AC%E7%90%86%E8%A7%A3/">文本理解</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%9C%AC%E7%94%9F%E6%88%90/">文本生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%9C%AC%E7%9B%B8%E4%BC%BC%E5%BA%A6/">文本相似度</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%A1%A3/">文档</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%87%E6%A1%A3%E7%AE%A1%E7%90%86/">文档管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E6%97%B6%E4%BB%A3/">新时代</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E7%89%B9%E6%80%A7/">新特性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E8%8C%83%E5%BC%8F/">新范式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%96%B0%E9%A1%B9%E7%9B%AE/">新项目</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A0%E6%9C%8D%E5%8A%A1%E5%99%A8%E6%8A%80%E6%9C%AF/">无服务器技术</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E5%A4%84%E7%90%86/">日志处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E6%94%B6%E9%9B%86/">日志收集</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E8%84%B1%E6%95%8F/">日志脱敏</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE/">日志配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%97%B6%E5%B0%9A%E5%BA%94%E7%94%A8/">时尚应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%98%A0%E5%B0%84%E5%81%8F%E7%A7%BB/">映射偏移</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%99%BA%E8%83%BD%E7%A1%AC%E4%BB%B6/">智能硬件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%99%BA%E8%83%BD%E8%AF%8A%E7%96%97/">智能诊疗</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5/">最佳实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%89%E8%B5%9E/">有赞</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%AB%AF%E6%B8%B2%E6%9F%93/">服务器端渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%84%E5%BB%BA%E6%96%B9%E6%B3%95/">构建方法</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84/">架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%AE%9E%E8%B7%B5/">架构实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E5%B8%88/">架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E6%80%9D%E6%83%B3/">架构思想</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E6%A8%A1%E5%BC%8F/">架构模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E6%A8%A1%E6%9D%BF/">架构模板</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E6%BC%94%E8%BF%9B/">架构演进</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">架构设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E8%BD%AC%E5%9E%8B/">架构转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">架构重构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%9F%A5%E8%AF%A2%E4%BC%98%E5%8C%96/">查询优化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A0%B7%E5%BC%8F%E8%A1%A8/">样式表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5/">核心概念</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA/">检索增强</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A6%82%E5%BF%B5%E5%88%B0%E5%AE%9E%E8%B7%B5/">概念到实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A6%82%E5%BF%B5%E7%AF%87/">概念篇</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E5%9E%8B%E4%B8%80%E8%87%B4%E6%80%A7/">模型一致性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E5%9E%8B%E4%BB%8B%E7%BB%8D/">模型介绍</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E5%BC%8F/">模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%80%81%E6%A1%86/">模态框</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%A8%A1%E6%9D%BF%E7%94%9F%E6%88%90/">模板生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/">正则表达式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%AD%BB%E9%94%81/">死锁</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B3%A8%E9%94%80%E8%AF%B7%E6%B1%82/">注销请求</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B4%8B%E8%91%B1%E6%9E%B6%E6%9E%84/">洋葱架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B4%8B%E8%91%B1%E6%A8%A1%E5%9E%8B/">洋葱模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B5%8B%E8%AF%95/">测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B5%8F%E8%A7%88%E5%99%A8%E6%8A%80%E5%B7%A7/">浏览器技巧</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B6%88%E6%81%AF%E8%BE%B9%E7%95%8C%E6%A0%87%E8%AE%B0/">消息边界标记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B7%B1%E5%BA%A6%E8%B0%83%E7%A0%94/">深度调研</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%B8%97%E9%80%8F%E6%B5%8B%E8%AF%95/">渗透测试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E6%BA%AF%E6%BA%90%E5%88%86%E6%9E%90/">溯源分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%81%B5%E6%B4%BB%E6%80%A7/">灵活性</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%83%AD%E9%97%A8%E6%96%87%E7%AB%A0/">热门文章</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%89%9B%E6%B4%A5%E5%A4%A7%E5%AD%A6/">牛津大学</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%89%9B%E6%B4%A5%E6%95%99%E6%8E%88/">牛津教授</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%89%B9%E5%AE%9A%E8%BD%AF%E4%BB%B6/">特定软件</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E4%BF%9D/">环保</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%AF%E5%A2%83%E5%BD%B1%E5%93%8D/">环境影响</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3Web%E5%BC%80%E5%8F%91/">现代Web开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%8E%B0%E4%BB%A3%E5%8C%96/">现代化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0/">生产落地</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%9F%E4%BA%A7%E9%A1%B9%E7%9B%AE/">生产项目</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%9F%E6%88%90AI/">生成AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%9F%E6%88%90%E5%BC%8FAI/">生成式AI</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%9F%E6%88%90%E6%A8%A1%E5%9E%8B/">生成模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E4%BD%93%E9%AA%8C/">用户体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/">用户管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%A8%E6%88%B7%E8%A7%92%E8%89%B2%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">用户角色验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E5%95%86/">电商</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E5%95%86%E6%94%AF%E4%BB%98/">电商支付</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%94%B5%E6%9C%BA%E9%A9%B1%E5%8A%A8/">电机驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%87%BA%E5%A4%84%E7%90%86/">登出处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E4%BD%93%E9%AA%8C/">登录体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E8%AE%A4%E8%AF%81/">登录认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%99%BB%E5%BD%95%E9%AA%8C%E8%AF%81/">登录验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9C%9F%E9%A6%99%E4%BD%93%E9%AA%8C/">真香体验</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A2%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">矢量数据库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E4%B9%8E/">知乎</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E4%BD%93%E7%B3%BB/">知识体系</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB/">知识分享</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%9C%B0%E5%9B%BE/">知识地图</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%AE%9D%E5%BA%93/">知识宝库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%AF%86%E9%9B%86%E4%BB%BB%E5%8A%A1/">知识密集任务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%AF%86%E9%9B%86%E5%9E%8B/">知识密集型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">知识库</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E6%8C%96%E6%8E%98/">知识挖掘</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E6%99%AE%E5%8F%8A/">知识普及</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E6%A3%80%E7%B4%A2/">知识检索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E7%AE%A1%E7%90%86/">知识管理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%9F%A5%E8%AF%86%E9%97%AE%E7%AD%94/">知识问答</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81/">示例代码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A4%BE%E4%BC%9A%E4%B8%AA%E4%BD%93/">社会个体</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A5%9E%E5%99%A8/">神器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">神经网络</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A6%BB%E7%BA%BF%E5%AE%89%E8%A3%85/">离线安装</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%A7%8D%E5%AD%90%E8%BD%AE%E8%9E%8D%E8%B5%84/">种子轮融资</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0/">笔记</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0%E6%9C%AC%E7%94%B5%E8%84%91/">笔记本电脑</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AC%94%E8%AE%B0%E7%B3%BB%E7%BB%9F/">笔记系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AD%96%E7%95%A5/">策略</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F/">策略模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%80%E4%B9%A6/">简书</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%97%E6%B3%95/">算法</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%97%E6%B3%95%E6%95%88%E7%8E%87/">算法效率</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%AE%97%E6%B3%95%E6%9E%B6%E6%9E%84%E5%B8%88/">算法架构师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8/">类加载器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B1%BB%E5%9E%8B/">类型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B3%BB%E7%BB%9F%E5%BC%80%E5%8F%91/">系统开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84/">系统架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B4%A2%E5%BC%95%E5%8A%A0%E9%80%9F/">索引加速</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%B4%A2%E5%BC%95%E6%98%A0%E5%B0%84/">索引映射</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%B7%A1%E7%BA%BF/">红外巡线</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%A2%E5%A4%96%E5%BE%AA%E8%BF%B9/">红外循迹</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8/">线程安全</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%9F%E4%B8%80%E8%BF%94%E5%9B%9E%E6%A0%BC%E5%BC%8F/">统一返回格式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%BC%E8%BF%B0/">综述</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BB%BF%E8%89%B2%E7%BC%96%E7%A0%81/">绿色编码</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BC%93%E5%86%B2%E6%B1%A0/">缓冲池</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/">编程语言</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E7%AB%99%E8%AE%BE%E8%AE%A1/">网站设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E7%BB%9C%E5%B7%A5%E7%A8%8B%E5%B8%88/">网络工程师</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E9%A1%B5%E6%A0%B7%E5%BC%8F/">网页样式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BD%91%E9%A1%B5%E9%93%BE%E6%8E%A5/">网页链接</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E7%BE%8E%E5%9B%A2/">美团</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E5%8D%87%E7%BA%A7/">职业升级</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%8C%E4%B8%9A%E8%BD%AC%E5%9E%8B/">职业转型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88/">聚合</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%8E%A5%E5%8F%A3/">聚合接口</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E6%A0%B9/">聚合根</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%81%9A%E5%90%88%E8%BF%87%E5%A4%A7%E7%BB%BC%E5%90%88%E7%97%87/">聚合过大综合症</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%85%BE%E8%AE%AF/">腾讯</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%85%BE%E8%AE%AF%E4%BA%91/">腾讯云</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%85%BE%E8%AE%AF%E4%BA%91%E5%BC%80%E5%8F%91%E8%80%85%E7%A4%BE%E5%8C%BA/">腾讯云开发者社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E7%84%B6%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">自然语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%AA%E7%94%B1%E8%B5%84%E8%AE%AF/">自由资讯</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%87%B3%E9%A1%B6%E7%BD%91/">至顶网</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%88%AA%E7%8F%AD%E6%90%9C%E7%B4%A2/">航班搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%8B%B1%E8%AF%AD%E6%95%99%E8%82%B2/">英语教育</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%A5%E9%94%80%E7%AD%96%E7%95%A5/">营销策略</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%BD%E5%9C%B0%E5%AE%9E%E6%96%BD/">落地实施</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%BD%E5%9C%B0%E5%AE%9E%E8%B7%B5/">落地实践</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%BD%E5%9C%B0%E6%80%9D%E8%80%83/">落地思考</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%BD%E5%9C%B0%E6%8C%91%E6%88%98/">落地挑战</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%90%BD%E5%9C%B0%E6%96%B9%E6%A1%88/">落地方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%93%9D%E7%89%99%E9%81%A5%E6%8E%A7/">蓝牙遥控</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%99%9A%E6%8B%9F%E6%9C%BA/">虚拟机</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%9A%82%E8%9A%81%E9%87%91%E6%9C%8D/">蚂蚁金服</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E6%83%91/">解惑</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E6%9E%90/">解析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%A7%A3%E9%87%8A/">解释</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A2%E5%8D%95%E7%B3%BB%E7%BB%9F/">订单系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%A4%E8%AF%81/">认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%AD%E7%BB%83%E6%95%B0%E6%8D%AE/">训练数据</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%B0%E5%BF%86%E4%BF%9D%E5%AD%98/">记忆保存</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99/">设计原则</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%BE%E8%AE%A1%E7%A0%94%E5%8F%91/">设计研发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AE%BF%E9%97%AE%E8%A7%84%E5%88%99/">访问规则</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%8D%E5%90%91%E9%87%8F/">词向量</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%8D%E5%90%91%E9%87%8F%E6%A8%A1%E5%9E%8B/">词向量模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%8D%E5%B5%8C%E5%85%A5/">词嵌入</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%AD%E4%B9%89%E6%90%9C%E7%B4%A2/">语义搜索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%AD%E4%B9%89%E6%A3%80%E7%B4%A2/">语义检索</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%AF%E5%8C%BA/">误区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%AF%BE%E7%A8%8B/">课程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1/">负载均衡</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B4%AB%E8%A1%80%E6%A8%A1%E5%9E%8B/">贫血模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1/">路由</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E5%99%A8/">路由器</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%AF%E7%94%B1%E7%BA%A6%E5%AE%9A/">路由约定</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%B7%B3%E8%A1%A8/">跳表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E8%AE%A4%E8%AF%81/">身份认证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81/">身份验证</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BA%AB%E4%BB%BD%E9%AA%8C%E8%AF%81%E6%8E%88%E6%9D%83/">身份验证授权</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E4%B8%8E%E6%9C%8D%E5%8A%A1/">软件与服务</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E5%A4%8D%E6%9D%82%E5%BA%A6/">软件复杂度</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E5%B7%A5%E7%A8%8B/">软件工程</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91/">软件开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BD%AF%E4%BB%B6%E8%AE%BE%E8%AE%A1/">软件设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%81%E7%A7%BB%E5%8E%9F%E5%9B%A0/">迁移原因</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E8%BF%90%E8%A1%8C%E6%97%B6/">运行时</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%81%BF%E5%85%8D%E9%94%81%E8%A1%A8/">避免锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%8D%E7%BD%AE/">配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%85%92%E5%BA%97%E6%95%B0%E6%8D%AE%E9%87%8D%E6%9E%84/">酒店数据重构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%A4%8D%E4%B8%8B%E5%8D%95/">重复下单</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%8D%E5%AE%9A%E5%90%91/">重定向</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%87%91%E8%9E%8D%E7%A7%91%E6%8A%80/">金融科技</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%94%81%E8%A1%A8/">锁表</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%95%BF%E5%BA%A6/">长度</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%95%BF%E6%96%87%E6%9C%AC/">长文本</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%97%AE%E7%AD%94%E7%A4%BE%E5%8C%BA/">问答社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%97%AE%E7%AD%94%E7%B3%BB%E7%BB%9F/">问答系统</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BB%E5%A1%9E-IO/">阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BF%E9%87%8C/">阿里</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BF%E9%87%8C%E4%BA%91%E5%BC%80%E5%8F%91%E8%80%85%E7%A4%BE%E5%8C%BA/">阿里云开发者社区</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%98%BF%E9%87%8C%E5%B7%B4%E5%B7%B4/">阿里巴巴</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%99%80%E8%9E%BA%E4%BB%AA%E6%8E%A7%E5%88%B6/">陀螺仪控制</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%99%90%E7%95%8C%E4%B8%8A%E4%B8%8B%E6%96%87/">限界上下文</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90/">集成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E5%BA%94%E7%94%A8/">集成应用</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%86%E6%88%90%E9%85%8D%E7%BD%AE/">集成配置</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9B%B6%E6%8B%B7%E8%B4%9D/">零拷贝</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9C%80%E6%B1%82%E5%88%86%E6%9E%90/">需求分析</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E5%85%8D%E6%9D%80/">静态免杀</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90/">静态站点生成</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%99%E6%80%81%E7%AB%99%E7%82%B9%E7%94%9F%E6%88%90SSG/">静态站点生成(SSG)</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%9E%E9%98%BB%E5%A1%9E-IO/">非阻塞 IO</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95/">面试</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E6%89%8B%E5%86%8C/">面试手册</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%9D%A2%E8%AF%95%E9%A2%98/">面试题</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B5%E9%9D%A2%E5%AF%BC%E8%88%AA/">页面导航</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B5%E9%9D%A2%E9%93%BE%E6%8E%A5/">页面链接</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B6%E7%BA%A7%E5%BC%80%E6%BA%90/">顶级开源</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B9%E7%9B%AE%E4%BA%A7%E5%93%81%E5%8C%96/">项目产品化</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B9%E7%9B%AE%E5%BC%80%E5%8F%91/">项目开发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84/">项目结构</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%84%E6%B8%B2%E6%9F%93/">预渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E5%B1%82/">领域层</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E5%BB%BA%E6%A8%A1/">领域建模</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8B/">领域模型</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8B%E8%AE%BE%E8%AE%A1/">领域模型设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8/">领域驱动</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">领域驱动设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1-DDD/">领域驱动设计 (DDD)</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A4%90%E5%8E%85/">餐厅</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%A4%90%E5%8E%85%E8%AE%BE%E8%AE%A1/">餐厅设计</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E5%B9%B6%E5%8F%91/">高并发</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E6%80%A7%E8%83%BD/">高性能</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E6%95%88Prompt/">高效Prompt</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E6%B8%85%E6%B8%B2%E6%9F%93/">高清渲染</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E7%BA%A7%E5%8D%8F%E8%AE%AE%E6%94%AF%E6%8C%81/">高级协议支持</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E7%BB%B4%E7%B4%A2%E5%BC%95/">高维索引</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%AB%98%E8%A1%80%E5%8E%8B/">高血压</a>
+    
+    <a href="https://index.zshipu.com/geek001/tags/%E9%BB%91%E9%AD%94%E6%B3%95/">黑魔法</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek001/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
