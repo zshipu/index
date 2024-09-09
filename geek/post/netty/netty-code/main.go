@@ -379,6 +379,7 @@ func replaceAurl(markdown string) string {
 	}
 	return newMarkdown
 }
+
 // 正则表达式匹配Markdown中的代码块
 var codeBlockRegex = regexp.MustCompile("(?s)(```.+?```)")
 
@@ -403,6 +404,7 @@ func convertHTMLToMarkdown(html string) string {
 	html = strings.Replace(html, "&nbsp;", " ", -1)
 	return html
 }
+
 // 替换HTML代码块为Markdown格式
 func replaceCodeHTML(content string) string {
 	// 使用正则表达式查找所有代码块
@@ -420,7 +422,6 @@ func replaceCodeHTML(content string) string {
 	}
 	return content
 }
-
 
 func AddTitle(filePath string) (string, error) {
 
@@ -479,7 +480,7 @@ func AddTitle(filePath string) (string, error) {
 	// 			}
 	// 		}
 	// 	}
-	// }	
+	// }
 	result, err := getKeysDify(newFilename)
 
 	if err != nil {
@@ -868,18 +869,18 @@ func watchDir() {
 			if event.Op&fsnotify.Create == fsnotify.Create && filepath.Ext(event.Name) == ".md" {
 				// 获取相对路径
 				//relPath := getRelativePath(dir, event.Name)
-				go func() {
-					relPath := event.Name
-					// 打印相对路径
-					fmt.Println("New file:", relPath)
+				//go func() {
+				relPath := event.Name
+				// 打印相对路径
+				fmt.Println("New file:", relPath)
 
-					title, _ := AddTitle(relPath)
-					fmt.Println(title)
+				title, _ := AddTitle(relPath)
+				fmt.Println(title)
 
-					ReplaceImageURLsMd(relPath)
-					ReplaceImageURLs(relPath)
-					replaceFileName(relPath, title)
-				}()
+				ReplaceImageURLsMd(relPath)
+				ReplaceImageURLs(relPath)
+				replaceFileName(relPath, title)
+				//}()
 			}
 		}
 	}()
