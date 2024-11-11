@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>折腾杂谈：运用Dify&#43;xinference&#43;ollama构建知识库 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="折腾杂谈：运用Dify&#43;xinference&#43;ollama构建知识库 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-10-29T07:56:06&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="折腾杂谈：运用Dify&#43;xinference&#43;ollama构建知识库 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek002/post/202410/%E6%8A%98%E8%85%BE%E6%9D%82%E8%B0%88%E8%BF%90%E7%94%A8Dify&#43;xinference&#43;ollama%E6%9E%84%E5%BB%BA%E7%9F%A5%E8%AF%86%E5%BA%93--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek002/css/normalize.css'>
+    <link rel="stylesheet" href='/geek002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek002">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek002">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#部署概览">部署概览</a>
+      <ul>
+        <li><a href="#不含重排序的简易配置如果不需要利用重排序来提升检索准确性仅通过ollama和dify就能搭建起一个基础的知识库问答平台">不含重排序的简易配置如果不需要利用重排序来提升检索准确性，仅通过ollama和dify就能搭建起一个基础的知识库问答平台。</a></li>
+        <li><a href="#包含重排序的进阶配置对于希望提高检索准确性的场景建议加入xinference以支持本地的重排版模型部署">包含重排序的进阶配置对于希望提高检索准确性的场景，建议加入xinference以支持本地的重排版模型部署。</a></li>
+      </ul>
+    </li>
+    <li><a href="#部署步骤详解">部署步骤详解</a>
+      <ul>
+        <li><a href="#部署dify">部署Dify</a></li>
+        <li><a href="#整合xinference实现重排序">整合xinference实现重排序</a></li>
+        <li><a href="#利用ollama管理大模型">利用ollama管理大模型</a></li>
+        <li><a href="#xinferencehttpzshipucomtindexhtmlurlhttpsblogmenghuan1918compostssomething_new_4htmlxinference"><a href="http://zshipu.com/t/index.html?url=https://blog.menghuan1918.com/posts/Something_new_4.html#xinference">xinference</a></a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#1-挂载volume和设置hugging_face_hub_token">1. 挂载Volume和设置HUGGING_FACE_HUB_TOKEN</a></li>
+    <li><a href="#2-创建docker-composeyaml文件">2. 创建docker-compose.yaml文件</a></li>
+    <li><a href="#3-编写bash脚本">3. 编写bash脚本</a></li>
+    <li><a href="#4-自动化和开机启动">4. 自动化和开机启动</a></li>
+    <li><a href="#5-配置dify">5. 配置Dify</a></li>
+    <li><a href="#6-创建和配置知识库">6. 创建和配置知识库</a></li>
+    <li><a href="#7-pdf文件预处理">7. PDF文件预处理</a></li>
+    <li><a href="#8-电子邮件集成">8. 电子邮件集成</a></li>
+    <li><a href="#题外话对pdf文件的预处理httpzshipucomtindexhtmlurlhttpsblogmenghuan1918compostssomething_new_4htmle9a298e5a496e8af9d-e5afb9pdfe69687e4bbb6e79a84e9a284e5a484e79086"><a href="http://zshipu.com/t/index.html?url=https://blog.menghuan1918.com/posts/Something_new_4.html#%E9%A2%98%E5%A4%96%E8%AF%9D-%E5%AF%B9pdf%E6%96%87%E4%BB%B6%E7%9A%84%E9%A2%84%E5%A4%84%E7%90%86">题外话：对PDF文件的预处理</a></a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">折腾杂谈：运用Dify&#43;xinference&#43;ollama构建知识库 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年10月29日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>为了在本地运行一个带有重排序（Rerank）步骤的知识库问答系统，并确保该系统能在NVIDIA GeForce RTX 3060M这样的GPU上高效运作，我们可以结合使用Dify、xinference以及ollama。以下是部署此系统的步骤概述：</p>
+<h2 id="部署概览">部署概览</h2>
+<h3 id="不含重排序的简易配置如果不需要利用重排序来提升检索准确性仅通过ollama和dify就能搭建起一个基础的知识库问答平台">不含重排序的简易配置如果不需要利用重排序来提升检索准确性，仅通过ollama和dify就能搭建起一个基础的知识库问答平台。</h3>
+<h3 id="包含重排序的进阶配置对于希望提高检索准确性的场景建议加入xinference以支持本地的重排版模型部署">包含重排序的进阶配置对于希望提高检索准确性的场景，建议加入xinference以支持本地的重排版模型部署。</h3>
+<h2 id="部署步骤详解">部署步骤详解</h2>
+<h3 id="部署dify">部署Dify</h3>
+<ol>
+<li><strong>准备工作</strong>：首先访问Dify官方网站或GitHub页面获取最新安装指南。</li>
+<li><strong>环境设置</strong>：</li>
+</ol>
+<ul>
+<li>确保您的机器已经安装了Python及必要的依赖项。</li>
+<li>创建虚拟环境并激活它，推荐使用<code>venv</code>或者<code>conda</code>等工具。</li>
+</ul>
+<ol start="3">
+<li><strong>下载与安装Dify</strong>：</li>
+</ol>
+<ul>
+<li>使用pip命令安装Dify及其依赖包。</li>
+</ul>
+<ol start="4">
+<li><strong>配置文件调整</strong>：</li>
+</ol>
+<ul>
+<li>根据官方文档指引修改配置文件，包括数据库连接信息、API密钥等。</li>
+</ul>
+<ol start="5">
+<li><strong>启动服务</strong>：</li>
+</ol>
+<ul>
+<li>执行相应的脚本或命令来启动Dify服务。   aaaaaaa请注意，具体版本号和服务地址等细节，请参照最新的官方文档。</li>
+</ul>
+<h3 id="整合xinference实现重排序">整合xinference实现重排序</h3>
+<ul>
+<li>在已有的基础上添加xinference组件，用于执行更精细的信息检索与排序任务。</li>
+<li>参考xinference提供的示例代码或文档说明完成相关配置。</li>
+</ul>
+<h3 id="利用ollama管理大模型">利用ollama管理大模型</h3>
+<ul>
+<li>ollama工具可以帮助我们更加便捷地管理和调用如<code>llama3-9B</code>这样较大的语言模型。</li>
+<li>根据性能测试报告，在RTX 3060M显卡条件下也能获得不错的生成速度体验。
+通过以上步骤，您将能够构建出一套既具备良好响应速度又拥有较高查询精确度的知识问答解决方案。</li>
+</ul>
+<pre tabindex="0"><code>git clone https://github.com/langgenius/dify.git
+cd dify/docker
+docker compose up -d
+</code></pre><p>随后访问本地的<code>http://localhost</code>根据网页提示进行一步步设置就行了。</p>
+<h3 id="xinferencehttpzshipucomtindexhtmlurlhttpsblogmenghuan1918compostssomething_new_4htmlxinference"><a href="http://zshipu.com/t/index.html?url=https://blog.menghuan1918.com/posts/Something_new_4.html#xinference">xinference</a></h3>
+<p>创建一个docker-compose.yaml：</p>
+<pre tabindex="0"><code>services:
+  xinference:
+    image: xprobe/xinference:v0.11.2
+    environment:
+      - XINFERENCE_HOME=/root/.xinference
+      - HUGGING_FACE_HUB_TOKEN=hf_114514
+    volumes:
+      - /mnt/Games/Model:/root/.xinference
+    ports:
+      - &#34;9998:9997&#34;
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    command: xinference-local -H 0.0.0.0
+</code></pre><h1 id="快捷启动容器指南">快捷启动容器指南</h1>
+<p>在本节中，我们将介绍如何通过编写一个简单的bash脚本来快速启动两个容器：Dify和xinference。这将有助于简化部署过程，并确保模型文件能够持久保存在本地，避免每次容器重启时重新下载。</p>
+<h2 id="1-挂载volume和设置hugging_face_hub_token">1. 挂载Volume和设置HUGGING_FACE_HUB_TOKEN</h2>
+<p>为了使模型文件能够保存在本地，避免每次容器重启时都需要重新下载，我们通过挂载一个<code>volumes</code>来实现。同时，通过定义<code>HUGGING_FACE_HUB_TOKEN</code>，我们可以从Hugging Face Hub上拉取需要权限访问的模型，例如llama3。</p>
+<h2 id="2-创建docker-composeyaml文件">2. 创建docker-compose.yaml文件</h2>
+<p>首先，创建一个<code>docker-compose.yaml</code>文件，配置xinference服务。这里是一个示例配置：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#000080">services</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">  </span><span style="color:#000080">xinference</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">image</span>:<span style="color:#bbb"> </span>xprobe/xinference:v0.11.2<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">environment</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>- XINFERENCE_HOME=/root/.xinference<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>- HUGGING_FACE_HUB_TOKEN=hf_aaaaaaa<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>- /mnt/Games/Model:/root/.xinference<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>- <span style="color:#d14">&#34;9998:9997&#34;</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">deploy</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000080">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000080">reservations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">          </span><span style="color:#000080">devices</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>- <span style="color:#000080">capabilities</span>:<span style="color:#bbb"> </span>[gpu]<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000080">command</span>:<span style="color:#bbb"> </span>xinference-local -H 0.0.0.0<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="3-编写bash脚本">3. 编写bash脚本</h2>
+<p>接下来，编写一个bash脚本来快捷启动这两个容器。脚本内容如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic">#!/bin/bash
+</span></span></span><span style="display:flex;"><span><span style="color:#999;font-weight:bold;font-style:italic"></span>c aaaaaaa
+</span></span><span style="display:flex;"><span><span style="color:#0086b3">cd</span> /home/menghuan/Documents/Xinference
+</span></span><span style="display:flex;"><span><span style="color:#0086b3">echo</span> <span style="color:#d14">&#34;Xinference&#34;</span>
+</span></span><span style="display:flex;"><span>docker compose up -d
+</span></span><span style="display:flex;"><span><span style="color:#0086b3">echo</span> <span style="color:#d14">&#34;dify&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#0086b3">cd</span> /home/menghuan/Documents/dify
+</span></span><span style="display:flex;"><span>docker compose up -d
+</span></span><span style="display:flex;"><span>sleep <span style="color:#099">10</span>
+</span></span><span style="display:flex;"><span>curl -X <span style="color:#d14">&#39;POST&#39;</span> <span style="color:#d14">\
+</span></span></span><span style="display:flex;"><span><span style="color:#d14"></span>  <span style="color:#d14">&#39;http://127.0.0.1:9998/v1/models&#39;</span> <span style="color:#d14">\
+</span></span></span><span style="display:flex;"><span><span style="color:#d14"></span>  -H <span style="color:#d14">&#39;accept: application/json&#39;</span> <span style="color:#d14">\
+</span></span></span><span style="display:flex;"><span><span style="color:#d14"></span>  -H <span style="color:#d14">&#39;Content-Type: application/json&#39;</span> <span style="color:#d14">\
+</span></span></span><span style="display:flex;"><span><span style="color:#d14"></span>  -d <span style="color:#d14">&#39;...&#39;</span>
+</span></span><span style="display:flex;"><span><span style="color:#0086b3">echo</span> <span style="color:#d14">&#34;done!&#34;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="4-自动化和开机启动">4. 自动化和开机启动</h2>
+<p>你还可以设置这些脚本在开机后自动运行，以确保容器服务的持续可用性。</p>
+<h2 id="5-配置dify">5. 配置Dify</h2>
+<p>在Dify的配置过程中，需要注意xinference的模型UID默认情况下与其模型名字相同。此外，你可以根据需要更改系统模型设置，以决定默认使用的模型。</p>
+<h2 id="6-创建和配置知识库">6. 创建和配置知识库</h2>
+<p>通过Dify模板创建知识库，并选择多路召回以使用重排版。记得在知识库中添加文件以充分利用其功能。</p>
+<h2 id="7-pdf文件预处理">7. PDF文件预处理</h2>
+<p>由于Dify不提供PDF预处理功能，我们可以使用<code>pdfdeal</code>库结合<code>easyocr</code>作为OCR引擎来处理PDF文件，以增强知识库的索引能力。</p>
+<h2 id="8-电子邮件集成">8. 电子邮件集成</h2>
+<p>考虑到LLM/向量编码/重排版模型都能本地运行，我们可以考虑将电子邮件等隐私文件集成到知识库中，以实现更高效的信息管理。</p>
+<pre tabindex="0"><code>#!/bin/bash
+cd /home/menghuan/Documents/Xinference
+echo &#34;Xinference&#34;
+docker compose up -d
+echo &#34;dify&#34;
+cd /home/menghuan/Documents/dify
+docker compose up -d
+sleep 10
+curl -X &#39;POST&#39; \
+  &#39;http://127.0.0.1:9998/v1/models&#39; \
+  -H &#39;accept: application/json&#39; \
+  -H &#39;Content-Type: application/json&#39; \
+  -d &#39;{
+  &#34;model_engine&#34;: &#34;xinference&#34;,
+  &#34;model_uid&#34;: &#34;bge-reranker-v2-m3&#34;,
+  &#34;model_name&#34;: &#34;bge-reranker-v2-m3&#34;,
+  &#34;gpu_idx&#34;: 0,
+  &#34;model_type&#34;: &#34;rerank&#34;
+}&#39;
+echo &#34;done!&#34;
+</code></pre><p>首先，您需要配置Dify。这个过程相对简单，但有几个关键点需要注意：xinference的模型UID默认情况下是等于其模型名字的。因此，在更改系统模型设置时，请确保了解这一点，因为这决定了默认情况下会使用哪个模型。当然，您也可以为单个工作流或知识库自定义其聊天或向量化模型。
+接下来，为了实现开机启动后自动运行这两个脚本，您需要进行以下操作：</p>
+<ol>
+<li>确保您的脚本已经正确编写并保存在适当的位置。2. 根据您的操作系统（如Windows、Linux或macOS），找到相应的方法来设置开机启动。这通常涉及到任务计划程序、cron作业或其他类似的工具。3. 在启动项中添加您的脚本路径，以确保每次计算机启动时都会自动运行这些脚本。
+最后，不要忘记检查和测试您的配置，确保一切按预期工作。如果遇到任何问题，可以参考相关文档或寻求社区的帮助。<br>
+
+        <img class="mx-auto" alt="不得不承认某些问题还是得在线大模型才能回答，llama3-8B还是参数量稍微小了点" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202410291639408.png" />   
+    </li>
+</ol>
+<p>不得不承认某些问题还是得在线大模型才能回答，llama3-8B还是参数量稍微小了点</p>
+<p>随后从模板创建一个知识库(芝士学爆！)，选择多路召回以使用重排版。</p>
+<p>
+        <img class="mx-auto" alt="当然记得先往知识库里加点文件" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202410291639597.png" />   
+    </p>
+<p>当然记得先往知识库里加点文件</p>
+<p>重要</p>
+<p>注意上图中<strong>N选1召回</strong>中含有一个对整个工作流默认LLM的全局选项！没想到藏在这儿</p>
+<p>随后就尽情想用芝士学爆吧：</p>
+<p>
+        <img class="mx-auto" alt="知识库很好的补全了llama3-8B的短板" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202410291639662.png" />   
+    </p>
+<p>知识库很好的补全了llama3-8B的短板</p>
+<h2 id="题外话对pdf文件的预处理httpzshipucomtindexhtmlurlhttpsblogmenghuan1918compostssomething_new_4htmle9a298e5a496e8af9d-e5afb9pdfe69687e4bbb6e79a84e9a284e5a484e79086"><a href="http://zshipu.com/t/index.html?url=https://blog.menghuan1918.com/posts/Something_new_4.html#%E9%A2%98%E5%A4%96%E8%AF%9D-%E5%AF%B9pdf%E6%96%87%E4%BB%B6%E7%9A%84%E9%A2%84%E5%A4%84%E7%90%86">题外话：对PDF文件的预处理</a></h2>
+<p>值得注意的是dify并没有对pdf进行预处理(例如OCR)，检索一圈发现好像确实也没什么特别好的库或者方法&hellip;于是自己<a href="http://zshipu.com/t/index.html?url=https://github.com/Menghuan1918/pdfdeal">搓了一个</a>，其会先对PDF中的图片进行OCR，随后处理下文本并按照原有页数输出。不过其设计的目标就是为增强知识库的索引&hellip;所以以格式pdf输出时其格式可能对人类不是特别友好(不过知识库能完全读取)。至少个人测试其效果很不错。</p>
+<p>安装，这儿使用<code>easyocr</code>作为OCR引擎(当然你也可以自定义OCR函数)：</p>
+<pre tabindex="0"><code>pip install &#39;pdfdeal[easyocr]&#39;
+</code></pre><p>随后对我<code>./PPT</code>的文件处理下：</p>
+<pre tabindex="0"><code>import os
+from pdfdeal import deal_pdf
+for root, dirs, files in os.walk(&#34;./PPT&#34;):
+    for file in files:
+        file_path = os.path.join(root, file)
+        deal_pdf(
+            input=file_path, output=&#34;pdf&#34;, language=[&#34;en&#34;], path=&#34;./Output&#34;, GPU=True
+        )
+        print(f&#34;Deal with {file_path} successfully!&#34;)
+</code></pre><p>aaaaaaa a既然 LLM（语言模型）/向量编码/重排版模型已经能够在本地运行，这就为处理隐私文件提供了新的可能性。例如，对于电子邮件这样的敏感信息，现在可以考虑将它们接入个人或企业的知识库中。通过这种方式，用户不仅能够更好地管理和检索他们的邮件，而且还能确保这些数据不会离开用户的控制范围，从而增强了数据的隐私性和安全性。
+aaaaaaa a在实现这一设想之前，有几个关键点需要注意：</p>
+<ol>
+<li>
+<p><strong>隐私保护</strong>：必须确保所使用的模型和技术不会泄露用户的个人信息。</p>
+</li>
+<li>
+<p><strong>数据加密</strong>：对存储于知识库中的邮件进行加密是必要的，以防止未经授权的访问。</p>
+</li>
+<li>
+<p><strong>合规性</strong>：解决方案需要遵守相关的法律法规，特别是关于数据保护的规定。</p>
+</li>
+<li>
+<p><strong>用户体验</strong>：系统应该设计得易于使用，并且能够有效地帮助用户找到他们需要的信息。
+基于以上考量，虽然将电子邮件集成到知识库中看起来是一个可行的方向，但在真正实施前还需要进一步的研究与开发工作来解决潜在的问题。</p>
+</li>
+</ol>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek002">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek002/post/202410/%E6%8A%98%E8%85%BE%E6%9D%82%E8%B0%88%E8%BF%90%E7%94%A8Dify&#43;xinference&#43;ollama%E6%9E%84%E5%BB%BA%E7%9F%A5%E8%AF%86%E5%BA%93--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek002/post/202410/%E6%8A%98%E8%85%BE%E6%9D%82%E8%B0%88%E8%BF%90%E7%94%A8Dify&#43;xinference&#43;ollama%E6%9E%84%E5%BB%BA%E7%9F%A5%E8%AF%86%E5%BA%93--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek002/post/202410/%E8%BF%90%E7%94%A8DifyXinference%E4%B8%8EOllama%E6%9E%84%E5%BB%BA%E7%9F%A5%E8%AF%86%E5%BA%93--%E7%9F%A5%E8%AF%86%E9%93%BA/">运用Dify、Xinference与Ollama构建知识库 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E5%AE%89%E8%A3%85Dify%E5%B9%B6%E9%9B%86%E6%88%90Ollama%E5%92%8CXinference--%E7%9F%A5%E8%AF%86%E9%93%BA/">安装Dify并集成Ollama和Xinference -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E5%BD%BB%E5%BA%95%E6%90%9E%E6%87%82%E5%A4%A7%E6%A8%A1%E5%9E%8B-DifyAgent-&#43;-RAG--%E7%9F%A5%E8%AF%86%E9%93%BA/">彻底搞懂大模型 - Dify（Agent &#43; RAG） -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/Milvus%E4%B8%8EDify%E7%BB%93%E5%90%88%E5%BF%AB%E9%80%9F%E6%9E%84%E5%BB%BARAG%E7%B3%BB%E7%BB%9F--%E7%9F%A5%E8%AF%86%E9%93%BA/">Milvus与Dify结合快速构建RAG系统 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/20240918/%E5%BD%BB%E5%BA%95%E6%90%9E%E6%87%82%E5%A4%A7%E6%A8%A1%E5%9E%8B-DifyAgent-&#43;-RAG--%E7%9F%A5%E8%AF%86%E9%93%BA/">彻底搞懂大模型 - Dify（Agent &#43; RAG） -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek002/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E6%9E%84%E5%BB%BA'>知识库构建</a></li>
+                
+                <li><a href='/geek002/tags/Dify'>Dify</a></li>
+                
+                <li><a href='/geek002/tags/xinference'>xinference</a></li>
+                
+                <li><a href='/geek002/tags/ollama'>ollama</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek002">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek002">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9API%E7%9F%A5%E8%AF%86%E4%BB%8B%E7%BB%8D--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="智能聊天API知识介绍 -- 知识铺">智能聊天API知识介绍 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/CentOS-7-%E6%9B%B4%E6%8D%A2-YUM-%E6%BA%90%E4%B8%BA%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F%E6%BA%90--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺">CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A0%E9%A4%90GPT%E7%BC%96%E7%A8%8B%E4%B8%8B%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8OpenAI%E7%9A%84API%E8%A7%A3%E5%86%B3%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86%E7%B1%BB%E4%BB%BB%E5%8A%A1--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺">加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/GPT%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GPT编程辅助指南 -- 知识铺">GPT编程辅助指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A-%E5%A6%82%E4%BD%95%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2%E4%BC%A0%E5%85%A5%E7%9A%84%E5%8F%82%E6%95%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="数据绑定-如何自动转换传入的参数？ -- 知识铺">数据绑定-如何自动转换传入的参数？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%88%86%E8%A7%A3Dispatcher%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1%E7%9A%84%E4%B8%93%E9%97%A8%E9%83%A8%E4%BB%B6%E5%A4%84%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="分解Dispatcher：专门任务的专门部件处理 -- 知识铺">分解Dispatcher：专门任务的专门部件处理 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%A2%9E%E5%BC%BAIoC%E5%AE%B9%E5%99%A8%E5%A6%82%E4%BD%95%E8%AE%A9%E6%88%91%E4%BB%AC%E7%9A%84Spring%E6%94%AF%E6%8C%81%E6%B3%A8%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺">增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5%E5%A6%82%E4%BD%95%E7%BB%99Bean%E6%B3%A8%E5%85%A5%E5%80%BC%E5%B9%B6%E8%A7%A3%E5%86%B3%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺">依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="动态代理：如何在运行时插入逻辑？ -- 知识铺">动态代理：如何在运行时插入逻辑？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/JDBC%E8%AE%BF%E9%97%AE%E6%A1%86%E6%9E%B6%E4%B8%AD%E6%8A%BD%E5%8F%96JDBC%E6%A8%A1%E6%9D%BF%E5%8F%8A%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB%E6%96%B9%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺">JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek002/tags/2.32/">2.32</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/6G%E6%98%BE%E5%AD%98/">6G显存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E4%BB%A3%E7%A0%81%E5%8A%A9%E6%89%8B/">AI代码助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E5%8A%A9%E6%89%8B/">AI助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E8%AF%AD%E9%9F%B3/">AI语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E9%A9%B1%E5%8A%A8/">AI驱动</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/APP%E5%BC%B9%E7%AA%97%E8%AE%BE%E8%AE%A1/">APP弹窗设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Agentic-RAG/">Agentic RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AutoProxyCreator/">AutoProxyCreator</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BAAIbge-m3/">BAAIbge-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BGE-M3/">BGE-M3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BeanFactory/">BeanFactory</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Bean%E6%B3%A8%E5%85%A5/">Bean注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/B%E7%AB%AF%E4%BD%93%E9%AA%8C/">B端体验</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS/">CentOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS-7/">CentOS 7</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Centos8/">Centos8</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ClickHouse/">ClickHouse</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Dify/">Dify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Edge-TTS/">Edge-TTS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/FastgptDify/">FastgptDify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPT%E7%BC%96%E7%A8%8B/">GPT编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Glibc/">Glibc</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/HTTP%E4%BB%A3%E7%90%86/">HTTP代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC/">IoC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC%E5%AE%B9%E5%99%A8/">IoC容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JDBC/">JDBC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java%E7%BC%96%E7%A8%8B/">Java编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JdbcTemplate/">JdbcTemplate</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Linux/">Linux</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MVC/">MVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ModelAndView/">ModelAndView</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/NVIDIA/">NVIDIA</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OCR%E8%AF%86%E5%88%AB/">OCR识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ORM%E6%A1%86%E6%9E%B6/">ORM框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Open-WebUI/">Open WebUI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenAI-API/">OpenAI API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenSSL/">OpenSSL</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PDF%E5%A4%84%E7%90%86/">PDF处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Pointcut/">Pointcut</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PowerShell/">PowerShell</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PyTorch/">PyTorch</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Qwen2.5/">Qwen2.5</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG%E7%B3%BB%E7%BB%9F/">RAG系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK/">SDK</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK%E9%9B%86%E6%88%90/">SDK集成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SEO/">SEO</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SQL%E8%AF%AD%E5%8F%A5/">SQL语句</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Servlet/">Servlet</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SpringMVC/">SpringMVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring%E6%A1%86%E6%9E%B6/">Spring框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web-Chat/">Web Chat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web%E7%8E%AF%E5%A2%83/">Web环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/YUM-%E6%BA%90/">YUM 源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/bge-reranker-v2-m3/">bge-reranker-v2-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chatchat/">chatchat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chattts/">chattts</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/fastgpt/">fastgpt</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/iOS/">iOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/langchain/">langchain</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/urllib3/">urllib3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1/">专门任务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%A7%E5%93%81%E5%AE%9A%E4%BD%8D/">产品定位</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%AC%E4%B8%9C/">京东</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%BA%E4%BA%BA%E9%83%BD%E6%98%AF%E4%BA%A7%E5%93%81%E7%BB%8F%E7%90%86/">人人都是产品经理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%A3%E7%90%86%E6%96%B9%E6%B3%95/">代理方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%B7%E5%80%BC%E9%87%8D%E5%A1%91/">价值重塑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D/">任务分配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84/">企业架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5/">依赖注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2/">信息检索</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7/">健康</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7%E7%BD%91%E7%AB%99/">健康网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%88%9D%E5%A7%8B%E5%8C%96%E6%96%B9%E6%B3%95/">初始化方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%89%8D%E7%AB%AF%E5%B1%95%E7%A4%BA/">前端展示</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/">动态代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8F%82%E6%95%B0/">参数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%95%86%E4%B8%9A%E6%A8%A1%E5%BC%8F/">商业模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%9E%E9%A1%BE/">回顾</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">国内镜像</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%A4%96/">国外</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9C%A8%E7%BA%BF%E5%B7%A5%E5%85%B7/">在线工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9F%8B%E7%82%B9%E9%87%87%E9%9B%86/">埋点采集</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%80%81/">多态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%96%87%E6%A1%A3RAG/">多文档RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大型语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E5%85%A8%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">安全聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9A%E5%88%B6%E5%8C%96/">定制化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0/">实现</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95/">实现方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%94%A8%E6%8C%87%E5%8D%97/">实用指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8/">容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E4%BA%8B%E4%BB%B6/">容器事件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E5%B7%A5%E5%85%B7%E5%8C%85/">容器工具包</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B1%9E%E6%80%A7%E9%85%8D%E7%BD%AE/">属性配置</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%85%B7/">工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%8E%82%E4%BD%93%E7%B3%BB/">工厂体系</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86/">底层原理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">循环依赖</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%89%B9%E9%87%8F%E5%8C%B9%E9%85%8D/">批量匹配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8B%A6%E6%88%AA%E5%99%A8/">拦截器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E5%90%8D/">排名</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E8%A1%8C%E6%A6%9C/">排行榜</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91/">插入逻辑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E4%BC%A0%E9%80%92/">数据传递</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%93%8D%E4%BD%9C/">数据库操作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB/">数据库隔离</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A/">数据绑定</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E5%88%B0%E8%AF%AD%E9%9F%B3/">文本到语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E6%8F%90%E5%8F%96/">文本提取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E5%89%8D%E5%90%8E/">方法前后</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E8%AE%BA/">方法论</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%97%A0%E4%BE%B5%E5%85%A5/">无侵入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B/">智能助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E6%96%B9%E6%A1%88/">智能方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9/">智能聊天</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%9B%86%E7%BE%A4%E5%86%85%E5%AD%98/">服务器集群内存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%9F%E6%9C%AB%E6%B5%8B%E8%AF%95/">期末测试</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0/">构造函数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA/">检索增强</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9D%97%E5%8C%96/">模块化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9E%8B/">模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF/">模板</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF%E6%8A%BD%E5%8F%96/">模板抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%AF%AB%E7%A7%92%E7%BA%A7%E6%8E%A8%E9%80%81/">毫秒级推送</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%B3%A8%E8%A7%A3/">注解</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%BB%A1%E5%88%86/">满分</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%83%AD%E7%82%B9%E6%95%B0%E6%8D%AE/">热点数据</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F/">环境变量</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83/">生产环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E6%88%90%E5%BC%8FAI/">生成式AI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%A8%E6%88%B7%E8%A1%8C%E4%B8%BA/">用户行为</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%99%BE%E4%BA%BF%E7%BA%A7%E5%95%86%E4%B8%9A%E7%94%9F%E6%80%81/">百亿级商业生态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86/">知识</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E4%BC%A0%E6%89%BF/">知识传承</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB/">知识分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E6%9E%84%E5%BB%BA/">知识库构建</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E7%B3%BB%E7%BB%9F/">第三方系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B2%BE%E7%A1%AE/">精确</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E7%A8%B3%E5%AE%9A%E6%80%A7/">系统稳定性</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">系统解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%84%E4%BB%B6%E5%8C%96/">组件化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%8F%E9%AA%8C%E5%88%86%E4%BA%AB/">经验分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9/">编程辅助</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E8%BE%91%E5%99%A8/">编辑器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99/">网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99%E5%88%86%E6%9E%90/">网站分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%80%81%E5%85%B5/">老兵</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%84%9A%E6%9C%AC%E6%96%87%E4%BB%B6/">脚本文件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2/">自动转换</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BA%E6%96%87%E5%86%99%E4%BD%9C/">论文写作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%8C%87%E5%8D%97/">设计指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E9%9F%B3%E5%90%88%E6%88%90/">语音合成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%B7%E6%B1%82%E5%88%86%E6%B4%BE/">请求分派</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E5%BA%94%E7%94%A8/">软件应用</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BF%90%E8%A1%8C%E6%97%B6/">运行时</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E4%BB%B6%E6%8A%BD%E5%8F%96/">部件抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E7%BD%B2/">部署</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%85%8D%E7%BD%AE%E5%8C%96/">配置化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%87%8F%E5%8C%96/">量化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%94%99%E8%AF%AF%E8%AF%86%E5%88%AB/">错误识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9B%B6%E7%BC%96%E7%A0%81/">零编码</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%88%87%E9%9D%A2%E7%BC%96%E7%A8%8B/">面向切面编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B/">面向对象编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A1%B5%E9%9D%A2%E5%81%9C%E7%95%99%E6%97%B6%E9%95%BF/">页面停留时长</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">领域驱动设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%AB%98%E9%A2%91%E9%95%9C/">高频镜</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

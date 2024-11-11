@@ -1,0 +1,1587 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>整合IoC和MVC在Web环境中启动IoC容器 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="整合IoC和MVC在Web环境中启动IoC容器 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-10-29T08:09:06&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="整合IoC和MVC在Web环境中启动IoC容器 -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek002/post/202410/%E6%95%B4%E5%90%88IoC%E5%92%8CMVC%E5%9C%A8Web%E7%8E%AF%E5%A2%83%E4%B8%AD%E5%90%AF%E5%8A%A8IoC%E5%AE%B9%E5%99%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek002/css/normalize.css'>
+    <link rel="stylesheet" href='/geek002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek002">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek002">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#servlet服务器启动过程">Servlet服务器启动过程</a>
+      <ul>
+        <li><a href="#webxml配置文件概述">web.xml配置文件概述</a></li>
+      </ul>
+    </li>
+    <li><a href="#listener初始化启动ioc容器">Listener初始化启动IoC容器</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#contextloaderlistener-类的作用">ContextLoaderListener 类的作用</a></li>
+    <li><a href="#定义-webapplicationcontext">定义 WebApplicationContext</a></li>
+    <li><a href="#结论">结论</a>
+      <ul>
+        <li><a href="#servletcontext与contextloaderlistener">ServletContext与ContextLoaderListener</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#配置文件-applicationcontextxml">配置文件 applicationContext.xml</a>
+      <ul>
+        <li><a href="#配置文件的作用">配置文件的作用</a></li>
+        <li><a href="#在-webxml-中的配置">在 web.xml 中的配置</a></li>
+      </ul>
+    </li>
+    <li><a href="#servlet初始化过程">Servlet初始化过程</a>
+      <ul>
+        <li><a href="#1-获取webapplicationcontext">1. 获取WebApplicationContext</a></li>
+        <li><a href="#2-获取配置文件路径">2. 获取配置文件路径</a></li>
+        <li><a href="#3-扫描包和加载bean">3. 扫描包和加载Bean</a></li>
+      </ul>
+    </li>
+    <li><a href="#构建url与后端程序映射关系">构建URL与后端程序映射关系</a>
+      <ul>
+        <li><a href="#1-改造initmapping方法">1. 改造initMapping()方法</a></li>
+        <li><a href="#2-存储url和映射信息">2. 存储URL和映射信息</a></li>
+        <li><a href="#3-查看相关代码">3. 查看相关代码</a></li>
+      </ul>
+    </li>
+    <li><a href="#整合了ioc容器的mvc实现">整合了IoC容器的MVC实现</a>
+      <ul>
+        <li><a href="#doget-方法详解">doGet() 方法详解</a></li>
+        <li><a href="#完整流程示例">完整流程示例</a></li>
+      </ul>
+    </li>
+    <li><a href="#验证">验证</a></li>
+    <li><a href="#tomcat测试与mvc和ioc整合">Tomcat测试与MVC和IoC整合</a>
+      <ul>
+        <li><a href="#整合过程详解">整合过程详解</a></li>
+        <li><a href="#关键点理解">关键点理解</a></li>
+        <li><a href="#完整源码">完整源码</a></li>
+        <li><a href="#课后思考题">课后思考题</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">整合IoC和MVC在Web环境中启动IoC容器 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年10月29日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>aaaaaaa a# 整合IoC和MVC：在Web环境中启动IoC容器
+你好，我是郭屹。
+通过上一节课的工作，我们已经初步实现了一个基础的MVC框架，并且引入了<code>@RequestMapping</code>注解以及对指定包进行全局扫描来简化XML配置。然而，这个MVC框架是独立运行的，并没有与之前创建的IoC（控制反转）容器整合在一起。
+在这节课中，我们将把IoC容器与MVC框架结合，使MVC中的Controller能够引用IoC容器中的Bean，从而形成一个统一的整体。</p>
+<h2 id="servlet服务器启动过程">Servlet服务器启动过程</h2>
+<p>IoC容器是自包含的服务，而MVC框架则需要遵守Web标准。为了将这两者结合起来，我们需要了解一些关于Web规范的知识。根据Servlet规范，当服务器启动时，它会依据<code>web.xml</code>文件来进行配置。</p>
+<h3 id="webxml配置文件概述">web.xml配置文件概述</h3>
+<ul>
+<li><strong>web.xml</strong> 文件是Java Servlet规范定义的一个配置文件，它包含了Web应用的所有配置信息。</li>
+<li>每个Java Web应用都必须有一个位于<code>WEB-INF</code>目录下的<code>web.xml</code>文件。</li>
+<li><code>web.xml</code>的根元素是<code>&lt;web-app&gt;</code>，并且指定了命名空间和schema。</li>
+<li>常见的配置项包括：</li>
+<li><strong>context-param</strong>：用于设置上下文参数。</li>
+<li><strong>Listener</strong>：监听器，可以用来监听Web应用的各种事件。</li>
+<li><strong>Filter</strong>：过滤器，可以在请求到达Servlet之前或响应返回客户端之前处理请求或响应。</li>
+<li><strong>Servlet</strong>：声明Servlet及其映射路径。
+理解这些配置对于我们在Web环境下正确地启动IoC容器至关重要。接下来，我们将探讨如何具体实施这一整合。</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>&lt;display-name&gt;&lt;/display-name&gt;
+</span></span><span style="display:flex;"><span>声明WEB应用的名字
+</span></span><span style="display:flex;"><span>&lt;description&gt;&lt;/description&gt;
+</span></span><span style="display:flex;"><span> 声明WEB应用的描述信息
+</span></span><span style="display:flex;"><span>&lt;context-param&gt;&lt;/context-param&gt;
+</span></span><span style="display:flex;"><span>声明应用全局的初始化参数。
+</span></span><span style="display:flex;"><span>&lt;listener&gt;&lt;/listener&gt;
+</span></span><span style="display:flex;"><span>声明监听器，它在建立、修改和删除会话或servlet环境时得到事件通知。
+</span></span><span style="display:flex;"><span>&lt;filter&gt;&lt;/filter&gt;
+</span></span><span style="display:flex;"><span>声明一个实现javax.servlet.Filter接口的类。
+</span></span><span style="display:flex;"><span>&lt;filter-mapping&gt;&lt;/filter-mapping&gt;
+</span></span><span style="display:flex;"><span>声明过滤器的拦截路径。
+</span></span><span style="display:flex;"><span>&lt;servlet&gt;&lt;/servlet&gt;
+</span></span><span style="display:flex;"><span>声明servlet类。
+</span></span><span style="display:flex;"><span>&lt;servlet-mapping&gt;&lt;/servlet-mapping&gt;
+</span></span><span style="display:flex;"><span>声明servlet的访问路径，试一个方便访问的URL。
+</span></span><span style="display:flex;"><span>&lt;session-config&gt;&lt;/session-config&gt;
+</span></span><span style="display:flex;"><span>session有关的配置，超时值。
+</span></span><span style="display:flex;"><span>&lt;error-page&gt;&lt;/error-page&gt;
+</span></span><span style="display:flex;"><span>在返回特定HTTP状态代码时，或者特定类型的异常被抛出时，能够制定将要显示的页面。
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>当Servlet服务器如Tomcat启动的时候，要遵守下面的时序：</p>
+<ol>
+<li>在启动Web项目时，Tomcat会读取web.xml中的context-param节点，获取这个Web应用的全局参数。</li>
+<li>Tomcat创建一个ServletContext实例，是全局有效的。</li>
+<li>将context-param的参数转换为键值对，存储在ServletContext里。</li>
+<li>创建listener中定义的监听类的实例，按照规定Listener要继承自ServletContextListener。监听器初始化方法是contextInitialized(ServletContextEvent event)。初始化方法中可以通过event.getServletContext().getInitParameter(&ldquo;name&rdquo;)方法获得上下文环境中的键值对。</li>
+<li>当Tomcat完成启动，也就是contextInitialized方法完成后，再对Filter过滤器进行初始化。</li>
+<li>servlet初始化：有一个参数load-on-startup，它为正数的值越小优先级越高，会自动启动，如果为负数或未指定这个参数，会在servlet被调用时再进行初始化。init-param 是一个servlet整个范围之内有效的参数，在servlet类的init()方法中通过 this.getInitParameter(&ldquo;param1&rdquo;)方法获得。
+规范中规定的这个时序，就是我们整合两者的关键所在。</li>
+</ol>
+<h2 id="listener初始化启动ioc容器">Listener初始化启动IoC容器</h2>
+<p>由上述服务器启动过程我们知道，我们把web.xml文件里定义的元素加载过程简单归总一下：先获取全局的参数context-param来创建上下文，之后如果配置文件里定义了Listener，那服务器会先启动它们，之后是Filter，最后是Servlet。因此我们可以利用这个时序，把容器的启动放到Web应用的Listener中。
+Spring MVC就是这么设计的，它按照这个规范，用ContextLoaderListener来启动容器。我们也模仿它同样来实现这样一个Listener。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.web</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.ServletContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.ServletContextEvent</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.ServletContextListener</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">ContextLoaderListener</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>ServletContextListener<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">static</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>CONFIG_LOCATION_PARAM<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#d14">&#34;contextConfigLocation&#34;</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>WebApplicationContext<span style="color:#bbb"> </span>context;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">ContextLoaderListener</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">ContextLoaderListener</span>(WebApplicationContext<span style="color:#bbb"> </span>context)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">context</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>context;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">contextDestroyed</span>(ServletContextEvent<span style="color:#bbb"> </span>event)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">contextInitialized</span>(ServletContextEvent<span style="color:#bbb"> </span>event)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>initWebApplicationContext(event.<span style="color:#008080">getServletContext</span>());<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">initWebApplicationContext</span>(ServletContext<span style="color:#bbb"> </span>servletContext)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>String<span style="color:#bbb"> </span>sContextLocation<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>servletContext.<span style="color:#008080">getInitParameter</span>(CONFIG_LOCATION_PARAM);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>WebApplicationContext<span style="color:#bbb"> </span>wac<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>AnnotationConfigWebApplicationContext(sContextLocation);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>wac.<span style="color:#008080">setServletContext</span>(servletContext);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">context</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>wac;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>servletContext.<span style="color:#008080">setAttribute</span>(WebApplicationContext.<span style="color:#008080">ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE</span>,<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">context</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>ContextLoaderListener类中声明了一个常量CONFIG_LOCATION_PARAM，其默认值为contextConfigLocation。这个常量代表配置文件路径，即IoC容器的配置文件路径。因此，Listener期望在web.xml文件中有一个参数用于指定配置文件路径。我们可以查看web.xml文件以了解具体配置。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>  &lt;context-param&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-value&gt;applicationContext.xml&lt;/param-value&gt;
+</span></span><span style="display:flex;"><span>  &lt;/context-param&gt;
+</span></span><span style="display:flex;"><span>  &lt;listener&gt;
+</span></span><span style="display:flex;"><span>    &lt;listener-class&gt;
+</span></span><span style="display:flex;"><span>	        com.minis.web.ContextLoaderListener
+</span></span><span style="display:flex;"><span>	    &lt;/listener-class&gt;
+</span></span><span style="display:flex;"><span>  &lt;/listener&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h1 id="listener-类的定义">Listener 类的定义</h1>
+<p>在上述文件中定义了一个 Listener 类，该类负责加载全局参数并指定配置文件的路径。</p>
+<h2 id="contextloaderlistener-类的作用">ContextLoaderListener 类的作用</h2>
+<p><code>ContextLoaderListener</code> 类中定义了 <code>WebApplicationContext</code> 对象，虽然目前该对象还不存在，但通过其名称我们可以推断出 <code>WebApplicationContext</code> 是一个上下文接口，主要用于 Web 项目中。</p>
+<h2 id="定义-webapplicationcontext">定义 WebApplicationContext</h2>
+<p>为了定义 <code>WebApplicationContext</code>，我们需要了解其在 Web 项目中的作用和实现方式。以下是定义 <code>WebApplicationContext</code> 的步骤和要点：</p>
+<ol>
+<li>
+<p><strong>理解上下文接口</strong>：<code>WebApplicationContext</code> 是 Spring 框架中用于管理 Web 应用程序上下文的接口。</p>
+</li>
+<li>
+<p><strong>配置文件加载</strong>：<code>ContextLoaderListener</code> 通过监听特定的事件来加载配置文件，为应用程序提供必要的上下文信息。</p>
+</li>
+<li>
+<p><strong>上下文初始化</strong>：在 Web 应用程序启动时，<code>ContextLoaderListener</code> 会初始化 <code>WebApplicationContext</code>，确保所有的 Bean 都被正确加载和配置。</p>
+</li>
+<li>
+<p><strong>上下文使用</strong>：在应用程序运行过程中，<code>WebApplicationContext</code> 提供了访问和管理应用程序上下文的接口，包括 Bean 的查找和事件的发布等。</p>
+</li>
+</ol>
+<h2 id="结论">结论</h2>
+<p>通过上述步骤，我们可以定义 <code>WebApplicationContext</code> 并利用 <code>ContextLoaderListener</code> 在 Web 项目中管理和维护应用程序的上下文环境。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.web</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.ServletContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.context.ApplicationContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">interface</span> <span style="color:#458;font-weight:bold">WebApplicationContext</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">extends</span><span style="color:#bbb"> </span>ApplicationContext<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>String<span style="color:#bbb"> </span>ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>WebApplicationContext.<span style="color:#008080">class</span>.<span style="color:#008080">getName</span>()<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">+</span><span style="color:#bbb"> </span><span style="color:#d14">&#34;.ROOT&#34;</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>ServletContext<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getServletContext</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setServletContext</span>(ServletContext<span style="color:#bbb"> </span>servletContext);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="servletcontext与contextloaderlistener">ServletContext与ContextLoaderListener</h3>
+<p>在Web应用开发中，<code>ServletContext</code>是Servlet容器提供的用于存储全局信息的接口。<code>ContextLoaderListener</code>是一个特殊的监听器，用于在Web应用启动时初始化Spring的<code>WebApplicationContext</code>，并将其存储在<code>ServletContext</code>的属性中，以便在整个应用中共享和访问。</p>
+<h4 id="1-servletcontext的作用">1. ServletContext的作用</h4>
+<p>ServletContext提供了一种方式，允许各个Servlet之间共享信息。它是一个域对象，可以存储属性，这些属性在整个Web应用的生命周期内都是可访问的。</p>
+<h4 id="2-contextloaderlistener的职责">2. ContextLoaderListener的职责</h4>
+<p><code>ContextLoaderListener</code>的主要任务是在Web应用启动时加载Spring的<code>WebApplicationContext</code>。这个上下文包含了应用的所有Spring管理的Bean，是Spring应用的核心。</p>
+<h4 id="3-初始化webapplicationcontext">3. 初始化WebApplicationContext</h4>
+<p>在<code>ContextLoaderListener</code>的<code>contextInitialized</code>方法中，我们初始化<code>WebApplicationContext</code>。这个过程通常涉及到加载Spring的配置文件，并创建应用上下文。</p>
+<h4 id="4-存储webapplicationcontext">4. 存储WebApplicationContext</h4>
+<p>一旦<code>WebApplicationContext</code>被创建，我们需要将其存储在<code>ServletContext</code>的属性中。这样，其他组件就可以通过<code>ServletContext</code>获取到这个上下文，进而访问Spring管理的Bean。</p>
+<h4 id="5-使用servletcontext的attribute存储上下文">5. 使用ServletContext的Attribute存储上下文</h4>
+<p>我们将<code>WebApplicationContext</code>存储在<code>ServletContext</code>的属性中，通常使用一个特定的属性名，如<code>' '</code>，来标识这个上下文。这样，任何需要访问Spring上下文的Servlet或Listener都可以通过这个属性名来获取上下文。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">contextInitialized</span>(ServletContextEvent<span style="color:#bbb"> </span>event)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>initWebApplicationContext(event.<span style="color:#008080">getServletContext</span>());<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">initWebApplicationContext</span>(ServletContext<span style="color:#bbb"> </span>servletContext)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>String<span style="color:#bbb"> </span>sContextLocation<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>servletContext.<span style="color:#008080">getInitParameter</span>(CONFIG_LOCATION_PARAM);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>WebApplicationContext<span style="color:#bbb"> </span>wac<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>AnnotationConfigWebApplicationContext(sContextLocation);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>wac.<span style="color:#008080">setServletContext</span>(servletContext);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">context</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>wac;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>servletContext.<span style="color:#008080">setAttribute</span>(WebApplicationContext.<span style="color:#008080">ROOT_WEB_APPLICATION_CONTEXT_</span><span style="color:#bbb"> </span>ATTRIBUTE,<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">context</span>);<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在Java Web应用中，通过web.xml配置文件获取到如<code>applicationContext.xml</code>这样的配置文件路径。接着，利用该路径创建一个<code>AnnotationConfigWebApplicationContext</code>对象，我们称之为WAC。这个WAC就是新的Spring应用上下文。</p>
+<p>随后，通过调用<code>servletContext.setAttribute()</code>方法，并按照默认的属性值，将WAC设置到<code>servletContext</code>中。这样一来，<code>AnnotationConfigWebApplicationContext</code>与<code>servletContext</code>之间就可以互相引用，这为程序内部组件之间的交互提供了便利。</p>
+<p><code>AnnotationConfigWebApplicationContext</code>是Spring框架中的一个类，它继承自<code>GenericApplicationContext</code>并实现了<code>ConfigurableApplicationContext</code>接口。此类主要用于支持基于注解的配置，允许开发者使用纯Java代码来定义和配置Spring容器中的Bean，而无需XML配置文件。这种方式不仅简化了配置过程，也使得应用程序更加易于维护。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.web</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">javax.servlet.ServletContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.context.ClassPathXmlApplicationContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">AnnotationConfigWebApplicationContext</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">					</span><span style="color:#000;font-weight:bold">extends</span><span style="color:#bbb"> </span>ClassPathXmlApplicationContext<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>WebApplicationContext{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>ServletContext<span style="color:#bbb"> </span>servletContext;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">AnnotationConfigWebApplicationContext</span>(String<span style="color:#bbb"> </span>fileName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">super</span>(fileName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>ServletContext<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getServletContext</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">servletContext</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setServletContext</span>(ServletContext<span style="color:#bbb"> </span>servletContext)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">servletContext</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>servletContext;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h1 id="annotationconfigwebapplicationcontext-与-ioc-容器的关系">AnnotationConfigWebApplicationContext 与 IoC 容器的关系</h1>
+<p>AnnotationConfigWebApplicationContext 类继承自 IoC 容器中的 ClassPathXmlApplicationContext，它在 ClassPathXmlApplicationContext 的基础上增加了对 servletContext 的支持，使其适用于 Web 应用场景。</p>
+<h2 id="配置文件-applicationcontextxml">配置文件 applicationContext.xml</h2>
+<p>在 Web 应用中，我们使用 applicationContext.xml 作为配置文件，该文件由 web.xml 中定义的一个参数指定。</p>
+<h3 id="配置文件的作用">配置文件的作用</h3>
+<ul>
+<li>
+<p>applicationContext.xml 文件用于定义 Spring 框架中的 Bean 和相关的配置。</p>
+</li>
+<li>
+<p>它允许开发者通过 XML 格式定义应用的配置信息，包括但不限于 Bean 的定义、属性注入、以及 Bean 之间的依赖关系。</p>
+</li>
+</ul>
+<h3 id="在-webxml-中的配置">在 web.xml 中的配置</h3>
+<ul>
+<li>
+<p>在 web.xml 文件中，我们通过指定参数来引入 applicationContext.xml 文件，从而将 Spring 的配置集成到 Web 应用中。</p>
+</li>
+<li>
+<p>这允许 Web 应用利用 Spring 框架提供的 IoC 容器功能，实现依赖注入和 Bean 管理。</p>
+</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>  &lt;context-param&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-value&gt;applicationContext.xml&lt;/param-value&gt;
+</span></span><span style="display:flex;"><span>  &lt;/context-param&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个配置文件就是我们现在的IoC容器的配置文件，主要作用是声明Bean，如：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
+</span></span><span style="display:flex;"><span>&lt;beans&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;bbs&#34; class=&#34;com.test.service.BaseBaseService&#34;&gt;
+</span></span><span style="display:flex;"><span>	    &lt;property type=&#34;com.test.service.AServiceImpl&#34; name=&#34;as&#34; ref=&#34;aservice&#34;/&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;aservice&#34; class=&#34;com.test.service.AServiceImpl&#34;&gt;
+</span></span><span style="display:flex;"><span>		&lt;constructor-arg type=&#34;String&#34; name=&#34;name&#34; value=&#34;abc&#34;/&gt;
+</span></span><span style="display:flex;"><span>		&lt;constructor-arg type=&#34;int&#34; name=&#34;level&#34; value=&#34;3&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;String&#34; name=&#34;property1&#34; value=&#34;Someone says&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;String&#34; name=&#34;property2&#34; value=&#34;Hello World!&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;com.test.service.BaseService&#34; name=&#34;ref1&#34; ref=&#34;baseservice&#34;/&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;baseservice&#34; class=&#34;com.test.service.BaseService&#34;&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>&lt;/beans&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>回顾一下，现在完整的过程是：当Servlet服务器启动时，Listener会优先启动，读配置文件路径，启动过程中初始化上下文，然后启动IoC容器，这个容器通过refresh()方法加载所管理的Bean对象。这样就实现了Tomcat启动的时候同时启动IoC容器。</p>
+<p>好了，到了这一步，IoC容器启动了，我们回来再讨论MVC这边的事情。我们已经知道，在服务器启动的过程中，会注册Web应用上下文，也就是WAC。这样方便我们通过属性拿到启动时的WebApplicationContext。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">webApplicationContext</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(WebApplicationContext)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getServletContext</span>().<span style="color:#008080">getAttribute</span>(WebApplicationContext.<span style="color:#008080">ROOT_WEB_APPLICATION</span><span style="color:#bbb"> </span>_CONTEXT_ATTRIBUTE);<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>因此我们改造一下DispatcherServlet这个核心类里的init()方法。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">init</span>(ServletConfig<span style="color:#bbb"> </span>config)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>ServletException<span style="color:#bbb"> </span>{<span style="color:#bbb">          </span><span style="color:#000;font-weight:bold">super</span>.<span style="color:#008080">init</span>(config);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">webApplicationContext</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(WebApplicationContext)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getServletContext</span>().<span style="color:#008080">getAttribute</span>(WebApplicationContext.<span style="color:#008080">ROOT_WEB_APPLICATION</span><span style="color:#bbb"> </span>_CONTEXT_ATTRIBUTE);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>sContextConfigLocation<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>config.<span style="color:#008080">getInitParameter</span>(<span style="color:#d14">&#34;contextConfigLocation&#34;</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>URL<span style="color:#bbb"> </span>xmlPath<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>xmlPath<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getServletContext</span>().<span style="color:#008080">getResource</span>(sContextConfigLocation);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(MalformedURLException<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">packageNames</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>XmlScanComponentHelper.<span style="color:#008080">getNodeValue</span>(xmlPath);<span style="color:#bbb">        </span>Refresh();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="servlet初始化过程">Servlet初始化过程</h2>
+<h3 id="1-获取webapplicationcontext">1. 获取WebApplicationContext</h3>
+<p>在Servlet初始化阶段，首先从<code>ServletContext</code>中获取属性，以获得Listener在启动时注册的<code>WebApplicationContext</code>。</p>
+<h3 id="2-获取配置文件路径">2. 获取配置文件路径</h3>
+<p>接着，获取Servlet配置参数<code>contextConfigLocation</code>，该参数表示配置文件的路径，通常指向MVC使用的配置文件，例如<code>minisMVC-servlet.xml</code>。</p>
+<h3 id="3-扫描包和加载bean">3. 扫描包和加载Bean</h3>
+<p>在获取到配置文件路径后，扫描指定路径下的包，并调用<code>refresh()</code>方法来加载Bean，完成DispatcherServlet的初始化。</p>
+<h2 id="构建url与后端程序映射关系">构建URL与后端程序映射关系</h2>
+<h3 id="1-改造initmapping方法">1. 改造initMapping()方法</h3>
+<p>按照新的方法构建URL和后端程序之间的映射关系，需要查找所有使用了<code>@RequestMapping</code>注解的方法。</p>
+<h3 id="2-存储url和映射信息">2. 存储URL和映射信息</h3>
+<p>将URL存放到<code>urlMappingNames</code>中，映射的对象存放到<code>mappingObjs</code>中，映射的方法存放到<code>mappingMethods</code>中。这种方法替代了过去通过解析Bean得到的映射关系，减少了XML文件中的手工配置。</p>
+<h3 id="3-查看相关代码">3. 查看相关代码</h3>
+<p>可以通过查看相关代码来进一步了解这一过程的具体实现。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">initMapping</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">for</span><span style="color:#bbb"> </span>(String<span style="color:#bbb"> </span>controllerName<span style="color:#bbb"> </span>:<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">controllerNames</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Class<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>clazz<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">controllerClasses</span>.<span style="color:#008080">get</span>(controllerName);<span style="color:#bbb">             </span>Object<span style="color:#bbb"> </span>obj<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">controllerObjs</span>.<span style="color:#008080">get</span>(controllerName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Method<span style="color:#000;font-weight:bold">[]</span><span style="color:#bbb"> </span>methods<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>clazz.<span style="color:#008080">getDeclaredMethods</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(methods<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">!=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">for</span><span style="color:#bbb"> </span>(Method<span style="color:#bbb"> </span>method<span style="color:#bbb"> </span>:<span style="color:#bbb"> </span>methods)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                </span><span style="color:#458;font-weight:bold">boolean</span><span style="color:#bbb"> </span>isRequestMapping<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>method.<span style="color:#008080">isAnnotationPresent</span>(RequestMapping.<span style="color:#008080">class</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(isRequestMapping)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                    </span>String<span style="color:#bbb"> </span>methodName<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>method.<span style="color:#008080">getName</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                    </span>String<span style="color:#bbb"> </span>urlMapping<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>method.<span style="color:#008080">getAnnotation</span>(RequestMapping.<span style="color:#008080">class</span>).<span style="color:#008080">value</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">urlMappingNames</span>.<span style="color:#008080">add</span>(urlMapping);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">mappingObjs</span>.<span style="color:#008080">put</span>(urlMapping,<span style="color:#bbb"> </span>obj);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                    </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">mappingMethods</span>.<span style="color:#008080">put</span>(urlMapping,<span style="color:#bbb"> </span>method);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>最后稍微调整一下 doGet() 方法内的代码，去除不再使用的结构。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doGet</span>(HttpServletRequest<span style="color:#bbb"> </span>request,<span style="color:#bbb"> </span>HttpServletResponse<span style="color:#bbb"> </span>response)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>ServletException,<span style="color:#bbb"> </span>IOException<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>String<span style="color:#bbb"> </span>sPath<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>request.<span style="color:#008080">getServletPath</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(<span style="color:#000;font-weight:bold">!</span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">urlMappingNames</span>.<span style="color:#008080">contains</span>(sPath))<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">return</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span>obj<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span>objResult<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Method<span style="color:#bbb"> </span>method<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">mappingMethods</span>.<span style="color:#008080">get</span>(sPath);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>obj<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">mappingObjs</span>.<span style="color:#008080">get</span>(sPath);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>objResult<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>method.<span style="color:#008080">invoke</span>(obj);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(Exception<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">	</span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>response.<span style="color:#008080">getWriter</span>().<span style="color:#008080">append</span>(objResult.<span style="color:#008080">toString</span>());<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="整合了ioc容器的mvc实现">整合了IoC容器的MVC实现</h2>
+<p>在我们的Web应用中，<code>doGet()</code>方法承担着处理HTTP GET请求的任务。它会从请求中解析出访问路径，并根据这个路径与后端程序之间的映射关系来决定调用哪个对象的哪个方法。执行完相应的方法之后，将结果直接返回给客户端。</p>
+<h3 id="doget-方法详解">doGet() 方法详解</h3>
+<ul>
+<li><strong>获取访问路径</strong>：首先，<code>doGet()</code>方法会读取请求中的URL路径部分。</li>
+<li><strong>映射到后端逻辑</strong>：然后，通过预定义好的映射规则（通常是配置文件或注解的形式），确定要调用的具体服务类和服务方法。</li>
+<li><strong>调用对应方法</strong>：接着，使用IoC容器管理的服务实例来调用对应的方法。</li>
+<li><strong>返回结果</strong>：最后，将方法执行的结果包装成合适的格式并通过<code>response</code>对象发送回客户端。</li>
+</ul>
+<h3 id="完整流程示例">完整流程示例</h3>
+<p>假设有一个简单的用户信息查询接口，其URL为<code>/user/info</code>，则整个处理过程可能如下：</p>
+<ol>
+<li><code>doGet()</code>接收到请求并识别出请求路径是<code>/user/info</code>。2. 根据映射规则，找到应该调用<code>UserService</code>类下的<code>getUserInfo()</code>方法。3. IoC容器提供<code>UserService</code>的一个实例。4. 调用<code>getUserInfo()</code>方法获取用户信息。5. 将得到的信息转换成JSON字符串形式。6. 设置响应头信息，并将JSON字符串写入<code>response</code>对象，从而完成响应。</li>
+</ol>
+<h2 id="验证">验证</h2>
+<p>为了确保上述功能正确无误地工作，接下来我们将查看Tomcat服务器使用的<code>web.xml</code>配置文件以确认相关设置是否恰当。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
+</span></span><span style="display:flex;"><span>&lt;web-app xmlns:xsi=&#34;http://www.w3.org/2001/XMLSchema-instance&#34; xmlns:web=&#34;http://xmlns.jcp.org/xml/ns/javaee&#34; xsi:schemaLocation=&#34;http://xmlns.jcp.org/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd&#34; id=&#34;WebApp_ID&#34;&gt;
+</span></span><span style="display:flex;"><span>  &lt;context-param&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+</span></span><span style="display:flex;"><span>    &lt;param-value&gt;applicationContext.xml&lt;/param-value&gt;
+</span></span><span style="display:flex;"><span>  &lt;/context-param&gt;
+</span></span><span style="display:flex;"><span>  &lt;listener&gt;
+</span></span><span style="display:flex;"><span>    &lt;listener-class&gt;
+</span></span><span style="display:flex;"><span>	        com.minis.web.ContextLoaderListener
+</span></span><span style="display:flex;"><span>	    &lt;/listener-class&gt;
+</span></span><span style="display:flex;"><span>  &lt;/listener&gt;
+</span></span><span style="display:flex;"><span>  &lt;servlet&gt;
+</span></span><span style="display:flex;"><span>    &lt;servlet-name&gt;minisMVC&lt;/servlet-name&gt;
+</span></span><span style="display:flex;"><span>    &lt;servlet-class&gt;com.minis.web.DispatcherServlet&lt;/servlet-class&gt;
+</span></span><span style="display:flex;"><span>    &lt;init-param&gt;
+</span></span><span style="display:flex;"><span>      &lt;param-name&gt;contextConfigLocation&lt;/param-name&gt;
+</span></span><span style="display:flex;"><span>      &lt;param-value&gt; /WEB-INF/minisMVC-servlet.xml &lt;/param-value&gt;
+</span></span><span style="display:flex;"><span>    &lt;/init-param&gt;
+</span></span><span style="display:flex;"><span>    &lt;load-on-startup&gt;1&lt;/load-on-startup&gt;
+</span></span><span style="display:flex;"><span>  &lt;/servlet&gt;
+</span></span><span style="display:flex;"><span>  &lt;servlet-mapping&gt;
+</span></span><span style="display:flex;"><span>    &lt;servlet-name&gt;minisMVC&lt;/servlet-name&gt;
+</span></span><span style="display:flex;"><span>    &lt;url-pattern&gt;/&lt;/url-pattern&gt;
+</span></span><span style="display:flex;"><span>  &lt;/servlet-mapping&gt;
+</span></span><span style="display:flex;"><span>&lt;/web-app&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>然后是IoC容器使用的配置文件applicationContext.xml。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;
+</span></span><span style="display:flex;"><span>&lt;beans&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;bbs&#34; class=&#34;com.test.service.BaseBaseService&#34;&gt;
+</span></span><span style="display:flex;"><span>	    &lt;property type=&#34;com.test.service.AServiceImpl&#34; name=&#34;as&#34; ref=&#34;aservice&#34;/&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;aservice&#34; class=&#34;com.test.service.AServiceImpl&#34;&gt;
+</span></span><span style="display:flex;"><span>		&lt;constructor-arg type=&#34;String&#34; name=&#34;name&#34; value=&#34;abc&#34;/&gt;
+</span></span><span style="display:flex;"><span>		&lt;constructor-arg type=&#34;int&#34; name=&#34;level&#34; value=&#34;3&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;String&#34; name=&#34;property1&#34; value=&#34;Someone says&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;String&#34; name=&#34;property2&#34; value=&#34;Hello World!&#34;/&gt;
+</span></span><span style="display:flex;"><span>        &lt;property type=&#34;com.test.service.BaseService&#34; name=&#34;ref1&#34; ref=&#34;baseservice&#34;/&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>	&lt;bean id=&#34;baseservice&#34; class=&#34;com.test.service.BaseService&#34;&gt;
+</span></span><span style="display:flex;"><span>	&lt;/bean&gt;
+</span></span><span style="display:flex;"><span>&lt;/beans&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>MVC扫描的配置文件minisMVC-servlet.xml。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34; ?&gt;
+</span></span><span style="display:flex;"><span>&lt;components&gt;
+</span></span><span style="display:flex;"><span>&lt;component-scan base-package=&#34;com.test&#34;/&gt;
+</span></span><span style="display:flex;"><span>&lt;/components&gt;
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>最后，在com.minis.test.HelloworldBean内的测试方法上，增加@RequestMapping注解。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">import</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.web.RequestMapping</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">HelloWorldBean</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@RequestMapping</span>(<span style="color:#d14">&#34;/test&#34;</span>)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>String<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doTest</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#d14">&#34;hello world for doGet!&#34;</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="tomcat测试与mvc和ioc整合">Tomcat测试与MVC和IoC整合</h2>
+<p>在本节课中，我们成功地将MVC设计模式与IoC（控制反转）容器进行了整合，并通过Tomcat服务器启动了我们的应用程序。当你在浏览器中输入 <code>localhost:8080/test</code> 并看到预期的结果时，这标志着我们的配置是正确的。这个端口号可以根据需要自定义，同时请求路径可能还需要根据实际的应用上下文进行调整。</p>
+<h3 id="整合过程详解">整合过程详解</h3>
+<ul>
+<li>
+<p><strong>Tomcat启动阶段</strong>：</p>
+</li>
+<li>
+<p>首先读取<code>context-param</code>参数。</p>
+</li>
+<li>
+<p>初始化监听器（Listener），在这个过程中会创建IoC容器并构建WebApplicationContext (WAC)。</p>
+</li>
+<li>
+<p>WAC加载被管理的Bean对象，并将其关联到servlet context中。</p>
+</li>
+<li>
+<p><strong>DispatcherServlet初始化</strong>：</p>
+</li>
+<li>
+<p>从servletContext获取属性以获得WAC，并将其设置为servlet的属性之一。</p>
+</li>
+<li>
+<p>根据servlet的配置读取路径参数。</p>
+</li>
+<li>
+<p>扫描指定路径下的包来发现组件。</p>
+</li>
+<li>
+<p>调用<code>refresh()</code>方法加载更多Bean。</p>
+</li>
+<li>
+<p>最后配置URL映射关系。</p>
+</li>
+</ul>
+<h3 id="关键点理解">关键点理解</h3>
+<p>能够实现MVC与IoC的整合，关键在于遵循了Servlet规范所规定的生命周期顺序：从监听器、过滤器到最后的servlet。这种顺序为我们提供了干预程序执行流程的机会，使得我们可以插入自己的逻辑代码。
+在开发软件时，重要的是学习如何建立一个可扩展的系统结构。这意味着不应该把程序的流程固定得太死板，而应该留有足够的接口和扩展点，让其他开发者也能方便地加入他们自己的业务逻辑。
+框架之所以成为框架而不是单纯的应用程序，正是因为它提供了一套高度可扩展的体系结构，给后续的程序员留下了极大的发展空间。阅读如Rodd Johnson等大师级人物编写的源代码，就像是品鉴一部文学杰作，让人不禁感叹其优雅的设计。</p>
+<h3 id="完整源码">完整源码</h3>
+<p>如果你想查看完整的源代码示例，可以访问 <a href="http://zshipu.com/t/index.html?url=https://github.com/YaleGuo/minis">https://github.com/YaleGuo/minis</a>。</p>
+<h3 id="课后思考题">课后思考题</h3>
+<p>既然我们知道可以通过DispatcherServlet访问WebApplicationContext中管理的Bean，那么反过来是否可以通过WebApplicationContext访问到由DispatcherServlet管理的Bean呢？欢迎你在讨论区分享你的想法。如果你觉得这节课对你有所帮助，请不要犹豫把它推荐给你认为需要的朋友。期待下次课程与你再次相见！aaaaaa</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek002">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek002/post/202410/%E6%95%B4%E5%90%88IoC%E5%92%8CMVC%E5%9C%A8Web%E7%8E%AF%E5%A2%83%E4%B8%AD%E5%90%AF%E5%8A%A8IoC%E5%AE%B9%E5%99%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek002/post/202410/%E6%95%B4%E5%90%88IoC%E5%92%8CMVC%E5%9C%A8Web%E7%8E%AF%E5%A2%83%E4%B8%AD%E5%90%AF%E5%8A%A8IoC%E5%AE%B9%E5%99%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek002/post/202410/01%E5%8E%9F%E5%A7%8BIoC%E5%A6%82%E4%BD%95%E9%80%9A%E8%BF%87BeanFactory%E5%AE%9E%E7%8E%B0%E5%8E%9F%E5%A7%8B%E7%89%88%E6%9C%AC%E7%9A%84IoC%E5%AE%B9%E5%99%A8--%E7%9F%A5%E8%AF%86%E9%93%BA/">01｜原始IoC：如何通过BeanFactory实现原始版本的IoC容器？ -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/06%E5%86%8D%E5%9B%9E%E9%A6%96%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AAIoC%E5%AE%B9%E5%99%A8--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">06｜再回首：如何实现一个IoC容器？ -- 知识铺 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E6%9C%9F%E6%9C%AB%E6%B5%8B%E8%AF%95%E6%9D%A5%E8%B5%B4%E4%B8%80%E5%9C%BA%E6%BB%A1%E5%88%86%E4%B9%8B%E7%BA%A6%E5%90%A7--%E7%9F%A5%E8%AF%86%E9%93%BA/">期末测试｜来赴一场满分之约吧！ -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E6%8E%8C%E6%8F%A1Spring%E6%A1%86%E6%9E%B6%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86%E7%9A%84%E5%AE%9E%E7%94%A8%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/">掌握Spring框架底层原理的实用指南 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E8%80%81%E5%85%B5%E5%9B%9E%E9%A6%96%E8%96%AA%E7%81%AB%E7%9B%B8%E4%BC%A0--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">老兵回首，薪火相传 -- 知识铺 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek002/tags/IoC'>IoC</a></li>
+                
+                <li><a href='/geek002/tags/MVC'>MVC</a></li>
+                
+                <li><a href='/geek002/tags/Web%E7%8E%AF%E5%A2%83'>Web环境</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek002">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek002">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9API%E7%9F%A5%E8%AF%86%E4%BB%8B%E7%BB%8D--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="智能聊天API知识介绍 -- 知识铺">智能聊天API知识介绍 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/CentOS-7-%E6%9B%B4%E6%8D%A2-YUM-%E6%BA%90%E4%B8%BA%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F%E6%BA%90--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺">CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A0%E9%A4%90GPT%E7%BC%96%E7%A8%8B%E4%B8%8B%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8OpenAI%E7%9A%84API%E8%A7%A3%E5%86%B3%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86%E7%B1%BB%E4%BB%BB%E5%8A%A1--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺">加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/GPT%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GPT编程辅助指南 -- 知识铺">GPT编程辅助指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A-%E5%A6%82%E4%BD%95%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2%E4%BC%A0%E5%85%A5%E7%9A%84%E5%8F%82%E6%95%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="数据绑定-如何自动转换传入的参数？ -- 知识铺">数据绑定-如何自动转换传入的参数？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%88%86%E8%A7%A3Dispatcher%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1%E7%9A%84%E4%B8%93%E9%97%A8%E9%83%A8%E4%BB%B6%E5%A4%84%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="分解Dispatcher：专门任务的专门部件处理 -- 知识铺">分解Dispatcher：专门任务的专门部件处理 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%A2%9E%E5%BC%BAIoC%E5%AE%B9%E5%99%A8%E5%A6%82%E4%BD%95%E8%AE%A9%E6%88%91%E4%BB%AC%E7%9A%84Spring%E6%94%AF%E6%8C%81%E6%B3%A8%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺">增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5%E5%A6%82%E4%BD%95%E7%BB%99Bean%E6%B3%A8%E5%85%A5%E5%80%BC%E5%B9%B6%E8%A7%A3%E5%86%B3%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺">依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="动态代理：如何在运行时插入逻辑？ -- 知识铺">动态代理：如何在运行时插入逻辑？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/JDBC%E8%AE%BF%E9%97%AE%E6%A1%86%E6%9E%B6%E4%B8%AD%E6%8A%BD%E5%8F%96JDBC%E6%A8%A1%E6%9D%BF%E5%8F%8A%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB%E6%96%B9%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺">JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek002/tags/2.32/">2.32</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/6G%E6%98%BE%E5%AD%98/">6G显存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E4%BB%A3%E7%A0%81%E5%8A%A9%E6%89%8B/">AI代码助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E5%8A%A9%E6%89%8B/">AI助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E8%AF%AD%E9%9F%B3/">AI语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E9%A9%B1%E5%8A%A8/">AI驱动</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/APP%E5%BC%B9%E7%AA%97%E8%AE%BE%E8%AE%A1/">APP弹窗设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Agentic-RAG/">Agentic RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AutoProxyCreator/">AutoProxyCreator</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BAAIbge-m3/">BAAIbge-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BGE-M3/">BGE-M3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BeanFactory/">BeanFactory</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Bean%E6%B3%A8%E5%85%A5/">Bean注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/B%E7%AB%AF%E4%BD%93%E9%AA%8C/">B端体验</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS/">CentOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS-7/">CentOS 7</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Centos8/">Centos8</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ClickHouse/">ClickHouse</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Dify/">Dify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Edge-TTS/">Edge-TTS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/FastgptDify/">FastgptDify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPT%E7%BC%96%E7%A8%8B/">GPT编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Glibc/">Glibc</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/HTTP%E4%BB%A3%E7%90%86/">HTTP代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC/">IoC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC%E5%AE%B9%E5%99%A8/">IoC容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JDBC/">JDBC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java%E7%BC%96%E7%A8%8B/">Java编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JdbcTemplate/">JdbcTemplate</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Linux/">Linux</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MVC/">MVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ModelAndView/">ModelAndView</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/NVIDIA/">NVIDIA</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OCR%E8%AF%86%E5%88%AB/">OCR识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ORM%E6%A1%86%E6%9E%B6/">ORM框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Open-WebUI/">Open WebUI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenAI-API/">OpenAI API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenSSL/">OpenSSL</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PDF%E5%A4%84%E7%90%86/">PDF处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Pointcut/">Pointcut</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PowerShell/">PowerShell</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PyTorch/">PyTorch</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Qwen2.5/">Qwen2.5</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG%E7%B3%BB%E7%BB%9F/">RAG系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK/">SDK</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK%E9%9B%86%E6%88%90/">SDK集成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SEO/">SEO</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SQL%E8%AF%AD%E5%8F%A5/">SQL语句</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Servlet/">Servlet</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SpringMVC/">SpringMVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring%E6%A1%86%E6%9E%B6/">Spring框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web-Chat/">Web Chat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web%E7%8E%AF%E5%A2%83/">Web环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/YUM-%E6%BA%90/">YUM 源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/bge-reranker-v2-m3/">bge-reranker-v2-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chatchat/">chatchat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chattts/">chattts</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/fastgpt/">fastgpt</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/iOS/">iOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/langchain/">langchain</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/urllib3/">urllib3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1/">专门任务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%A7%E5%93%81%E5%AE%9A%E4%BD%8D/">产品定位</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%AC%E4%B8%9C/">京东</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%BA%E4%BA%BA%E9%83%BD%E6%98%AF%E4%BA%A7%E5%93%81%E7%BB%8F%E7%90%86/">人人都是产品经理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%A3%E7%90%86%E6%96%B9%E6%B3%95/">代理方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%B7%E5%80%BC%E9%87%8D%E5%A1%91/">价值重塑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D/">任务分配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84/">企业架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5/">依赖注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2/">信息检索</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7/">健康</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7%E7%BD%91%E7%AB%99/">健康网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%88%9D%E5%A7%8B%E5%8C%96%E6%96%B9%E6%B3%95/">初始化方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%89%8D%E7%AB%AF%E5%B1%95%E7%A4%BA/">前端展示</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/">动态代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8F%82%E6%95%B0/">参数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%95%86%E4%B8%9A%E6%A8%A1%E5%BC%8F/">商业模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%9E%E9%A1%BE/">回顾</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">国内镜像</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%A4%96/">国外</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9C%A8%E7%BA%BF%E5%B7%A5%E5%85%B7/">在线工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9F%8B%E7%82%B9%E9%87%87%E9%9B%86/">埋点采集</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%80%81/">多态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%96%87%E6%A1%A3RAG/">多文档RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大型语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E5%85%A8%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">安全聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9A%E5%88%B6%E5%8C%96/">定制化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0/">实现</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95/">实现方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%94%A8%E6%8C%87%E5%8D%97/">实用指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8/">容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E4%BA%8B%E4%BB%B6/">容器事件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E5%B7%A5%E5%85%B7%E5%8C%85/">容器工具包</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B1%9E%E6%80%A7%E9%85%8D%E7%BD%AE/">属性配置</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%85%B7/">工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%8E%82%E4%BD%93%E7%B3%BB/">工厂体系</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86/">底层原理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">循环依赖</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%89%B9%E9%87%8F%E5%8C%B9%E9%85%8D/">批量匹配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8B%A6%E6%88%AA%E5%99%A8/">拦截器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E5%90%8D/">排名</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E8%A1%8C%E6%A6%9C/">排行榜</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91/">插入逻辑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E4%BC%A0%E9%80%92/">数据传递</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%93%8D%E4%BD%9C/">数据库操作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB/">数据库隔离</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A/">数据绑定</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E5%88%B0%E8%AF%AD%E9%9F%B3/">文本到语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E6%8F%90%E5%8F%96/">文本提取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E5%89%8D%E5%90%8E/">方法前后</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E8%AE%BA/">方法论</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%97%A0%E4%BE%B5%E5%85%A5/">无侵入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B/">智能助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E6%96%B9%E6%A1%88/">智能方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9/">智能聊天</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%9B%86%E7%BE%A4%E5%86%85%E5%AD%98/">服务器集群内存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%9F%E6%9C%AB%E6%B5%8B%E8%AF%95/">期末测试</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0/">构造函数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA/">检索增强</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9D%97%E5%8C%96/">模块化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9E%8B/">模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF/">模板</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF%E6%8A%BD%E5%8F%96/">模板抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%AF%AB%E7%A7%92%E7%BA%A7%E6%8E%A8%E9%80%81/">毫秒级推送</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%B3%A8%E8%A7%A3/">注解</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%BB%A1%E5%88%86/">满分</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%83%AD%E7%82%B9%E6%95%B0%E6%8D%AE/">热点数据</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F/">环境变量</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83/">生产环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E6%88%90%E5%BC%8FAI/">生成式AI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%A8%E6%88%B7%E8%A1%8C%E4%B8%BA/">用户行为</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%99%BE%E4%BA%BF%E7%BA%A7%E5%95%86%E4%B8%9A%E7%94%9F%E6%80%81/">百亿级商业生态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86/">知识</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E4%BC%A0%E6%89%BF/">知识传承</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB/">知识分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E6%9E%84%E5%BB%BA/">知识库构建</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E7%B3%BB%E7%BB%9F/">第三方系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B2%BE%E7%A1%AE/">精确</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E7%A8%B3%E5%AE%9A%E6%80%A7/">系统稳定性</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">系统解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%84%E4%BB%B6%E5%8C%96/">组件化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%8F%E9%AA%8C%E5%88%86%E4%BA%AB/">经验分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9/">编程辅助</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E8%BE%91%E5%99%A8/">编辑器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99/">网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99%E5%88%86%E6%9E%90/">网站分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%80%81%E5%85%B5/">老兵</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%84%9A%E6%9C%AC%E6%96%87%E4%BB%B6/">脚本文件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2/">自动转换</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BA%E6%96%87%E5%86%99%E4%BD%9C/">论文写作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%8C%87%E5%8D%97/">设计指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E9%9F%B3%E5%90%88%E6%88%90/">语音合成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%B7%E6%B1%82%E5%88%86%E6%B4%BE/">请求分派</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E5%BA%94%E7%94%A8/">软件应用</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BF%90%E8%A1%8C%E6%97%B6/">运行时</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E4%BB%B6%E6%8A%BD%E5%8F%96/">部件抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E7%BD%B2/">部署</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%85%8D%E7%BD%AE%E5%8C%96/">配置化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%87%8F%E5%8C%96/">量化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%94%99%E8%AF%AF%E8%AF%86%E5%88%AB/">错误识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9B%B6%E7%BC%96%E7%A0%81/">零编码</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%88%87%E9%9D%A2%E7%BC%96%E7%A8%8B/">面向切面编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B/">面向对象编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A1%B5%E9%9D%A2%E5%81%9C%E7%95%99%E6%97%B6%E9%95%BF/">页面停留时长</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">领域驱动设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%AB%98%E9%A2%91%E9%95%9C/">高频镜</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
