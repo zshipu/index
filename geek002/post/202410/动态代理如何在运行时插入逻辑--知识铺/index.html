@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+<meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+<meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>动态代理：如何在运行时插入逻辑？ -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="动态代理：如何在运行时插入逻辑？ -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2024-10-29T08:20:06&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="动态代理：如何在运行时插入逻辑？ -- 知识铺">
+    <meta name="author" content="知识铺">
+    
+    <meta property="og:url" content="https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/geek002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/geek002/css/normalize.css'>
+    <link rel="stylesheet" href='/geek002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/geek002">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/geek002">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/geek001/" title="技术">技术</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/geek002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#代理模式">代理模式</a>
+      <ul>
+        <li><a href="#代理模式的工作流程">代理模式的工作流程</a></li>
+      </ul>
+    </li>
+    <li><a href="#非侵入式编程的优势">非侵入式编程的优势</a></li>
+    <li><a href="#factorybean的作用">FactoryBean的作用</a></li>
+    <li><a href="#实现非侵入式编程的步骤">实现非侵入式编程的步骤</a>
+      <ul>
+        <li><a href="#实现思路">实现思路</a></li>
+        <li><a href="#应用场景">应用场景</a></li>
+      </ul>
+    </li>
+    <li><a href="#基于jdk的实现">基于JDK的实现</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#动态代理技术的应用">动态代理技术的应用</a></li>
+    <li><a href="#测试spring-aop">测试Spring AOP</a>
+      <ul>
+        <li><a href="#applicationcontextxml配置">applicationContext.xml配置</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">动态代理：如何在运行时插入逻辑？ -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年10月29日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h1 id="17动态代理如何在运行时插入逻辑">17｜动态代理：如何在运行时插入逻辑？</h1>
+<p>你好，我是郭屹。今天我们继续手写MiniSpring。
+从这节课开始，我们就要进入AOP环节了。在学习之前，我们先来了解一下是AOP怎么回事。
+AOP，就是面向切面编程（Aspect Orient Programming），这是一种思想，也是对OOP面向对象编程的一种补充。你可能会想：既然已经存在OOP面向对象编程了，为什么还需要AOP面向切面编程呢？
+这是因为在许多场景下，一个类的方法中，除了业务逻辑，通常还会包括其他比较重要但又不算主业务逻辑的例行性逻辑代码，比如常见的日志功能，它不影响我们的主业务逻辑，但又能在必要时定位问题，几乎每一个业务方法中都需要。又比如权限检查、事务处理，还有性能监控等等，都是这种情况。
+显而易见，日志这类例行性逻辑，在任何一个业务方法实现中都是需要的。如果简单地将这些代码写在业务方法中，会出现两个后果，第一，我们就会将日志之类的代码重复地编写多次；第二，一个业务方法中会包含很多行例行代码，去看源代码会发现方法中多数语句不是在做业务处理。
+有专业进取心的程序员就会思考一个问题， <strong>有没有办法将这些例行性逻辑单独抽取出来，然后在程序运行的时候动态插入到业务逻辑中呢？</strong> 正是因为这个疑问，AOP应运而生了。这个问题听起来似乎无解，程序在运行时改变程序本身，似乎有点不可思议。我们研究一下Java，就会惊奇地发现，Java里面早就给我们提供了一个手段： <strong>动态代理</strong>。我们可以利用它来开展我们的工作。</p>
+<h2 id="代理模式">代理模式</h2>
+<p>我们一步步来，先从代理讲起。<br>
+
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202410311554872.html" />   
+    </p>
+<p>看图，我们知道真正干活儿的类是RealSubject，具体则是由DoAction()执行任务。Proxy作为代理提供一个同样的DoAction()，然后调用RealSubject的DoAction()。它们都实现Subject接口，而Client应用程序操作的是Subject 接口。</p>
+<p>简单说来，就是在Client应用程序与真正的服务程序RealSubject之间增加了一个Proxy。</p>
+<p>我们举例说明，先定义一个服务类接口。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>public interface Subject {
+</span></span><span style="display:flex;"><span>	String doAction(String name);
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>再定义具体的服务类。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>public class RealSubject implements Subject {
+</span></span><span style="display:flex;"><span>	public String doAction(String name) {
+</span></span><span style="display:flex;"><span>		System.out.println(&#34;real subject do action &#34;+name);
+</span></span><span style="display:flex;"><span>		return &#34;SUCCESS&#34;;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>最后再定义一个代理类。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>public class ProxySubject implements Subject {
+</span></span><span style="display:flex;"><span>	Subject realsubject;
+</span></span><span style="display:flex;"><span>	public ProxySubject() {
+</span></span><span style="display:flex;"><span>		this.realsubject = new RealSubject();
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>	public String doAction(String name) {
+</span></span><span style="display:flex;"><span>		System.out.println(&#34;proxy control&#34;);
+</span></span><span style="display:flex;"><span>		String rtnValue = realsubject.doAction(name);
+</span></span><span style="display:flex;"><span>		return &#34;SUCCESS&#34;;
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在软件开发中，代理模式是一种常用的设计模式。该模式下，一个代理类充当了真实服务类的中介，为外部程序提供了与真实服务类相同的接口。当外部应用程序调用代理类的方法时，代理类会将请求转发给实际的服务类执行，并将结果返回给调用者。这样设计的好处在于能够隐藏服务类的具体实现细节。</p>
+<h3 id="代理模式的工作流程">代理模式的工作流程</h3>
+<ol>
+<li>
+<p><strong>定义公共接口</strong>：首先定义一个所有参与者都必须遵循的公共接口。这个接口可以被真正的服务类和服务代理类所实现。</p>
+</li>
+<li>
+<p><strong>创建真实的服务类</strong>：按照公共接口来实现具体的服务逻辑。</p>
+</li>
+<li>
+<p><strong>创建代理类</strong>：同样地，代理类也需要实现上述公共接口。它持有一个对真实服务对象的引用，并且在接收到请求时，代理类可以选择性地增加一些额外处理（比如权限验证、日志记录等），之后再将请求转发给真实的对象进行处理。</p>
+</li>
+<li>
+<p><strong>客户端通过代理访问服务</strong>：最后，客户端不再直接使用服务类，而是通过代理类来进行交互。对于客户端而言，整个过程是透明的。</p>
+</li>
+</ol>
+<h4 id="示例说明">示例说明</h4>
+<ul>
+<li>
+<p>假设我们有<code>ServiceInterface</code>这样一个接口以及实现了它的<code>RealService</code>类。</p>
+</li>
+<li>
+<p>接着定义<code>ServiceProxy</code>作为代理类，它也实现了<code>ServiceInterface</code>。在这个代理类中，除了转发调用到<code>RealService</code>外，还可以加入其他功能如打印控制信息<code>System.out.println(&quot; &quot;);</code>，这里用来表示额外的日志记录或其他操作。</p>
+</li>
+<li>
+<p>客户端代码只需要关心如何通过代理来调用方法即可，无需了解背后是如何工作的。
+采用这种结构，不仅有助于增强系统灵活性和可维护性，同时也方便于后期添加新的功能或修改现有逻辑而不需要改变原有架构。</p>
+</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-plain" data-lang="plain"><span style="display:flex;"><span>public class Client {
+</span></span><span style="display:flex;"><span>	public static void main(String[] args) {
+</span></span><span style="display:flex;"><span>		Subject subject = new ProxySubject();
+</span></span><span style="display:flex;"><span>		subject.doAction(&#34;Test&#34;);
+</span></span><span style="display:flex;"><span>	}
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>代理模式允许我们在不修改原有业务逻辑的情况下，通过代理类添加额外的处理逻辑。然而，传统的静态代理模式需要事先定义代理类，这限制了其灵活性。为了解决这个问题，我们可以利用Java的动态代理技术，它允许我们在运行时动态地创建代理对象。以下是使用Java动态代理的三个主要步骤：</p>
+<ol>
+<li>
+<p><strong>实现InvocationHandler接口</strong>：创建一个类实现InvocationHandler接口，并重写其invoke方法，以便在代理方法调用时执行自定义逻辑。</p>
+</li>
+<li>
+<p><strong>使用Proxy类创建代理对象</strong>：通过Proxy类的newProxyInstance方法，我们可以在运行时动态地创建一个实现了指定接口的代理对象。</p>
+</li>
+<li>
+<p><strong>增强代理对象</strong>：通过代理对象，我们可以对目标对象的方法调用进行增强处理，即在原有业务逻辑前后添加额外的处理逻辑。
+下面是一个简单的例子来说明如何定义一个接口IAction，并使用Java动态代理技术来实现代理。</p>
+</li>
+</ol>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test.service</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">interface</span> <span style="color:#458;font-weight:bold">IAction</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doAction</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>提供一个具体实现类。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test.service</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">Action1</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>IAction<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doAction</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>System.<span style="color:#008080">out</span>.<span style="color:#008080">println</span>(<span style="color:#d14">&#34;really do action&#34;</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>我们定义了一个DynamicProxy类，用来充当代理对象的类。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test.service</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">DynamicProxy</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span>subject<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">DynamicProxy</span>(Object<span style="color:#bbb"> </span>subject)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">subject</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>subject;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getProxy</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>Proxy.<span style="color:#008080">newProxyInstance</span>(DynamicProxy.<span style="color:#008080">class</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>.<span style="color:#008080">getClassLoader</span>(),<span style="color:#bbb"> </span>subject.<span style="color:#008080">getClass</span>().<span style="color:#008080">getInterfaces</span>(),<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>InvocationHandler()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">invoke</span>(Object<span style="color:#bbb"> </span>proxy,<span style="color:#bbb"> </span>Method<span style="color:#bbb"> </span>method,<span style="color:#bbb"> </span>Object<span style="color:#000;font-weight:bold">[]</span><span style="color:#bbb"> </span>args)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>Throwable<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(method.<span style="color:#008080">getName</span>().<span style="color:#008080">equals</span>(<span style="color:#d14">&#34;doAction&#34;</span>))<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                </span>System.<span style="color:#008080">out</span>.<span style="color:#008080">println</span>(<span style="color:#d14">&#34;before call real object........&#34;</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>method.<span style="color:#008080">invoke</span>(subject,<span style="color:#bbb"> </span>args);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>});<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在本示例中，我们利用了Java的<code>Proxy</code>类来创建一个实现了<code>IAction</code>接口的动态代理对象。通过实现<code>InvocationHandler</code>接口，并重写其<code>invoke</code>方法，我们能够对所有通过代理对象发起的方法调用进行拦截。在这个<code>invoke</code>方法里，我们首先检查被调用的方法名是否与<code>IAction</code>接口中的<code>doAction</code>方法相匹配。如果匹配成功，则会在实际执行<code>doAction</code>方法之前加入一段例行性的逻辑（这里采用打印一条信息）。最终，通过反射机制调用原始<code>IAction</code>接口的<code>doAction</code>方法。</p>
+<p>这样，在不改动原有业务代码的情况下，我们就可以在运行时为程序添加额外的功能或行为。</p>
+<p>为了更好地理解这一过程及其效果，我们可以编写一个简单的测试程序，通过它来观察代理模式是如何工作的以及它给我们的应用带来了哪些变化。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test.controller</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">HelloWorldBean</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>IAction<span style="color:#bbb"> </span>action;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@RequestMapping</span>(<span style="color:#d14">&#34;/testaop&#34;</span>)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doTestAop</span>(HttpServletRequest<span style="color:#bbb"> </span>request,<span style="color:#bbb"> </span>HttpServletResponse<span style="color:#bbb"> </span>response)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>DynamicProxy<span style="color:#bbb"> </span>proxy<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DynamicProxy(action);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>IAction<span style="color:#bbb"> </span>p<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(IAction)proxy.<span style="color:#008080">getProxy</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>p.<span style="color:#008080">doAction</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>String<span style="color:#bbb"> </span>str<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#d14">&#34;test aop, hello world!&#34;</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>response.<span style="color:#008080">getWriter</span>().<span style="color:#008080">write</span>(str);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(IOException<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">     </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">  </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>运行这个程序，返回内容是“test aop，hello world！”。这个时候查看命令行里的内容，你就会发现还有两行输出。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>before<span style="color:#bbb"> </span>call<span style="color:#bbb"> </span>real<span style="color:#bbb"> </span>object........<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>really<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">do</span><span style="color:#bbb"> </span>action<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>第一行是代理对象中的输出，第二行是Action1中doAction方法的实现。根据这个输出顺序我们发现，这个代理对象达到了代理的效果，在调用IAction的具体实现类之前进行了额外的操作，从而增强了代理类。而这个代理是我们动态增加的，而不是事先静态地手工编写一个代理类。但是读代码，这种方式显然是不美观的，需要在业务逻辑程序中写上，对代码的侵入性太强了。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>DynamicProxy<span style="color:#bbb"> </span>proxy<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DynamicProxy(action);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>IAction<span style="color:#bbb"> </span>p<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(IAction)proxy.<span style="color:#008080">getProxy</span>();<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在软件开发中，我们追求的是一种非侵入式编程方式。这种方式意味着在应用程序编程时，不需要手动创建代理类，而是直接使用业务接口。真正的实现类和代理类的配置都放在外部，以减少代码的侵入性。</p>
+<h2 id="非侵入式编程的优势">非侵入式编程的优势</h2>
+<p>非侵入式编程的主要优点在于它减少了代码的耦合度，使得代码更加灵活和易于维护。</p>
+<h2 id="factorybean的作用">FactoryBean的作用</h2>
+<p>为了实现非侵入式编程，我们可以引入FactoryBean。FactoryBean是一个特殊的Bean，它允许我们在Spring容器中创建复杂的对象，而不需要在代码中直接实例化它们。这样，我们可以将对象的创建逻辑从业务逻辑中分离出来，进一步降低代码的侵入性。</p>
+<h2 id="实现非侵入式编程的步骤">实现非侵入式编程的步骤</h2>
+<ol>
+<li>定义业务接口：首先，我们需要定义一个业务接口，这个接口将被应用程序直接使用。</li>
+<li>配置实现类：然后，在外部配置文件中配置实现这个接口的具体类。</li>
+<li>配置代理类：同样在外部配置文件中，配置代理类，这个代理类将负责拦截接口调用并执行额外的逻辑。</li>
+<li>使用FactoryBean：通过FactoryBean，我们可以在Spring容器中注册业务接口和代理类，而不需要在代码中直接创建它们。这样，应用程序就可以通过业务接口与Spring容器交互，而不需要关心具体的实现细节。</li>
+</ol>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>IAction<span style="color:#bbb"> </span>action;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#3c5d5d;font-weight:bold">@RequestMapping</span>(<span style="color:#d14">&#34;/testaop&#34;</span>)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doTestAop</span>(HttpServletRequest<span style="color:#bbb"> </span>request,<span style="color:#bbb"> </span>HttpServletResponse<span style="color:#bbb"> </span>response)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>action.<span style="color:#008080">doAction</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>配置如下：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#000080">&lt;bean</span> <span style="color:#008080">id=</span><span style="color:#d14">&#34;realaction&#34;</span> <span style="color:#008080">class=</span><span style="color:#d14">&#34;com.test.service.Action1&#34;</span> <span style="color:#000080">/&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000080">&lt;bean</span> <span style="color:#008080">id=</span><span style="color:#d14">&#34;action&#34;</span> <span style="color:#008080">class=</span><span style="color:#d14">&#34;com.minis.aop.ProxyFactoryBean&#34;</span> <span style="color:#000080">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000080">&lt;property</span> <span style="color:#008080">type=</span><span style="color:#d14">&#34;java.lang.Object&#34;</span> <span style="color:#008080">name=</span><span style="color:#d14">&#34;target&#34;</span> <span style="color:#008080">ref=</span><span style="color:#d14">&#34;realaction&#34;</span><span style="color:#000080">/&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000080">&lt;/bean&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>在Spring框架中，我们有时会遇到一种特殊的需求：注册的bean是一个<code>ProxyFactoryBean</code>类，而实际业务逻辑需要的是这个<code>ProxyFactoryBean</code>内部所包含的目标对象（即<code>realAction</code>）。这意味着当我们通过<code>getBean(&quot;action&quot;)</code>来获取bean时，并非直接得到<code>ProxyFactoryBean</code>实例本身，而是希望获得它内部封装的那个目标对象。这样的设计允许我们在调用实际业务方法之前或之后插入额外的行为，比如日志记录、性能监控等。</p>
+<h3 id="实现思路">实现思路</h3>
+<p>为了满足上述需求，<code>ProxyFactoryBean</code>需要扮演双重角色：一方面作为容器中的一个bean存在；另一方面，在被请求时能够返回其内部的<code>target</code>对象或基于<code>target</code>动态生成的一个代理对象。这样做的好处是，可以实现对<code>target</code>对象的方法调用进行增强而不影响原始代码结构。</p>
+<h4 id="关键点解释">关键点解释</h4>
+<ul>
+<li>
+<p><strong>ProxyFactoryBean</strong>
+是Spring提供的用于创建AOP代理的工厂bean。</p>
+</li>
+<li>
+<p><strong>Target Object</strong>
+<code>ProxyFactoryBean</code>内部持有的真正执行业务逻辑的对象。</p>
+</li>
+<li>
+<p><strong>Dynamic Proxy</strong>
+根据<code>target</code>对象及指定的拦截器配置动态生成的代理对象，该对象会在调用<code>target</code>方法前后执行额外操作。</p>
+</li>
+</ul>
+<h3 id="应用场景">应用场景</h3>
+<p>这种机制非常适合于那些需要为已有服务添加横切关注点的应用场合，例如安全检查、事务管理等。通过这种方式，我们可以有效地分离业务逻辑与系统级别的行为，保持代码的清晰度和可维护性。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>DynamicProxy<span style="color:#bbb"> </span>proxy<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DynamicProxy(action);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>IAction<span style="color:#bbb"> </span>p<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(IAction)proxy.<span style="color:#008080">getProxy</span>();<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>上面的方案，看起来奇怪，但是确实能解决动态代理的问题。</p>
+<p>好，现在我们就按照这个思路动手去实现。首先我们参考Spring框架，定义FactoryBean接口。</p>
+<p>相关代码参考：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.beans.factory</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">interface</span> <span style="color:#458;font-weight:bold">FactoryBean</span><span style="color:#000;font-weight:bold">&lt;</span>T<span style="color:#000;font-weight:bold">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>T<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getObject</span>()<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>Exception;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Class<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>getObjectType();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">default</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">boolean</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">isSingleton</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">true</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>主要的方法就是getObject()，从Factory Bean中获取内部包含的对象。</p>
+<p>接着定义FactoryBeanRegistrySupport，提供一部分通用的方法。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.beans.factory.support</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">abstract</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">FactoryBeanRegistrySupport</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">extends</span><span style="color:#bbb"> </span>DefaultSingletonBeanRegistry{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span>Class<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>getTypeForFactoryBean(<span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>factoryBean)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>factoryBean.<span style="color:#008080">getObjectType</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getObjectFromFactoryBean</span>(FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>factory,<span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>beanName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Object<span style="color:#bbb"> </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>doGetObjectFromFactoryBean(factory,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>postProcessObjectFromFactoryBean(object,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(BeansException<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>object;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#998;font-style:italic">//从factory bean中获取内部包含的对象</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doGetObjectFromFactoryBean</span>(<span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>factory,<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>beanName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Object<span style="color:#bbb"> </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>factory.<span style="color:#008080">getObject</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(Exception<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>object;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在Spring框架中，FactoryBean是一个特殊的Bean，它用于生成其他Bean的实例。为了从FactoryBean中获取内部包含的目标对象，我们通常需要调用doGetObjectFromFactoryBean()方法。由于FactoryBeanRegistrySupport继承了DefaultSingletonBeanRegistry，我们可以改写AbstractBeanFactory，使其继承FactoryBeanRegistrySupport而不是DefaultSingletonBeanRegistry。这样，我们在保留原有功能的同时，增加了对FactoryBean的支持。接下来，我们需要重点修改核心的getBean()方法，以确保能够正确处理FactoryBean并从中获取目标对象。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.beans.factory.support</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">abstract</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">AbstractBeanFactory</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">extends</span><span style="color:#bbb"> </span>FactoryBeanRegistrySupport<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>ConfigurableBeanFactory,BeanDefinitionRegistry{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getBean</span>(String<span style="color:#bbb"> </span>beanName)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>BeansException{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>Object<span style="color:#bbb"> </span>singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getSingleton</span>(beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">==</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span>singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">earlySingletonObjects</span>.<span style="color:#008080">get</span>(beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">==</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>System.<span style="color:#008080">out</span>.<span style="color:#008080">println</span>(<span style="color:#d14">&#34;get bean null -------------- &#34;</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">+</span><span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>BeanDefinition<span style="color:#bbb"> </span>bd<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>beanDefinitionMap.<span style="color:#008080">get</span>(beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(bd<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">!=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span>singleton<span style="color:#000;font-weight:bold">=</span>createBean(bd);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">registerBean</span>(beanName,<span style="color:#bbb"> </span>singleton);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#998;font-style:italic">//beanpostprocessor</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#998;font-style:italic">//step 1 : postProcessBeforeInitialization</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span>applyBeanPostProcessorsBeforeInitialization(singleton,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#998;font-style:italic">//step 2 : init-method</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(bd.<span style="color:#008080">getInitMethodName</span>()<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">!=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">&amp;&amp;</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">!</span>bd.<span style="color:#008080">getInitMethodName</span>().<span style="color:#008080">equals</span>(<span style="color:#d14">&#34;&#34;</span>))<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">                  </span>invokeInitMethod(bd,<span style="color:#bbb"> </span>singleton);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#998;font-style:italic">//step 3 : postProcessAfterInitialization</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span>applyBeanPostProcessorsAfterInitialization(singleton,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">               </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#998;font-style:italic">//处理factorybean</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">instanceof</span><span style="color:#bbb"> </span>FactoryBean)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getObjectForBeanInstance</span>(singleton,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">else</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>singleton;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>我们看到在getBean()这一核心方法中，原有的逻辑处理完毕后，我们新增下面这一段。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#998;font-style:italic">//process Factory Bean</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(singleton<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">instanceof</span><span style="color:#bbb"> </span>FactoryBean)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">getObjectForBeanInstance</span>(singleton,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>根据代码实现可以看出，这里增加了一个判断，如果Bean对象是FactoryBean类型时，则调用getObjectForBeanInstance方法。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getObjectForBeanInstance</span>(Object<span style="color:#bbb"> </span>beanInstance,<span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>beanName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#998;font-style:italic">// Now we have the bean instance, which may be a normal bean or a FactoryBean.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(<span style="color:#000;font-weight:bold">!</span>(beanInstance<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">instanceof</span><span style="color:#bbb"> </span>FactoryBean))<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>beanInstance;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>factory<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>(FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span>)<span style="color:#bbb"> </span>beanInstance;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>getObjectFromFactoryBean(factory,<span style="color:#bbb"> </span>beanName);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>object;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>代码显示，getObjectForBeanInstance又会调用doGetObjectFromFactoryBean方法。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">9
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doGetObjectFromFactoryBean</span>(<span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>FactoryBean<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>factory,<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">final</span><span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>beanName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>object<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>factory.<span style="color:#008080">getObject</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(Exception<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>object;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在Spring框架中，Bean的获取过程是一个复杂而精细的操作。以下是对这一过程的详细解析：</p>
+<ol>
+<li><strong>Bean获取过程</strong></li>
+</ol>
+<ul>
+<li>
+<p>当我们通过<code>AbstractBeanFactory</code>获取Bean时，如果这个Bean是一个<code>FactoryBean</code>，那么Spring框架会对其进行特殊处理。</p>
+</li>
+<li>
+<p>特殊处理的结果是，我们最终得到的并不是<code>FactoryBean</code>的实例本身，而是它所包含的内部对象。</p>
+</li>
+</ul>
+<ol start="2">
+<li><strong>FactoryBean的内部对象</strong></li>
+</ol>
+<ul>
+<li>这个内部对象也不是最终的底层Bean，而是它的一个代理对象。这意味着我们需要进一步探索以获取真正的Bean。</li>
+</ul>
+<ol start="3">
+<li><strong>FactoryBean的实现</strong></li>
+</ol>
+<ul>
+<li>
+<p><code>FactoryBean</code>是一个接口，它定义了Bean工厂的行为。</p>
+</li>
+<li>
+<p>在实际应用中，我们需要提供一个<code>FactoryBean</code>的实现，这里提到的是<code>ProxyFactoryBean</code>。</p>
+</li>
+<li>
+<p><code>ProxyFactoryBean</code>是<code>FactoryBean</code>接口的一个具体实现，用于创建代理对象。</p>
+</li>
+</ul>
+<ol start="4">
+<li><strong>代理对象的作用</strong></li>
+</ol>
+<ul>
+<li>
+<p>代理对象的主要作用是为Bean提供额外的功能，比如懒加载、事务管理等，而不改变Bean本身的代码。</p>
+</li>
+<li>
+<p>通过代理对象，我们可以在不侵入Bean代码的情况下，为其增加额外的行为。</p>
+</li>
+</ul>
+<ol start="5">
+<li><strong>总结</strong></li>
+</ol>
+<ul>
+<li>
+<p>通过<code>AbstractBeanFactory</code>获取Bean时，如果Bean是<code>FactoryBean</code>类型，我们得到的是它的内部对象，而不是<code>FactoryBean</code>本身。</p>
+</li>
+<li>
+<p>这个内部对象实际上是一个代理对象，它为我们提供了进一步获取底层Bean的途径。</p>
+</li>
+<li>
+<p><code>ProxyFactoryBean</code>作为<code>FactoryBean</code>的实现，负责创建这些代理对象，增强Bean的功能。</p>
+</li>
+</ul>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">21
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">22
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">23
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">24
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">25
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">26
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">27
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">28
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">29
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">30
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">31
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">32
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">33
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">34
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">35
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">36
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">37
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">38
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">39
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">40
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">41
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">42
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">43
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">44
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">45
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">46
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">47
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">48
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">49
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">50
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.aop</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">ProxyFactoryBean</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>FactoryBean<span style="color:#000;font-weight:bold">&lt;</span>Object<span style="color:#000;font-weight:bold">&gt;</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>AopProxyFactory<span style="color:#bbb"> </span>aopProxyFactory;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>String<span style="color:#000;font-weight:bold">[]</span><span style="color:#bbb"> </span>interceptorNames;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>String<span style="color:#bbb"> </span>targetName;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span>target;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>ClassLoader<span style="color:#bbb"> </span>proxyClassLoader<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>ClassUtils.<span style="color:#008080">getDefaultClassLoader</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span>singletonInstance;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">ProxyFactoryBean</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">aopProxyFactory</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>DefaultAopProxyFactory();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setAopProxyFactory</span>(AopProxyFactory<span style="color:#bbb"> </span>aopProxyFactory)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">aopProxyFactory</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>aopProxyFactory;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>AopProxyFactory<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getAopProxyFactory</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">aopProxyFactory</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span>AopProxy<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">createAopProxy</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>getAopProxyFactory().<span style="color:#008080">createAopProxy</span>(target);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setInterceptorNames</span>(String...<span style="color:#bbb"> </span>interceptorNames)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">interceptorNames</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>interceptorNames;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setTargetName</span>(String<span style="color:#bbb"> </span>targetName)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">targetName</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>targetName;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getTarget</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>target;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">setTarget</span>(Object<span style="color:#bbb"> </span>target)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">target</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>target;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getObject</span>()<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>Exception<span style="color:#bbb"> </span>{<span style="color:#998;font-style:italic">//获取内部对象</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>getSingletonInstance();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">private</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">synchronized</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getSingletonInstance</span>()<span style="color:#bbb"> </span>{<span style="color:#998;font-style:italic">//获取代理</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(<span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">singletonInstance</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">==</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">singletonInstance</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>getProxy(createAopProxy());<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">singletonInstance</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">protected</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getProxy</span>(AopProxy<span style="color:#bbb"> </span>aopProxy)<span style="color:#bbb"> </span>{<span style="color:#998;font-style:italic">//生成代理对象</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>aopProxy.<span style="color:#008080">getProxy</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Class<span style="color:#000;font-weight:bold">&lt;?&gt;</span><span style="color:#bbb"> </span>getObjectType()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>这段代码的核心在于，ProxyFactoryBean在getObject()方法中生成了一个代理getProxy(createAopProxy())，同样也是通过这种方式，拿到了要代理的目标对象。这里的工作就是 <strong>创建动态代理</strong>。</p>
+<h2 id="基于jdk的实现">基于JDK的实现</h2>
+<p>Spring作为一个雄心勃勃的框架，自然不会把自己局限于JDK提供的动态代理一个技术上，所以，它再次进行了包装，提供了AopProxy的概念，JDK只是其中的一种实现。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.aop</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">interface</span> <span style="color:#458;font-weight:bold">AopProxy</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getProxy</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>还定义了factory。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.aop</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">interface</span> <span style="color:#458;font-weight:bold">AopProxyFactory</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>AopProxy<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">createAopProxy</span>(Object<span style="color:#bbb"> </span>target);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>然后给出了基于JDK的实现。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">18
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">19
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">20
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.aop</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">JdkDynamicAopProxy</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>AopProxy,<span style="color:#bbb"> </span>InvocationHandler<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>Object<span style="color:#bbb"> </span>target;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">JdkDynamicAopProxy</span>(Object<span style="color:#bbb"> </span>target)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">this</span>.<span style="color:#008080">target</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>target;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">getProxy</span>()<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>Object<span style="color:#bbb"> </span>obj<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span>Proxy.<span style="color:#008080">newProxyInstance</span>(JdkDynamicAopProxy.<span style="color:#008080">class</span>.<span style="color:#008080">getClassLoader</span>(),<span style="color:#bbb"> </span>target.<span style="color:#008080">getClass</span>().<span style="color:#008080">getInterfaces</span>(),<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">this</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>obj;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>Object<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">invoke</span>(Object<span style="color:#bbb"> </span>proxy,<span style="color:#bbb"> </span>Method<span style="color:#bbb"> </span>method,<span style="color:#bbb"> </span>Object<span style="color:#000;font-weight:bold">[]</span><span style="color:#bbb"> </span>args)<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">throws</span><span style="color:#bbb"> </span>Throwable<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">if</span><span style="color:#bbb"> </span>(method.<span style="color:#008080">getName</span>().<span style="color:#008080">equals</span>(<span style="color:#d14">&#34;doAction&#34;</span>))<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span>System.<span style="color:#008080">out</span>.<span style="color:#008080">println</span>(<span style="color:#d14">&#34;-----before call real object, dynamic proxy........&#34;</span>);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">            </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span>method.<span style="color:#008080">invoke</span>(target,<span style="color:#bbb"> </span>args);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">        </span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">null</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">7
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.minis.aop</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">DefaultAopProxyFactory</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">implements</span><span style="color:#bbb"> </span>AopProxyFactory{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#3c5d5d;font-weight:bold">@Override</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span>AopProxy<span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">createAopProxy</span>(Object<span style="color:#bbb"> </span>target)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">		</span><span style="color:#000;font-weight:bold">return</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">new</span><span style="color:#bbb"> </span>JdkDynamicAopProxy(target);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">    </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><h1 id="java动态代理与spring-aop实现原理">Java动态代理与Spring AOP实现原理</h1>
+<p>在Java中，动态代理是一种强大的技术，它允许我们在运行时动态地创建对象的代理。<code>Proxy.newProxyInstance()</code>方法和<code>invoke()</code>方法是我们实现动态代理的关键。通过这种方式，Spring框架中的<code>ProxyFactoryBean</code>能够返回代理对象，而不需要手动构建。</p>
+<h2 id="动态代理技术的应用">动态代理技术的应用</h2>
+<p>利用Java的动态代理技术，我们可以代理目标对象，实现AOP（面向切面编程）。这是Spring AOP的核心实现原理之一。</p>
+<h2 id="测试spring-aop">测试Spring AOP</h2>
+<p>通过Spring AOP，我们不再需要手动构建代理对象。框架会自动处理这些工作，而我们只需要通过配置文件注入属性值即可。</p>
+<h3 id="applicationcontextxml配置">applicationContext.xml配置</h3>
+<p>在Spring的配置文件<code>applicationContext.xml</code>中，我们可以新增一段内容来配置AOP。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">4
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#000080">&lt;bean</span> <span style="color:#008080">id=</span><span style="color:#d14">&#34;realaction&#34;</span> <span style="color:#008080">class=</span><span style="color:#d14">&#34;com.test.service.Action1&#34;</span> <span style="color:#000080">/&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000080">&lt;bean</span> <span style="color:#008080">id=</span><span style="color:#d14">&#34;action&#34;</span> <span style="color:#008080">class=</span><span style="color:#d14">&#34;com.minis.aop.ProxyFactoryBean&#34;</span> <span style="color:#000080">&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000080">&lt;property</span> <span style="color:#008080">type=</span><span style="color:#d14">&#34;java.lang.Object&#34;</span> <span style="color:#008080">name=</span><span style="color:#d14">&#34;target&#34;</span> <span style="color:#008080">ref=</span><span style="color:#d14">&#34;realaction&#34;</span><span style="color:#000080">/&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000080">&lt;/bean&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>通过配置，我们在HelloWorldBean里注入的IAction对象就纳入了容器管理之中，因此后续测试的时候，直接使用action.doAction()，就能实现手动初始化JDK代理对象的效果。</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">16
+</span><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">17
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">package</span><span style="color:#bbb"> </span><span style="color:#555">com.test.controller</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">class</span> <span style="color:#458;font-weight:bold">HelloWorldBean</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#3c5d5d;font-weight:bold">@Autowired</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>IAction<span style="color:#bbb"> </span>action;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#3c5d5d;font-weight:bold">@RequestMapping</span>(<span style="color:#d14">&#34;/testaop&#34;</span>)<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span><span style="color:#000;font-weight:bold">public</span><span style="color:#bbb"> </span><span style="color:#458;font-weight:bold">void</span><span style="color:#bbb"> </span><span style="color:#900;font-weight:bold">doTestAop</span>(HttpServletRequest<span style="color:#bbb"> </span>request,<span style="color:#bbb"> </span>HttpServletResponse<span style="color:#bbb"> </span>response)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>action.<span style="color:#008080">doAction</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>String<span style="color:#bbb"> </span>str<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">=</span><span style="color:#bbb"> </span><span style="color:#d14">&#34;test aop, hello world!&#34;</span>;<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span><span style="color:#000;font-weight:bold">try</span><span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span>response.<span style="color:#008080">getWriter</span>().<span style="color:#008080">write</span>(str);<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb"> </span><span style="color:#000;font-weight:bold">catch</span><span style="color:#bbb"> </span>(IOException<span style="color:#bbb"> </span>e)<span style="color:#bbb"> </span>{<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">         </span>e.<span style="color:#008080">printStackTrace</span>();<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">      </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb">   </span>}<span style="color:#bbb">
+</span></span></span><span style="display:flex;"><span><span style="color:#bbb"></span>}<span style="color:#bbb">
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>在这节课中，我们探讨了如何通过JDK动态代理技术实现AOP（面向切面编程）的概念。aaaaaaaAOP是一种编程范式，它允许开发者将横切关注点（如日志、事务管理等）与业务逻辑分离。
+aaaaaaa首先，我们介绍了静态代理的基本概念，这是一种设计模式，其中代理类手动为每个被代理的接口方法提供一个实现。接着，我们转向了JDK动态代理，这是一种更为灵活的方法，能够在运行时创建代理对象。然而，直接使用JDK动态代理是侵入式的，因为它需要具体的代理类代码。为了改善这一点，我们将代理配置移到了XML文件中。
+aaaaaaa但是，简单的外部配置不足以创建真正的代理。因此，我们引入了<code>FactoryBean</code>的概念，它是一个特殊的Spring Bean，其目的是创建并返回一个特定的对象，而不是返回它本身。通过<code>FactoryBean</code>中的<code>getObject()</code>方法，我们可以创建一个基于JDK动态代理技术的代理对象。这样，IoC容器中的Bean就可以分为两大类：普通Bean和<code>FactoryBean</code>。
+aaaaaaa在<code>getObject()</code>方法的实现中，我们利用JDK动态代理来创建了一个代理对象，从而实现了AOP的功能。此外，Spring框架支持两种代理方式：JDK动态代理和Cglib代理。目前我们的MiniSpring仅支持JDK代理，但我们也提到了可以思考如何扩展以支持Cglib代理。
+aaaaaaa最后，虽然Spring AOP简单易懂，但在实际工程实践中，AspectJ因其更高的性能和更全面的功能而更加常用。AspectJ在编译时创建代理，且切入点不仅限于方法级别，因此提供了完整的AOP解决方案。尽管如此，Spring AOP仍然保留下来，部分原因在于它的原理易于理解，以及对原创作者心血的尊重。
+aaaaaaa<strong>课后题</strong> aaaaaaa如果你考虑为MiniSpring添加Cglib代理的支持，你需要考虑修改哪些地方？请在留言区分享你的想法。也欢迎你将这节课的内容分享给更多的人。下一节课见！</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/geek002">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/geek002/post/202410/20AutoProxyCreator%E5%A6%82%E4%BD%95%E8%87%AA%E5%8A%A8%E6%B7%BB%E5%8A%A0%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/">20｜AutoProxyCreator：如何自动添加动态代理？ -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/JDBC%E8%AE%BF%E9%97%AE%E6%A1%86%E6%9E%B6%E4%B8%AD%E6%8A%BD%E5%8F%96JDBC%E6%A8%A1%E6%9D%BF%E5%8F%8A%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB%E6%96%B9%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/">JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/ModelAndView%E5%A4%84%E7%90%86%E7%BB%93%E6%9E%9C%E8%BF%94%E5%9B%9E%E5%89%8D%E7%AB%AF%E7%9A%84%E6%96%B9%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/">ModelAndView：处理结果返回前端的方法 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E5%8E%9F%E5%A7%8BMVC%E6%A8%A1%E5%BC%8FServlet%E6%8B%A6%E6%88%AA%E8%AF%B7%E6%B1%82%E4%B8%8E%E4%BB%BB%E5%8A%A1%E5%88%86%E6%B4%BE--%E7%9F%A5%E8%AF%86%E9%93%BA/">原始MVC模式：Servlet拦截请求与任务分派 -- 知识铺</a></li>
+        
+        <li><a href="/geek002/post/202410/%E5%AE%9E%E7%8E%B0%E5%AE%8C%E6%95%B4%E7%9A%84IoC%E5%AE%B9%E5%99%A8%E6%9E%84%E5%BB%BA%E5%B7%A5%E5%8E%82%E4%BD%93%E7%B3%BB%E5%B9%B6%E6%B7%BB%E5%8A%A0%E5%AE%B9%E5%99%A8%E4%BA%8B%E4%BB%B6--%E7%9F%A5%E8%AF%86%E9%93%BA/">实现完整的IoC容器：构建工厂体系并添加容器事件 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/geek002/tags/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86'>动态代理</a></li>
+                
+                <li><a href='/geek002/tags/%E8%BF%90%E8%A1%8C%E6%97%B6'>运行时</a></li>
+                
+                <li><a href='/geek002/tags/%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91'>插入逻辑</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/geek002">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/geek002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/geek002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/geek002">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9API%E7%9F%A5%E8%AF%86%E4%BB%8B%E7%BB%8D--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="智能聊天API知识介绍 -- 知识铺">智能聊天API知识介绍 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/CentOS-7-%E6%9B%B4%E6%8D%A2-YUM-%E6%BA%90%E4%B8%BA%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F%E6%BA%90--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺">CentOS 7 更换 YUM 源为国内镜像源 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A0%E9%A4%90GPT%E7%BC%96%E7%A8%8B%E4%B8%8B%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8OpenAI%E7%9A%84API%E8%A7%A3%E5%86%B3%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86%E7%B1%BB%E4%BB%BB%E5%8A%A1--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺">加餐｜GPT编程（下）：如何利用OpenAI的API解决语言处理类任务 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/GPT%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9%E6%8C%87%E5%8D%97--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="GPT编程辅助指南 -- 知识铺">GPT编程辅助指南 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A-%E5%A6%82%E4%BD%95%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2%E4%BC%A0%E5%85%A5%E7%9A%84%E5%8F%82%E6%95%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="数据绑定-如何自动转换传入的参数？ -- 知识铺">数据绑定-如何自动转换传入的参数？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%88%86%E8%A7%A3Dispatcher%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1%E7%9A%84%E4%B8%93%E9%97%A8%E9%83%A8%E4%BB%B6%E5%A4%84%E7%90%86--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="分解Dispatcher：专门任务的专门部件处理 -- 知识铺">分解Dispatcher：专门任务的专门部件处理 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%A2%9E%E5%BC%BAIoC%E5%AE%B9%E5%99%A8%E5%A6%82%E4%BD%95%E8%AE%A9%E6%88%91%E4%BB%AC%E7%9A%84Spring%E6%94%AF%E6%8C%81%E6%B3%A8%E8%A7%A3--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺">增强IoC容器：如何让我们的Spring支持注解？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5%E5%A6%82%E4%BD%95%E7%BB%99Bean%E6%B3%A8%E5%85%A5%E5%80%BC%E5%B9%B6%E8%A7%A3%E5%86%B3%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96%E9%97%AE%E9%A2%98--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺">依赖注入：如何给Bean注入值并解决循环依赖问题？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86%E5%A6%82%E4%BD%95%E5%9C%A8%E8%BF%90%E8%A1%8C%E6%97%B6%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="动态代理：如何在运行时插入逻辑？ -- 知识铺">动态代理：如何在运行时插入逻辑？ -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/geek002/post/202410/JDBC%E8%AE%BF%E9%97%AE%E6%A1%86%E6%9E%B6%E4%B8%AD%E6%8A%BD%E5%8F%96JDBC%E6%A8%A1%E6%9D%BF%E5%8F%8A%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB%E6%96%B9%E6%B3%95--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺">JDBC访问框架中抽取JDBC模板及数据库隔离方法 -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/geek002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/geek002/tags/2.32/">2.32</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/6G%E6%98%BE%E5%AD%98/">6G显存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E4%BB%A3%E7%A0%81%E5%8A%A9%E6%89%8B/">AI代码助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E5%8A%A9%E6%89%8B/">AI助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E8%AF%AD%E9%9F%B3/">AI语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AI%E9%A9%B1%E5%8A%A8/">AI驱动</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/API/">API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/APP%E5%BC%B9%E7%AA%97%E8%AE%BE%E8%AE%A1/">APP弹窗设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Agentic-RAG/">Agentic RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/AutoProxyCreator/">AutoProxyCreator</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BAAIbge-m3/">BAAIbge-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BGE-M3/">BGE-M3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/BeanFactory/">BeanFactory</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Bean%E6%B3%A8%E5%85%A5/">Bean注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/B%E7%AB%AF%E4%BD%93%E9%AA%8C/">B端体验</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS/">CentOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/CentOS-7/">CentOS 7</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Centos8/">Centos8</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ClickHouse/">ClickHouse</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Dify/">Dify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Docker/">Docker</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Edge-TTS/">Edge-TTS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/FastgptDify/">FastgptDify</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPT%E7%BC%96%E7%A8%8B/">GPT编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Glibc/">Glibc</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/HTTP%E4%BB%A3%E7%90%86/">HTTP代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC/">IoC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/IoC%E5%AE%B9%E5%99%A8/">IoC容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JDBC/">JDBC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Java%E7%BC%96%E7%A8%8B/">Java编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/JdbcTemplate/">JdbcTemplate</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Linux/">Linux</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MVC/">MVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Milvus/">Milvus</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ModelAndView/">ModelAndView</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/MyBatis/">MyBatis</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/NVIDIA/">NVIDIA</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OCR%E8%AF%86%E5%88%AB/">OCR识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/ORM%E6%A1%86%E6%9E%B6/">ORM框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Open-WebUI/">Open WebUI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenAI-API/">OpenAI API</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/OpenSSL/">OpenSSL</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PDF%E5%A4%84%E7%90%86/">PDF处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Pointcut/">Pointcut</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PowerShell/">PowerShell</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/PyTorch/">PyTorch</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Qwen2.5/">Qwen2.5</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/RAG%E7%B3%BB%E7%BB%9F/">RAG系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK/">SDK</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SDK%E9%9B%86%E6%88%90/">SDK集成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SEO/">SEO</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SQL%E8%AF%AD%E5%8F%A5/">SQL语句</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Servlet/">Servlet</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring/">Spring</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring-AOP/">Spring AOP</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/SpringMVC/">SpringMVC</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Spring%E6%A1%86%E6%9E%B6/">Spring框架</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web-Chat/">Web Chat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Web%E7%8E%AF%E5%A2%83/">Web环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/YUM-%E6%BA%90/">YUM 源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/bge-reranker-v2-m3/">bge-reranker-v2-m3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chatchat/">chatchat</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/chattts/">chattts</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/fastgpt/">fastgpt</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/iOS/">iOS</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/langchain/">langchain</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Ollama/">Ollama</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/urllib3/">urllib3</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/Xinference/">Xinference</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%B8%93%E9%97%A8%E4%BB%BB%E5%8A%A1/">专门任务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%A7%E5%93%81%E5%AE%9A%E4%BD%8D/">产品定位</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%AC%E4%B8%9C/">京东</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BA%BA%E4%BA%BA%E9%83%BD%E6%98%AF%E4%BA%A7%E5%93%81%E7%BB%8F%E7%90%86/">人人都是产品经理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%A3%E7%90%86%E6%96%B9%E6%B3%95/">代理方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%B7%E5%80%BC%E9%87%8D%E5%A1%91/">价值重塑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BB%BB%E5%8A%A1%E5%88%86%E9%85%8D/">任务分配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BC%81%E4%B8%9A%E6%9E%B6%E6%9E%84/">企业架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BE%9D%E8%B5%96%E6%B3%A8%E5%85%A5/">依赖注入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2/">信息检索</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7/">健康</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%81%A5%E5%BA%B7%E7%BD%91%E7%AB%99/">健康网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%88%9D%E5%A7%8B%E5%8C%96%E6%96%B9%E6%B3%95/">初始化方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%89%8D%E7%AB%AF%E5%B1%95%E7%A4%BA/">前端展示</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8A%A8%E6%80%81%E4%BB%A3%E7%90%86/">动态代理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%8F%82%E6%95%B0/">参数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%95%86%E4%B8%9A%E6%A8%A1%E5%BC%8F/">商业模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%9E%E9%A1%BE/">回顾</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%86%85%E9%95%9C%E5%83%8F/">国内镜像</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9B%BD%E5%A4%96/">国外</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9C%A8%E7%BA%BF%E5%B7%A5%E5%85%B7/">在线工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%9F%8B%E7%82%B9%E9%87%87%E9%9B%86/">埋点采集</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%80%81/">多态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%9A%E6%96%87%E6%A1%A3RAG/">多文档RAG</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E5%9E%8B%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大型语言模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E5%85%A8%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA/">安全聊天机器人</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9A%E5%88%B6%E5%8C%96/">定制化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0/">实现</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95/">实现方法</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%9E%E7%94%A8%E6%8C%87%E5%8D%97/">实用指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8/">容器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E4%BA%8B%E4%BB%B6/">容器事件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%AE%B9%E5%99%A8%E5%B7%A5%E5%85%B7%E5%8C%85/">容器工具包</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B1%9E%E6%80%A7%E9%85%8D%E7%BD%AE/">属性配置</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%85%B7/">工具</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%B7%A5%E5%8E%82%E4%BD%93%E7%B3%BB/">工厂体系</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86/">底层原理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">循环依赖</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%89%B9%E9%87%8F%E5%8C%B9%E9%85%8D/">批量匹配</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8B%A6%E6%88%AA%E5%99%A8/">拦截器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E5%90%8D/">排名</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8E%92%E8%A1%8C%E6%A6%9C/">排行榜</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%8F%92%E5%85%A5%E9%80%BB%E8%BE%91/">插入逻辑</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E4%BC%A0%E9%80%92/">数据传递</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90/">数据分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%A4%84%E7%90%86/">数据处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E6%93%8D%E4%BD%9C/">数据库操作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9A%94%E7%A6%BB/">数据库隔离</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%95%B0%E6%8D%AE%E7%BB%91%E5%AE%9A/">数据绑定</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E5%88%B0%E8%AF%AD%E9%9F%B3/">文本到语音</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%87%E6%9C%AC%E6%8F%90%E5%8F%96/">文本提取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E5%89%8D%E5%90%8E/">方法前后</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%96%B9%E6%B3%95%E8%AE%BA/">方法论</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%97%A0%E4%BE%B5%E5%85%A5/">无侵入</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B/">智能助手</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E6%96%B9%E6%A1%88/">智能方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%99%BA%E8%83%BD%E8%81%8A%E5%A4%A9/">智能聊天</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%9B%86%E7%BE%A4%E5%86%85%E5%AD%98/">服务器集群内存</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9C%9F%E6%9C%AB%E6%B5%8B%E8%AF%95/">期末测试</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0/">构造函数</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA/">检索增强</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9D%97%E5%8C%96/">模块化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E5%9E%8B/">模型</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF/">模板</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%A8%A1%E6%9D%BF%E6%8A%BD%E5%8F%96/">模板抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%AF%AB%E7%A7%92%E7%BA%A7%E6%8E%A8%E9%80%81/">毫秒级推送</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%B3%A8%E8%A7%A3/">注解</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E6%BB%A1%E5%88%86/">满分</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%83%AD%E7%82%B9%E6%95%B0%E6%8D%AE/">热点数据</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F/">环境变量</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83/">生产环境</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%9F%E6%88%90%E5%BC%8FAI/">生成式AI</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%94%A8%E6%88%B7%E8%A1%8C%E4%B8%BA/">用户行为</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%99%BE%E4%BA%BF%E7%BA%A7%E5%95%86%E4%B8%9A%E7%94%9F%E6%80%81/">百亿级商业生态</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86/">知识</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E4%BC%A0%E6%89%BF/">知识传承</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%88%86%E4%BA%AB/">知识分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E6%9E%84%E5%BB%BA/">知识库构建</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E7%B3%BB%E7%BB%9F/">第三方系统</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B2%BE%E7%A1%AE/">精确</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E7%A8%B3%E5%AE%9A%E6%80%A7/">系统稳定性</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%B3%BB%E7%BB%9F%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/">系统解决方案</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%84%E4%BB%B6%E5%8C%96/">组件化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BB%8F%E9%AA%8C%E5%88%86%E4%BA%AB/">经验分享</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E7%A8%8B%E8%BE%85%E5%8A%A9/">编程辅助</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BC%96%E8%BE%91%E5%99%A8/">编辑器</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99/">网站</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E7%BD%91%E7%AB%99%E5%88%86%E6%9E%90/">网站分析</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%80%81%E5%85%B5/">老兵</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%84%9A%E6%9C%AC%E6%96%87%E4%BB%B6/">脚本文件</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%87%AA%E5%8A%A8%E8%BD%AC%E6%8D%A2/">自动转换</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BA%E6%96%87%E5%86%99%E4%BD%9C/">论文写作</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%8C%87%E5%8D%97/">设计指南</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E8%A8%80%E5%A4%84%E7%90%86/">语言处理</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%AD%E9%9F%B3%E5%90%88%E6%88%90/">语音合成</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%AF%B7%E6%B1%82%E5%88%86%E6%B4%BE/">请求分派</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E5%BA%94%E7%94%A8/">软件应用</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E8%BF%90%E8%A1%8C%E6%97%B6/">运行时</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E4%BB%B6%E6%8A%BD%E5%8F%96/">部件抽取</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%83%A8%E7%BD%B2/">部署</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%85%8D%E7%BD%AE%E5%8C%96/">配置化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%87%8F%E5%8C%96/">量化</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%94%99%E8%AF%AF%E8%AF%86%E5%88%AB/">错误识别</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9B%B6%E7%BC%96%E7%A0%81/">零编码</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%88%87%E9%9D%A2%E7%BC%96%E7%A8%8B/">面向切面编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%BC%96%E7%A8%8B/">面向对象编程</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A1%B5%E9%9D%A2%E5%81%9C%E7%95%99%E6%97%B6%E9%95%BF/">页面停留时长</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">领域驱动设计</a>
+    
+    <a href="https://index.zshipu.com/geek002/tags/%E9%AB%98%E9%A2%91%E9%95%9C/">高频镜</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/geek002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
