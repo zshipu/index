@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>一文看懂什么是RAG（检索增强生成） -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="一文看懂什么是RAG（检索增强生成） -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2024-12-18T08:11:24&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2024-12-18T08:11:24&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="一文看懂什么是RAG（检索增强生成） -- 知识铺">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/ai/post/20241218/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E4%BB%80%E4%B9%88%E6%98%AFRAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/ai/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai/css/normalize.css'>
+    <link rel="stylesheet" href='/ai/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#rag的起源与发展">RAG的起源与发展</a>
+      <ul>
+        <li><a href="#大型语言模型时代的rag发展">大型语言模型时代的RAG发展</a></li>
+        <li><a href="#rag技术的演化阶段">RAG技术的演化阶段</a></li>
+      </ul>
+    </li>
+    <li><a href="#学术与工业界对rag的共识">学术与工业界对RAG的共识</a></li>
+    <li><a href="#rag的研究范式">RAG的研究范式</a>
+      <ul>
+        <li><a href="#naive-rag这是最基础的rag实现包含以下三个步骤">Naive RAG这是最基础的RAG实现，包含以下三个步骤：</a></li>
+        <li><a href="#advanced-rag为了解决naive-rag在检索质量和响应生成质量上的挑战advanced-rag引入了以下改进">Advanced RAG为了解决Naive RAG在检索质量和响应生成质量上的挑战，Advanced RAG引入了以下改进：</a></li>
+        <li><a href="#modular-ragmodular-rag进一步突破了传统的检索-生成框架引入了更多的功能模块如查询搜索引擎融合多个回答等它结合了检索与微调强化学习等技术提供了更大的灵活性和适应性此外modular-rag还允许跨多个模块进行定制和协调以适应特定的问题上下文">Modular RAGModular RAG进一步突破了传统的检索-生成框架，引入了更多的功能模块，如查询搜索引擎、融合多个回答等。它结合了检索与微调、强化学习等技术，提供了更大的灵活性和适应性。此外，Modular RAG还允许跨多个模块进行定制和协调，以适应特定的问题上下文。</a></li>
+        <li><a href="#rag的五个基本流程rag的实施可以分为以下五个基本流程">RAG的五个基本流程RAG的实施可以分为以下五个基本流程：</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#cbow模型的工作原理">CBOW模型的工作原理</a></li>
+    <li><a href="#向量数据库">向量数据库</a></li>
+    <li><a href="#查询检索与生成回答">查询检索与生成回答</a></li>
+    <li><a href="#rag系统的优化策略">RAG系统的优化策略</a>
+      <ul>
+        <li><a href="#数据清洗">数据清洗</a></li>
+        <li><a href="#分块处理">分块处理</a></li>
+        <li><a href="#嵌入模型的选择">嵌入模型的选择</a></li>
+        <li><a href="#元数据的应用">元数据的应用</a></li>
+        <li><a href="#多级索引">多级索引</a></li>
+        <li><a href="#索引查询算法">索引/查询算法</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#图像压缩类比">图像压缩类比</a></li>
+    <li><a href="#量化过程">量化过程</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">一文看懂什么是RAG（检索增强生成） -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年12月18日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803982.png" />   
+    <br>
+RAG（Retrieval Augmented Generation，检索增强生成）是一种结合了检索技术和大语言模型提示的生成式模型解决方案。它通过从各种数据源检索相关信息，并将这些信息与用户的问题结合起来，形成丰富的提示模板，以指导大模型生成准确的答案。RAG的主要特点是能够依赖大语言模型来强化信息检索和输出，同时能与外部数据无缝集成，解决通用大模型在垂直、专业领域的知识短板问题。此外，RAG还能在不参与大模型数据集训练的情况下，改善模型性能，更好地保证数据隐私和安全。RAG的发展经历了预训练和SFT的阶段，并在LLM时代后开始井喷。随着高性能大模型的训练成本降低，学术界和工业界试图通过推理阶段加入RAG模块，高性价比的方式整合外部知识来增强模型生成。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803632.jpg" />   
+    </p>
+<h2 id="rag的起源与发展">RAG的起源与发展</h2>
+<p>RAG（Retrieval-Augmented Generation）起始于2020年，通过融合预训练的检索组件和生成组件来捕捉知识，从而提升了模型的解释性和模块化特性。</p>
+<h3 id="大型语言模型时代的rag发展">大型语言模型时代的RAG发展</h3>
+<p>随着大型语言模型（LLM）的崛起，RAG技术成为增强聊天机器人和大型语言模型实用性的重要工具。它通过优化检索器、生成器等核心组件，为处理复杂的知识密集型任务提供了高效的解决方案。</p>
+<h3 id="rag技术的演化阶段">RAG技术的演化阶段</h3>
+<p>RAG的强化可以在三个主要阶段进行：</p>
+<p>预训练阶段，微调阶段，以及推理阶段。增强数据源涵盖了非结构化数据、结构化数据和由大型语言模型生成的内容。</p>
+<h2 id="学术与工业界对rag的共识">学术与工业界对RAG的共识</h2>
+<p>学术界和工业界普遍认同RAG包含两个主要阶段：</p>
+<ul>
+<li>
+<p><strong>检索阶段</strong>：使用编码模型根据输入的问题检索相关的文档。</p>
+</li>
+<li>
+<p><strong>生成阶段</strong>：基于检索到的上下文信息，系统生成相应的文本输出。</p>
+</li>
+</ul>
+<h2 id="rag的研究范式">RAG的研究范式</h2>
+<p>RAG研究范式经历了不断的发展和变化，可以分为三类：</p>
+<ul>
+<li>
+<p><strong>初级RAG</strong>：最初的实现方式。</p>
+</li>
+<li>
+<p><strong>高级RAG</strong>：引入了更复杂的机制和技术改进。</p>
+</li>
+<li>
+<p><strong>模块化RAG</strong>：强调组件的独立性和可替换性，以便于灵活调整和优化。
+从历史发展的角度来看，RAG经历了Naive RAG、Advanced RAG和Modular RAG三个阶段。这种分类有助于学术上的研究和归纳总结，但在实际业务应用中，更重要的是实践中的创新和超越。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803850.jpg" />   
+    <br>
+RAG技术发展经历了从初级RAG（Naive RAG）到高级RAG（Advanced RAG），再到模块化RAG（Modular RAG）的演变。每个阶段都对数据处理、检索和生成过程进行了优化和改进。</p>
+</li>
+</ul>
+<h3 id="naive-rag这是最基础的rag实现包含以下三个步骤">Naive RAG这是最基础的RAG实现，包含以下三个步骤：</h3>
+<ol>
+<li><strong>索引</strong>：将文档库分割成较短的片段（Chunk），并通过编码器构建向量索引。</li>
+<li><strong>检索</strong>：根据问题与chunks的相似度来检索相关文档片段。</li>
+<li><strong>生成</strong>：利用检索到的上下文信息，通过大型语言模型生成问题的答案。</li>
+</ol>
+<h3 id="advanced-rag为了解决naive-rag在检索质量和响应生成质量上的挑战advanced-rag引入了以下改进">Advanced RAG为了解决Naive RAG在检索质量和响应生成质量上的挑战，Advanced RAG引入了以下改进：</h3>
+<ul>
+<li>优化数据索引，提高索引内容的质量。</li>
+<li>实施预检索和后检索方法，如问题的重写、扩充等，以提高检索和生成的质量。</li>
+<li>引入混合检索和索引结构优化，例如使用图结构信息。</li>
+</ul>
+<h3 id="modular-ragmodular-rag进一步突破了传统的检索-生成框架引入了更多的功能模块如查询搜索引擎融合多个回答等它结合了检索与微调强化学习等技术提供了更大的灵活性和适应性此外modular-rag还允许跨多个模块进行定制和协调以适应特定的问题上下文">Modular RAGModular RAG进一步突破了传统的检索-生成框架，引入了更多的功能模块，如查询搜索引擎、融合多个回答等。它结合了检索与微调、强化学习等技术，提供了更大的灵活性和适应性。此外，Modular RAG还允许跨多个模块进行定制和协调，以适应特定的问题上下文。</h3>
+<h3 id="rag的五个基本流程rag的实施可以分为以下五个基本流程">RAG的五个基本流程RAG的实施可以分为以下五个基本流程：</h3>
+<ol>
+<li><strong>知识文档的准备</strong>：选择合适的文档作为知识源。</li>
+<li><strong>嵌入模型</strong>：使用嵌入模型将文档转换为向量形式。</li>
+<li><strong>向量数据库</strong>：构建和维护一个高效的向量数据库以支持快速检索。</li>
+<li><strong>查询检索</strong>：执行查询并从向量数据库中检索相关的文档片段。</li>
+<li><strong>生产回答</strong>：基于检索到的上下文信息，通过语言模型生成最终的回答。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803616.png" />   
+    </li>
+</ol>
+<h4 id="1-知识文档的准备"><strong>1. 知识文档的准备</strong></h4>
+<p>在构建一个高效的RAG系统时，首要步骤是准备知识文档。现实场景中，我们面对的知识源可能包括多种格式，如Word文档、TXT文件、CSV数据表、Excel表格，甚至是PDF文件、图片和视频等。因此，第一步需要使用专门的文档加载器（例如PDF提取器）或多模态模型（如OCR技术），将这些丰富的知识源转换为大语言模型可理解的纯文本数据。例如，处理PDF文件时，可以利用PDF提取器抽取文本内容；对于图片和视频，OCR技术能够识别并转换其中的文字信息。此外，鉴于文档可能存在过长的问题，我们还需执行一项关键步骤：文档切片。我们需要将长篇文档分割成多个文本块，以便更高效地处理和检索信息。这不仅有助于减轻模型的负担，还能提高信息检索的准确性。我们将在后文中详细讨论文档切片和其背后的逻辑。</p>
+<h4 id="2-嵌入模型"><strong>2. 嵌入模型</strong></h4>
+<p>嵌入模型的核心任务是将文本转换为向量形式，我们使用的日常语言中充满歧义和对表达词意无用的助词，而向量表示则更加密集、精确，能够捕捉到句子的上下文关系和核心含义。这种转换使得我们能够通过简单计算向量之间的差异来识别语义上相似的句子。</p>
+<p>举例举例来说，如果我们想比较“苹果是一种水果”和“香蕉是黄色的”，嵌入模型可以将这些句子转换为向量，然后通过计算它们之间的相似度便可以确定它们的关联程度。那么这样的嵌入模型是如何得到的呢，作为一个经典的例子，我们以Google开发的Word2Vec（<a href="http://zshipu.com/t/index.html?url=https://aibook.ren/archives/ai-word-to-vector">一文看懂什么是什么是 Word2vec</a>）模型为基础，来探讨其训练过程。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803147.png" />   
+    </p>
+<h1 id="word2vec与cbow模型">Word2Vec与CBOW模型</h1>
+<p>在自然语言处理领域，Word2Vec是一个非常流行的词向量生成工具，它通过两种训练方法之一来学习词汇表中单词的分布式表示：连续词袋（CBOW）模型和跳字（Skip-gram）模型。为简单起见，我们以CBOW为例进行讲解。</p>
+<h2 id="cbow模型的工作原理">CBOW模型的工作原理</h2>
+<p>CBOW模型的核心思想是利用给定句子中目标词的上下文（即周围的几个词）来预测这个中心词。例如，在句子“<strong>The cat sat on the mat</strong>”中，如果我们要预测词“sat”，我们会使用它周围的词作为输入。</p>
+<ol>
+<li><strong>One-hot编码</strong></li>
+</ol>
+<ul>
+<li>对于上下文词“the”, “cat”, “on”, “the”, 和“mat”，首先将它们转换成one-hot向量。每个向量的长度等于词汇表的大小，只有对应位置上的值为1，其余全为0。</li>
+</ul>
+<ol start="2">
+<li><strong>计算上下文向量</strong></li>
+</ol>
+<ul>
+<li>将每个one-hot向量与一个V×N维度的权重矩阵W相乘，其中V代表词汇表大小，N是词向量的维度。然后对所有结果求平均，得到一个能够表达整个上下文信息的向量e。</li>
+</ul>
+<ol start="3">
+<li><strong>SoftMax输出层</strong></li>
+</ol>
+<ul>
+<li>向量e接着会与另一个权重矩阵W&rsquo;相乘，并通过SoftMax函数转换成概率分布，这给出了每个词作为中心词的概率。</li>
+</ul>
+<ol start="4">
+<li><strong>权重更新</strong></li>
+</ol>
+<ul>
+<li>模型根据预测结果与实际中心词之间的差异调整两个权重矩阵W和W&rsquo;，从而优化预测性能。</li>
+</ul>
+<h2 id="向量数据库">向量数据库</h2>
+<p>向量数据库是专门为存储和高效检索高维向量数据设计的系统，它们使得我们可以快速找到与用户查询最相似的知识条目。</p>
+<h2 id="查询检索与生成回答">查询检索与生成回答</h2>
+<p>当用户提出一个问题时，其文本会被转换成向量形式，并用于搜索向量数据库中的相似项。基于检索到的信息，结合用户的提问，可以构建提示模版并传递给大语言模型，由后者生成最终的回答。</p>
+<h2 id="rag系统的优化策略">RAG系统的优化策略</h2>
+<p>RAG（Retrieval-Augmented Generation）系统可以通过多个方面进行优化，包括但不限于数据清洗、分块处理、选择合适的嵌入模型、添加元数据、采用多级索引以及优化索引/查询算法等。</p>
+<h3 id="数据清洗">数据清洗</h3>
+<p>确保原始知识数据的准确性和清洁度，涉及基本文本清理、实体解析、文档划分、数据增强、用户反馈循环和时间敏感数据处理。</p>
+<h3 id="分块处理">分块处理</h3>
+<p>为了提高检索效率，文档被分割成更小的文本块。分块的方法包括固定大小分块、内容分块、递归分块、从小到大分块和特殊结构分块。</p>
+<h3 id="嵌入模型的选择">嵌入模型的选择</h3>
+<p>不同的嵌入模型有不同的特点和适用场景，比如BERT等自注意力机制模型能更好地处理一词多义的问题。</p>
+<h3 id="元数据的应用">元数据的应用</h3>
+<p>为向量添加额外的元数据标签可以帮助提高检索的相关性。</p>
+<h3 id="多级索引">多级索引</h3>
+<p>针对不同类型的查询建立专门的索引，配合多级路由机制，可以更精确地匹配查询需求。</p>
+<h3 id="索引查询算法">索引/查询算法</h3>
+<p>对于大规模向量数据，通常使用最近邻搜索（ANNS）等算法来找到足够接近或相似的项，而不是寻找绝对的最佳匹配。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803937.png" />   
+    </p>
+<p>有一些缓解这个问题的方法，例如增加聚类的数量，并指定搜索多个簇。然而，任何提高结果质量的方法都不可避免地会增加搜索的时间和资源成本。实际上，质量和速度之间存在着一种权衡关系。我们需要在这两者之间找到一个最优的平衡点，或者找到一个适合特定应用场景的平衡。不同的算法也对应着不同的平衡。</p>
+<p>可以看看《<a href="http://zshipu.com/t/index.html?url=https://aibook.ren/archives/algo-k-means-clustering">一文看懂什么是K均值聚类</a>》。</p>
+<p><strong>位置敏感哈希</strong></p>
+<p>沿着缩小搜索范围的思路，位置敏感哈希算法是另外一种实现的策略。在传统的哈希算法中，我们通常希望每个输入对应一个唯一的输出值，并努力减少输出值的重复。然而，在位置敏感哈希算法中，我们的目标恰恰相反，我们需要增加输出值碰撞的概率。这种碰撞正是分组的关键，哈希值相同的向量将被分配到同一个组中，也就是同一个“桶”里。此外，这种哈希函数还需满足另一个条件：空间上距离较近的向量更有可能被分入同一个桶。这样在进行搜索时，只需获取目标向量的哈希值，找到相应的桶，并在该桶内进行搜索即可。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803607.png" />   
+    </p>
+<h1 id="量化乘积">量化乘积</h1>
+<p>在处理大规模向量数据时，内存开销是一个重要的考量因素。当面对每条数据都有上千维度、数据总量达到上亿级别的场景时，直接减少数据量不是可行的方案，因为每条数据都代表了实际的信息。为了应对这一挑战，我们可以通过减小每个数据本身的大小来降低内存使用，这里介绍一种称为乘积量化的方法。</p>
+<h2 id="图像压缩类比">图像压缩类比</h2>
+<p>类似于图像处理中的有损压缩技术，该方法通过合并一个像素及其周围的几个像素来减少存储信息量。应用到高维向量数据中，我们可以采用改进的聚类方法，即用簇的中心点来代替簇内的所有数据点。</p>
+<h2 id="量化过程">量化过程</h2>
+<ul>
+<li>
+<p><strong>信息保留</strong>：尽管会丢失一些具体值的信息，但由于聚类中心点与簇内向量的相关性，以及增加簇数量以最小化信息损失的能力，原始数据点的信息大部分得以保留。</p>
+</li>
+<li>
+<p><strong>编码和码本</strong>：对这些中心点进行编码，允许我们用单个数字来表示整个向量，从而大大减少了存储空间的需求。创建一个码本记录每个中心向量值及其对应的编码值。</p>
+</li>
+<li>
+<p><strong>使用过程</strong>：当需要使用某个向量时，仅需通过其编码值查询码本，即可恢复出对应的中心向量的具体值。虽然这个向量不再是原始状态，但考虑到上述信息保留的策略，这种变化是可以接受的。
+综上所述，将向量用其所属簇的中心点表示的过程就是量化，这种方法能够显著减少内存占用，同时保持较高的数据可用性。</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803786.png" />   
+    <br>
+在处理高维数据时，直接量化会遇到维度爆炸的问题，导致数据分布更加稀疏。为了减少丢失的细节，我们需要更多的聚类中心，例如在128维空间中，需要2的64次方个聚类中心，这会导致码本所需的内存变得非常庞大，甚至超过量化本身所节省的内存。解决这一问题的方法是将高维向量分割成多个低维子向量，然后在这些低维子向量中独立进行量化。例如，将128维的向量分解为8个16维的子向量，然后分别在8个独立的子空间中进行量化，形成各自的子码本。<br>
+
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803293.jpg" />   
+    </p>
+<p>每个16维的空间只需要256个聚类就可以得到不错的效果，并且每个子码本将变得很小，即便8个子码本加在一起的大小也仍然足够的小，实际上我们是在把码本大小增长从指数模型分解为加法模式。最后，我们还可以把前面的提速度方法和减内存的乘积量化法结合使用，同时实现速度和内存的优化。</p>
+<p><strong>分层导航小世界</strong></p>
+<p>从客户的角度来看，内存开销可能并不是最重要的考量因素。他们更加关注的是应用的最终效果，也就是回答用户问题的速度和质量。导航小世界（NSW）算法正是这样一种用内存换取更快速度和更高质量的实现方式。这个算法的思路和“六度分割理论”类似——你和任何一个陌生人之间最多只隔六个人，也就是说，最多通过六个人你就能够认识任何一个陌生人。我们可以将人比作向量点，把搜索过程看作是从一个人找到另一个人的过程。在查询时，我们从一个选定的起始点A开始，然后找到与A相邻且最接近查询向量的点B，导航到B点，再次进行类似的判断，如此反复，直到找到一个点C，其所有相邻节点都没有比它更接近目标。最终这个点C便是我们要找的最相似的向量。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181803924.png" />   
+    <br>
+本文介绍了检索增强生成（RAG）的概念、特点、发展阶段以及优化策略。RAG是一种结合了信息检索和文本生成的人工智能技术，旨在通过检索外部知识库来辅助大型语言模型（LLM）生成更准确、更相关的文本内容。文章首先概述了RAG的基本概念和工作流程，然后详细讨论了12个关键优化策略，包括查询重写、假设文档嵌入、多查询检索等。每个策略都旨在提高RAG系统的性能和准确性。此外，文章还探讨了高级检索策略如上下文压缩、句子窗口搜索、父文档搜索等，以及如何通过重排模型进一步提高检索结果的相关性和准确性。最后，文章强调了提示词的设计对于引导LLM生成高质量回答的重要性，并简要介绍了大语言模型在RAG系统中的作用。整体而言，本文为读者提供了一个全面而深入的RAG系统构建和优化指南。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai/post/20241218/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E4%BB%80%E4%B9%88%E6%98%AFRAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/ai/post/20241218/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E4%BB%80%E4%B9%88%E6%98%AFRAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai/post/20241218/%E5%90%91%E9%87%8F-AI%E5%85%A8%E4%B9%A6-%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">向量 - AI全书 - 知识铺 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E4%BB%80%E4%B9%88%E6%98%AF%E9%80%9A%E7%94%A8%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BDAGI--%E7%9F%A5%E8%AF%86%E9%93%BA/">一文看懂什么是通用人工智能（AGI） -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E5%AD%A6%E4%B9%A0AI%E5%BF%85%E9%A1%BB%E4%BA%86%E8%A7%A3%E7%9A%84%E6%8A%80%E6%9C%AF%E6%80%A7%E5%85%B3%E9%94%AE%E8%AF%8D%E4%B8%80%E8%A7%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">学习AI必须了解的技术性关键词一览 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E7%9F%A9%E9%98%B5-AI%E5%85%A8%E4%B9%A6%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">矩阵 - AI全书知识铺 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E5%BC%A0%E9%87%8F-Tensor-AI%E5%85%A8%E4%B9%A6%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">张量 Tensor - AI全书知识铺 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai/tags/RAG'>RAG</a></li>
+                
+                <li><a href='/ai/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90'>检索增强生成</a></li>
+                
+                <li><a href='/ai/tags/AI%E5%85%A8%E4%B9%A6'>AI全书</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/ai">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BDVS%E4%BA%BA%E7%B1%BB%E6%99%BA%E6%85%A7%E5%91%BD%E8%BF%90%E4%BE%9D%E7%84%B6%E6%94%A5%E5%9C%A8%E4%BA%BA%E7%B1%BB%E6%89%8B%E4%B8%AD--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="人工智能VS人类智慧：命运依然攥在人类手中 -- 知识铺">人工智能VS人类智慧：命运依然攥在人类手中 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89Computer-Vision-CV-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="计算机视觉（Computer Vision CV）- AI全书 -- 知识铺 -- 知识铺">计算机视觉（Computer Vision CV）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E9%9A%90%E5%90%AB%E7%8B%84%E5%88%A9%E5%85%8B%E9%9B%B7%E5%88%86%E5%B8%83Latent-Dirichlet-Allocation-LDA-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="隐含狄利克雷分布（Latent Dirichlet Allocation LDA）- AI全书 -- 知识铺 -- 知识铺">隐含狄利克雷分布（Latent Dirichlet Allocation LDA）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E7%B2%92%E5%AD%90%E7%BE%A4%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95Particle-Swarm-Optimization-PSO%E6%A6%82%E8%BF%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="粒子群优化算法（Particle Swarm Optimization, PSO）概述 -- 知识铺">粒子群优化算法（Particle Swarm Optimization, PSO）概述 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E6%8A%80%E6%9C%AFAutomatic-Speech-Recognition%E4%B8%A8ASR-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="语音识别技术（Automatic Speech Recognition丨ASR）- AI全书 -- 知识铺 -- 知识铺">语音识别技术（Automatic Speech Recognition丨ASR）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/AI%E7%BB%98%E7%94%BB%E6%95%99%E7%A8%8B%E4%B9%8Bstable-diffusion-Windows%E7%B3%BB%E7%BB%9F%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="AI绘画教程之stable diffusion - Windows系统本地部署 -- 知识铺">AI绘画教程之stable diffusion - Windows系统本地部署 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B-Discriminative-model-AI%E5%85%A8%E4%B9%A6-1--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="判别式模型 Discriminative model - AI全书 (1) -- 知识铺 -- 知识铺">判别式模型 Discriminative model - AI全书 (1) -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B-Discriminative-model-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="判别式模型 Discriminative model - AI全书 -- 知识铺 -- 知识铺">判别式模型 Discriminative model - AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%AD%A6%E4%B9%A0%E5%90%91%E9%87%8F%E9%87%8F%E5%8C%96Learning-vector-quantization-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="学习向量量化（Learning vector quantization）- AI全书 -- 知识铺 -- 知识铺">学习向量量化（Learning vector quantization）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E7%BA%BF%E6%80%A7%E5%88%A4%E5%88%AB%E5%88%86%E6%9E%90Linear-Discriminant-Analysis-LDA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="线性判别分析（Linear Discriminant Analysis, LDA） -- 知识铺">线性判别分析（Linear Discriminant Analysis, LDA） -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai/tags/AGI/">AGI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%85%A8%E4%B9%A6/">AI全书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%86%99%E4%BD%9C%E5%8A%A9%E6%89%8B/">AI写作助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">AI开源项目</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BB%98%E7%94%BB/">AI绘画</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%89%BA%E6%9C%AF/">AI艺术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ASR/">ASR</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor-Rules/">Cursor Rules</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LDA/">LDA</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LangChain/">LangChain</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/PSO/">PSO</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Prompt%E7%BC%96%E5%86%99/">Prompt编写</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Rules%E7%B3%BB%E7%BB%9F/">Rules系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SGD/">SGD</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/StableDiffusion/">StableDiffusion</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Suno/">Suno</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Tab%E5%8A%9F%E8%83%BD/">Tab功能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Web%E6%A1%86%E6%9E%B6/">Web框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Windows%E9%83%A8%E7%BD%B2/">Windows部署</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iOS%E5%BC%80%E5%8F%91/">iOS开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/openai/">openai</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/whisper/">whisper</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E6%96%87/">中文</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E7%B1%BB%E6%99%BA%E6%85%A7/">人类智慧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BC%9A%E5%91%98%E9%97%AE%E9%A2%98/">会员问题</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7/">使用技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%8D%E8%B4%B9%E4%BD%BF%E7%94%A8/">免费使用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%A5%E9%97%A8%E6%A6%82%E5%BF%B5/">入门概念</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B/">判别式模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%90%91%E9%87%8F/">向量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB/">图像识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9C%BA%E6%99%AF%E5%AE%9E%E4%BE%8B/">场景实例</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大语言模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E5%90%91%E9%87%8F%E9%87%8F%E5%8C%96/">学习向量量化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E8%8C%83%E5%9B%B4/">学习范围</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A1%86%E6%9E%B6/">应用程序框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E9%A2%86%E5%9F%9F/">应用领域</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%80%E6%BA%90%E6%A1%86%E6%9E%B6/">开源框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%A0%E9%87%8F/">张量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%8F%91/">快速开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E6%80%A7%E5%85%B3%E9%94%AE%E8%AF%8D/">技术性关键词</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E7%99%BD%E7%9A%AE%E4%B9%A6/">技术白皮书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%97%A0GPU/">无GPU</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%AE%E5%8F%8A%E5%8C%96/">普及化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E6%85%A7%E4%BD%93/">智慧体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AA%E6%9D%A5%E7%A7%91%E6%8A%80/">未来科技</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C/">本地运行</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A0%87%E9%87%8F/">标量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/">框架对比</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90/">检索增强生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%95%8C%E9%9D%A2%E8%AE%BE%E7%BD%AE/">界面设置</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E7%B3%BB%E7%BB%9F/">知识库系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A9%E9%98%B5/">矩阵</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%B2%92%E5%AD%90%E7%BE%A4%E4%BC%98%E5%8C%96/">粒子群优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BA%BF%E6%80%A7%E5%88%A4%E5%88%AB%E5%88%86%E6%9E%90/">线性判别分析</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%A7%84%E5%88%99%E5%AE%9A%E4%B9%89/">规则定义</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E7%AC%94%E8%AE%B0/">语音笔记</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">语音识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%BE%93%E5%85%A5%E6%96%87%E6%9C%AC%E6%9C%97%E8%AF%BB/">语音输入文本朗读</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%80%9A%E7%94%A8%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">通用人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E6%B3%95/">随机梯度下降法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%90%E5%90%AB%E7%8B%84%E5%88%A9%E5%85%8B%E9%9B%B7%E5%88%86%E5%B8%83/">隐含狄利克雷分布</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E4%B9%90%E5%88%9B%E4%BD%9C/">音乐创作</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

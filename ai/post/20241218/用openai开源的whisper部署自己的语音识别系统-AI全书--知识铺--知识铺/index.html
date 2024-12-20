@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>用openai开源的whisper部署自己的语音识别系统 - AI全书 -- 知识铺 -- 知识铺 | 知识铺的博客</title>
+    <meta property="og:title" content="用openai开源的whisper部署自己的语音识别系统 - AI全书 -- 知识铺 -- 知识铺 - 知识铺的博客">
+    <meta property="og:type" content="article">
+        
+    <meta property="article:published_time" content='2024-12-18T08:08:24&#43;08:00'>
+        
+        
+    <meta property="article:modified_time" content='2024-12-18T08:08:24&#43;08:00'>
+        
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="用openai开源的whisper部署自己的语音识别系统 - AI全书 -- 知识铺 -- 知识铺">
+        <meta name="author" content="知识铺">
+        
+    <meta property="og:url" content="https://index.zshipu.com/ai/post/20241218/%E7%94%A8openai%E5%BC%80%E6%BA%90%E7%9A%84whisper%E9%83%A8%E7%BD%B2%E8%87%AA%E5%B7%B1%E7%9A%84%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">
+    <link rel="shortcut icon" href='/ai/favicon.ico'  type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai/css/normalize.css'>
+    <link rel="stylesheet" href='/ai/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    <script data-ad-client="ca-pub-2874221941555456" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+    
+    
+    
+    
+    
+    
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-WLWJSST');</script>
+    
+</head>
+
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一下载镜像">一、下载镜像</a></li>
+    <li><a href="#二启动">二、启动</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#1-asr-语音识别接口">1. /asr: 语音识别接口</a></li>
+    <li><a href="#2-detect-language-语言检测接口">2. /detect-language: 语言检测接口</a>
+      <ul>
+        <li><a href="#测试语音识别接口">测试语音识别接口</a></li>
+      </ul>
+    </li>
+    <li><a href="#四修改模型">四、修改模型</a></li>
+    <li><a href="#六接口参数">六、接口参数</a></li>
+    <li><a href="#七开源地址">七、开源地址</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">用openai开源的whisper部署自己的语音识别系统 - AI全书 -- 知识铺 -- 知识铺</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2024年12月18日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p>openai开源了自己的语音识别项目whisper，可将视频和语音文件转为文字，效果可以比肩科大讯飞的收费产品，并且无需GPU，普通配置就可以运行。</p>
+</blockquote>
+<p>本文使用这个项目https://github.com/ahmetoner/whisper-asr-webservice部署实现，这个项目在whisper基础上提供了web界面，并且可以用docker部署，非常方便。</p>
+<p>话不多说，开始实战，下面操作基于windows系统。</p>
+<h2 id="一下载镜像">一、下载镜像</h2>
+<p>docker搜索openai-whisper-asr-webservice，选择第一个pull。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181753318.png" />   
+    </p>
+<h2 id="二启动">二、启动</h2>
+<pre tabindex="0"><code>&lt;div id=&#34;code-lang-bash&#34;&gt;&lt;p&gt;&lt;code data-highlighted=&#34;yes&#34;&gt;&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;&lt;pre&gt;1
+&lt;/pre&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;docker run -d -p 9000:9000 -e ASR_MODEL=base onerahmet/openai-whisper-asr-webservice:latest&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/p&gt;&lt;/div&gt;
+</code></pre><p>运行之后在浏览器输入以下地址</p>
+<p>第一次访问会下载模型，所以需要稍等一会，之后可以看到以下页面，到这一步已经部署成功，是不是非常简单！</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181753149.png" />   
+    </p>
+<h1 id="使用说明">使用说明</h1>
+<p>该项目提供了两个HTTP接口用于处理语音和视频文件：</p>
+<h2 id="1-asr-语音识别接口">1. /asr: 语音识别接口</h2>
+<ul>
+<li><strong>功能</strong>: 上传语音或视频文件，输出对应的文本内容。</li>
+</ul>
+<h2 id="2-detect-language-语言检测接口">2. /detect-language: 语言检测接口</h2>
+<ul>
+<li><strong>功能</strong>: 上传语音或视频文件，确定并输出文件中使用的语言。</li>
+</ul>
+<h3 id="测试语音识别接口">测试语音识别接口</h3>
+<p>为了测试语音识别接口的功能，请按照以下步骤操作：</p>
+<ol>
+<li>点击“Try it out”按钮准备测试；</li>
+<li>填写必要的参数，这里可以先参照示例中的参数设置，后续将详细介绍各个参数的意义；</li>
+<li>选择要上传的语音或视频文件；</li>
+<li>点击“Execute”执行转换过程。</li>
+</ol>
+<h4 id="英文音频转文字">英文音频转文字</h4>
+<p>首先尝试使用一段英文mp3音频来检验识别效果。根据上述指导，完成参数填写，并上传指定的音频文件以开始转换过程。请注意，参数填写时请依照提供的示例进行，之后我们将详细解释每个参数的具体含义。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181753409.png" />   
+    </p>
+<p>稍等一会即可转换完成，在response body中可看到转换结果。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181753725.png" />   
+    </p>
+<p>下面识别结果，可以看到效果非常不错，可以听音频对照着看一下。</p>
+<pre tabindex="0"><code>&lt;div id=&#34;code-lang-plaintext&#34;&gt;&lt;p&gt;&lt;code data-highlighted=&#34;yes&#34;&gt;&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;How
+
+Just fine.
+
+I finally got a grant to go to graduate school.
+
+Great!
+
+Are you starting your doctorate?
+
+That
+
+I
+
+Sounds like an interesting field.
+
+It really is to me.
+
+You
+
+Just a master
+
+Actually, biochemistry is a lot better field for me.
+
+I
+
+What are you trying to do after you finish?
+
+I haven
+
+Well, you
+
+I know it.&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/p&gt;&lt;/div&gt;
+</code></pre><h4 id="32-中文视频转文字"><strong>3.2 中文视频转文字</strong></h4>
+<p>与上面操作一样，只是选文件的时候选一个视频就可以了，我使用以下视频测试：</p>
+<p>以下是识别结果，对照视频看一下。</p>
+<pre tabindex="0"><code>&lt;div id=&#34;code-lang-plaintext&#34;&gt;&lt;p&gt;&lt;code data-highlighted=&#34;yes&#34;&gt;&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;养养你长大以后,挣了钱会不会给爸爸花呀?
+
+会
+
+那你会给爸爸买什么呀?
+
+会给爸爸买小马宝链,然后再买好几个贴纸,买画饼,然后再买超清年图,再买一个外卖,再买医院,再买脑积极转弯书,再买颜色,再买小丫头,再买冰淇淋
+
+买这么多呀?
+
+嗯
+
+为什么呀?
+
+因为是我最喜欢的老板家,还有巧克力我忘说了
+
+哦,谢谢你
+
+还有水
+
+买这么多啊?
+
+对的
+
+谢谢你
+
+还有玩具
+
+还有书
+
+还有黄罐
+
+还有钟表呢
+
+抽屉
+
+会把世界上的东西全部都买一遍
+
+真的假的呀?
+
+真的
+
+我挣了好多钱,就把世界上的全部东西都给你
+
+挣了
+
+我要是挣的多,但是我要是能挣的特别多的钱
+
+就能把世界上的房子,流星,还有飞机,还有书,什么都带到咱们家里
+
+好,那你赶快长大吧,好不好?
+
+好&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/p&gt;&lt;/div&gt;
+</code></pre><h4 id="33-语言检测"><strong>3.3 语言检测</strong></h4>
+<p>不识别文字，只检测一下是什么语言，大文件只会检查前30秒。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181754876.png" />   
+    </p>
+<h2 id="四修改模型">四、修改模型</h2>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv3/2024/202412181754878.png" />   
+    </p>
+<p>这是官方几种模型的对比说明，包括模型大小、需要的内存和相对速度，比如tiny模型中的~32x标识使用这个模型的速度是large模型的32倍。模型越大识别效果越好，如果只识别英文可以使用.en的模型。</p>
+<pre tabindex="0"><code>&lt;div id=&#34;code-lang-bash&#34;&gt;&lt;p&gt;&lt;code data-highlighted=&#34;yes&#34;&gt;&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;&lt;pre&gt;1
+&lt;/pre&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;docker run -d -p 9000:9000 -e ASR_MODEL=base onerahmet/openai-whisper-asr-webservice:latest&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/p&gt;&lt;/div&gt;
+</code></pre><p>在启动命令中，ASR_MODEL=base中的base是模型名称，可以根据需要修改。为了提高运行效率，可以将模型缓存到宿主机的指定目录下。这样，第一次打开网页时会将模型下载到该目录，之后的打开速度会更快。</p>
+<pre tabindex="0"><code>&lt;div id=&#34;code-lang-plaintext&#34;&gt;&lt;p&gt;&lt;code data-highlighted=&#34;yes&#34;&gt;&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;docker run&lt;span id=&#34;code-lang-bash&#34;&gt; -d -p 9000:9000 -v c:/whiper/:/root/.cache/whisper -e ASR_MODEL= onerahmet/openai-whisper-asr-webservice:latest&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/p&gt;&lt;/div&gt;
+</code></pre><p>上面增加了-v c:/whisper/:/root/.cache/whisper，其中c:/whisper是我自己定义的目录，可以自行修改。</p>
+<h2 id="六接口参数">六、接口参数</h2>
+<ol>
+<li>
+<p><strong>encode</strong>：看意思是识别之前先通过ffmpeg编码音视频文件，但是暂时不清楚什么情况下不用编码，上面测试的音频如果选false识别不出来结果，所以这里就固定写true吧，如果有人知道可以评论区留言。</p>
+</li>
+<li>
+<p><strong>task</strong>：选择transcribe就是将语音识别为文字，中文语音识别为中文文字，英文语音识别为英文文字；选择translate是将无论源文件中是什么语言，都在识别后先翻译为英文再输出。</p>
+</li>
+<li>
+<p><strong>language</strong>：告诉接口源文件中是用的什么语言，这个不需要指定，可以自动识别出来，如果指定错了输出的结果是不对的，比如本来是英文，但是参数填写为中文，识别程序就会以中文来识别，结果就是完全错的。</p>
+</li>
+<li>
+<p><strong>initial_prompt</strong>：应该是类似于chatgpt的prompt吧，但是感觉没什么需要填写的必要。</p>
+</li>
+<li>
+<p><strong>word_timestamps</strong>：单词级别的时间戳。在输出格式为json时起作用，会输出每个单词的开始时间、结束时间、识别正确的可能性。</p>
+</li>
+<li>
+<p><strong>output</strong>：输出格式。</p>
+</li>
+</ol>
+<p>txt:文本格式。</p>
+<p>vtt、srt：字幕格式，可以给视频制作字幕。</p>
+<p>tsv：类似于csv的一种制表符分隔的数据格式。</p>
+<p>json：可以输出非常详细的信息。</p>
+<h2 id="七开源地址">七、开源地址</h2>
+<p>github：<a href="http://zshipu.com/t/index.html?url=https://github.com/openai/whisper">https://github.com/openai/whisper</a></p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai/post/20241218/%E7%94%A8openai%E5%BC%80%E6%BA%90%E7%9A%84whisper%E9%83%A8%E7%BD%B2%E8%87%AA%E5%B7%B1%E7%9A%84%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">https://index.zshipu.com/ai/post/20241218/%E7%94%A8openai%E5%BC%80%E6%BA%90%E7%9A%84whisper%E9%83%A8%E7%BD%B2%E8%87%AA%E5%B7%B1%E7%9A%84%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E7%B3%BB%E7%BB%9F-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai/post/20241218/%E4%B8%AD%E5%9B%BD%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%8A%80%E6%9C%AF%E7%99%BD%E7%9A%AE%E4%B9%A6%E5%8F%8A%E8%A7%A3%E8%AF%BB-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">《中国人工智能大模型技术白皮书》及解读 - AI全书 -- 知识铺 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E4%BB%80%E4%B9%88%E6%98%AF%E9%80%9A%E7%94%A8%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BDAGI--%E7%9F%A5%E8%AF%86%E9%93%BA/">一文看懂什么是通用人工智能（AGI） -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E5%AD%A6%E4%B9%A0AI%E5%BF%85%E9%A1%BB%E4%BA%86%E8%A7%A3%E7%9A%84%E6%8A%80%E6%9C%AF%E6%80%A7%E5%85%B3%E9%94%AE%E8%AF%8D%E4%B8%80%E8%A7%88--%E7%9F%A5%E8%AF%86%E9%93%BA/">学习AI必须了解的技术性关键词一览 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E6%B3%95Stochastic-gradient-descent-SGD-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/">随机梯度下降法（Stochastic gradient descent SGD）- AI全书 -- 知识铺 -- 知识铺</a></li>
+        
+        <li><a href="/ai/post/20241218/%E4%B8%AA%E4%BA%BA%E7%94%B5%E8%84%91%E9%83%A8%E7%BD%B2%E5%A4%9A%E5%8A%9F%E8%83%BDChatGPT%E9%9B%86%E6%88%90%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB%E4%B8%8E%E8%AF%AD%E9%9F%B3%E4%BA%A4%E4%BA%92--%E7%9F%A5%E8%AF%86%E9%93%BA/">个人电脑部署多功能ChatGPT，集成图像识别与语音交互 -- 知识铺</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai/tags/openai'>openai</a></li>
+                
+                <li><a href='/ai/tags/whisper'>whisper</a></li>
+                
+                <li><a href='/ai/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB'>语音识别</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2024 <a href="https://index.zshipu.com/ai">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-1</a>
+        
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BDVS%E4%BA%BA%E7%B1%BB%E6%99%BA%E6%85%A7%E5%91%BD%E8%BF%90%E4%BE%9D%E7%84%B6%E6%94%A5%E5%9C%A8%E4%BA%BA%E7%B1%BB%E6%89%8B%E4%B8%AD--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="人工智能VS人类智慧：命运依然攥在人类手中 -- 知识铺">人工智能VS人类智慧：命运依然攥在人类手中 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89Computer-Vision-CV-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="计算机视觉（Computer Vision CV）- AI全书 -- 知识铺 -- 知识铺">计算机视觉（Computer Vision CV）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E9%9A%90%E5%90%AB%E7%8B%84%E5%88%A9%E5%85%8B%E9%9B%B7%E5%88%86%E5%B8%83Latent-Dirichlet-Allocation-LDA-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="隐含狄利克雷分布（Latent Dirichlet Allocation LDA）- AI全书 -- 知识铺 -- 知识铺">隐含狄利克雷分布（Latent Dirichlet Allocation LDA）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E7%B2%92%E5%AD%90%E7%BE%A4%E4%BC%98%E5%8C%96%E7%AE%97%E6%B3%95Particle-Swarm-Optimization-PSO%E6%A6%82%E8%BF%B0--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="粒子群优化算法（Particle Swarm Optimization, PSO）概述 -- 知识铺">粒子群优化算法（Particle Swarm Optimization, PSO）概述 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB%E6%8A%80%E6%9C%AFAutomatic-Speech-Recognition%E4%B8%A8ASR-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="语音识别技术（Automatic Speech Recognition丨ASR）- AI全书 -- 知识铺 -- 知识铺">语音识别技术（Automatic Speech Recognition丨ASR）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/AI%E7%BB%98%E7%94%BB%E6%95%99%E7%A8%8B%E4%B9%8Bstable-diffusion-Windows%E7%B3%BB%E7%BB%9F%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="AI绘画教程之stable diffusion - Windows系统本地部署 -- 知识铺">AI绘画教程之stable diffusion - Windows系统本地部署 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B-Discriminative-model-AI%E5%85%A8%E4%B9%A6-1--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="判别式模型 Discriminative model - AI全书 (1) -- 知识铺 -- 知识铺">判别式模型 Discriminative model - AI全书 (1) -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B-Discriminative-model-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="判别式模型 Discriminative model - AI全书 -- 知识铺 -- 知识铺">判别式模型 Discriminative model - AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E5%AD%A6%E4%B9%A0%E5%90%91%E9%87%8F%E9%87%8F%E5%8C%96Learning-vector-quantization-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="学习向量量化（Learning vector quantization）- AI全书 -- 知识铺 -- 知识铺">学习向量量化（Learning vector quantization）- AI全书 -- 知识铺 -- 知识铺</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20241218/%E7%BA%BF%E6%80%A7%E5%88%A4%E5%88%AB%E5%88%86%E6%9E%90Linear-Discriminant-Analysis-LDA--%E7%9F%A5%E8%AF%86%E9%93%BA/" title="线性判别分析（Linear Discriminant Analysis, LDA） -- 知识铺">线性判别分析（Linear Discriminant Analysis, LDA） -- 知识铺</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【2019双12】ALL IN CLoud 低至1折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1_rYHo7P2gK0jSZPxXXacQpXa-690-388.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="助力产业智慧升级，云服务器首年88元起，更有千元代金券礼包免费领！" target="_blank" style="color:red">
+                
+                    <img src="https://upload-dianshi-1255598498.file.myqcloud.com/345-7c71532bd4935fbdd9a67c1a71e577b1767b805c.200%E7%89%88%E6%9C%ACB.jpg">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://promotion.aliyun.com/ntms/yunparter/invite.html?source=5176.11533457&amp;userCode=tzm8r4hc" title="【渠道专享低折扣】11月特惠 限时2折" target="_blank" style="color:red">
+                
+                    <img src="https://img.alicdn.com/tfs/TB1hblJl7Y2gK0jSZFgXXc5OFXa-750-400.jpg">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai/tags/AGI/">AGI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%85%A8%E4%B9%A6/">AI全书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%86%99%E4%BD%9C%E5%8A%A9%E6%89%8B/">AI写作助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">AI开源项目</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BB%98%E7%94%BB/">AI绘画</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%89%BA%E6%9C%AF/">AI艺术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ASR/">ASR</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor-Rules/">Cursor Rules</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LDA/">LDA</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LangChain/">LangChain</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/PSO/">PSO</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Prompt%E7%BC%96%E5%86%99/">Prompt编写</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Rules%E7%B3%BB%E7%BB%9F/">Rules系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SGD/">SGD</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/StableDiffusion/">StableDiffusion</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Suno/">Suno</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Tab%E5%8A%9F%E8%83%BD/">Tab功能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Web%E6%A1%86%E6%9E%B6/">Web框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Windows%E9%83%A8%E7%BD%B2/">Windows部署</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iOS%E5%BC%80%E5%8F%91/">iOS开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/openai/">openai</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/whisper/">whisper</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E6%96%87/">中文</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E7%B1%BB%E6%99%BA%E6%85%A7/">人类智慧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BC%9A%E5%91%98%E9%97%AE%E9%A2%98/">会员问题</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7/">使用技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%8D%E8%B4%B9%E4%BD%BF%E7%94%A8/">免费使用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%A5%E9%97%A8%E6%A6%82%E5%BF%B5/">入门概念</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B/">判别式模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%90%91%E9%87%8F/">向量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB/">图像识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9C%BA%E6%99%AF%E5%AE%9E%E4%BE%8B/">场景实例</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大语言模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E5%90%91%E9%87%8F%E9%87%8F%E5%8C%96/">学习向量量化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E8%8C%83%E5%9B%B4/">学习范围</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A1%86%E6%9E%B6/">应用程序框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E9%A2%86%E5%9F%9F/">应用领域</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%80%E6%BA%90%E6%A1%86%E6%9E%B6/">开源框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%A0%E9%87%8F/">张量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%8F%91/">快速开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E6%80%A7%E5%85%B3%E9%94%AE%E8%AF%8D/">技术性关键词</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E7%99%BD%E7%9A%AE%E4%B9%A6/">技术白皮书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%97%A0GPU/">无GPU</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%AE%E5%8F%8A%E5%8C%96/">普及化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E6%85%A7%E4%BD%93/">智慧体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AA%E6%9D%A5%E7%A7%91%E6%8A%80/">未来科技</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C/">本地运行</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A0%87%E9%87%8F/">标量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/">框架对比</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90/">检索增强生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%95%8C%E9%9D%A2%E8%AE%BE%E7%BD%AE/">界面设置</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E7%B3%BB%E7%BB%9F/">知识库系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A9%E9%98%B5/">矩阵</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%B2%92%E5%AD%90%E7%BE%A4%E4%BC%98%E5%8C%96/">粒子群优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BA%BF%E6%80%A7%E5%88%A4%E5%88%AB%E5%88%86%E6%9E%90/">线性判别分析</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%A7%84%E5%88%99%E5%AE%9A%E4%B9%89/">规则定义</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E7%AC%94%E8%AE%B0/">语音笔记</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">语音识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%BE%93%E5%85%A5%E6%96%87%E6%9C%AC%E6%9C%97%E8%AF%BB/">语音输入文本朗读</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%80%9A%E7%94%A8%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">通用人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E6%B3%95/">随机梯度下降法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%90%E5%90%AB%E7%8B%84%E5%88%A9%E5%85%8B%E9%9B%B7%E5%88%86%E5%B8%83/">隐含狄利克雷分布</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E4%B9%90%E5%88%9B%E4%BD%9C/">音乐创作</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
