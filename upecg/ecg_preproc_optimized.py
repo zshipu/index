@@ -769,7 +769,11 @@ class TraceExtractor:
         return inpainted
 
     def extract_final_mask(self, img: np.ndarray, grid_info: GridInfo) -> np.ndarray:
-        """提取最终的描迹掩码并骨架化"""
+        """
+        提取最终的描迹掩码（二值图像）
+
+        注意：不再使用骨架化！保留多像素宽度的trace以便后续blob检测
+        """
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if len(img.shape) == 3 else img
 
         # 自适应阈值
@@ -781,16 +785,268 @@ class TraceExtractor:
             block_size, 5
         )
 
-        # 形态学清理
-        k_size = max(2, int(grid_info.small_box_px // 6))
-        k = cv2.getStructuringElement(cv2.MORPH_RECT, (1, k_size))
+        # 轻度形态学清理（去除孤立噪点）
+        k_size = max(2, int(grid_info.small_box_px // 8))  # 更小的kernel
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
         cleaned = cv2.morphologyEx(th, cv2.MORPH_OPEN, k)
 
-        # 骨架化
-        skeleton = skeletonize((cleaned > 0).astype(np.uint8))
-        skeleton = (skeleton * 255).astype(np.uint8)
+        # 不骨架化！直接返回二值掩码
+        # 这样保留了trace的多像素宽度，有利于blob检测和平均
+        return cleaned
 
-        return skeleton
+
+# ============================================================================
+# 平均窗口信号提取器（基于WebPlotDigitizer算法）
+# ============================================================================
+
+class AveragingWindowExtractor:
+    """
+    基于WebPlotDigitizer的平均窗口算法提取信号
+
+    核心改进：
+    1. Blob检测：在每列中检测多个分离的曲线段
+    2. 加权平均：计算每个blob的精确中心位置
+    3. 水平聚合：在xStep范围内平滑相邻点
+    4. 多导联支持：自动分离不同的ECG导联
+
+    参考: WebPlotDigitizer - averagingWindowCore.js
+    """
+
+    def __init__(self, xStep: int = 10, yStep: int = 10):
+        """
+        初始化提取器
+
+        参数:
+            xStep: 水平聚合窗口大小（像素）
+            yStep: 垂直blob分离阈值（像素）
+        """
+        self.xStep = xStep
+        self.yStep = yStep
+
+    def _detect_blobs_in_column(self, column: np.ndarray) -> List[Tuple[float, int]]:
+        """
+        在单列中检测多个blob（分离的曲线段）
+
+        算法：
+        1. 垂直扫描前景像素
+        2. 如果距离上一个像素 > yStep，则开始新blob
+        3. 否则添加到当前blob
+        4. 对每个blob计算加权平均y坐标
+
+        参数:
+            column: 列像素值数组 (height,)
+
+        返回:
+            [(y_center, pixel_count), ...] 每个blob的中心和像素数
+        """
+        blobs = []
+        current_blob_ys = []
+        last_y = -2.0 * self.yStep  # 初始化为足够远的距离
+
+        for y in range(len(column)):
+            if column[y] > 0:  # 前景像素
+                if y > last_y + self.yStep:
+                    # 距离太远，开始新blob
+                    if current_blob_ys:
+                        # 保存旧blob的加权平均
+                        avg_y = np.mean(current_blob_ys)
+                        blobs.append((avg_y, len(current_blob_ys)))
+                    # 开始新blob
+                    current_blob_ys = [y]
+                    last_y = y
+                else:
+                    # 继续当前blob
+                    current_blob_ys.append(y)
+                    last_y = y
+
+        # 保存最后一个blob
+        if current_blob_ys:
+            avg_y = np.mean(current_blob_ys)
+            blobs.append((avg_y, len(current_blob_ys)))
+
+        return blobs
+
+    def _horizontal_averaging(
+        self,
+        points: List[Tuple[float, float, int]]
+    ) -> List[Tuple[float, float]]:
+        """
+        水平窗口聚合相邻点
+
+        算法：
+        1. 遍历每个候选点
+        2. 在xStep范围内查找相邻点
+        3. 计算加权平均位置
+        4. 标记已处理的点避免重复
+
+        参数:
+            points: [(x, y, weight), ...] 候选点列表
+
+        返回:
+            [(x, y), ...] 聚合后的点
+        """
+        if not points:
+            return []
+
+        # 按x排序
+        points_sorted = sorted(points, key=lambda p: p[0])
+
+        # 添加"已使用"标记
+        points_with_flag = [(x, y, w, False) for x, y, w in points_sorted]
+
+        results = []
+
+        for i, (x, y, weight, used) in enumerate(points_with_flag):
+            if used:
+                continue
+
+            # 初始化平均值
+            avg_x = x
+            avg_y = y
+            total_weight = weight
+            matches = 1
+
+            # 标记当前点为已使用
+            points_with_flag[i] = (x, y, weight, True)
+
+            # 向右搜索相邻点
+            for j in range(i + 1, len(points_with_flag)):
+                xj, yj, wj, usedj = points_with_flag[j]
+
+                if usedj:
+                    continue
+
+                # 超出x范围，停止搜索
+                if xj > x + 2 * self.xStep:
+                    break
+
+                # 检查是否在窗口内
+                if abs(xj - x) <= self.xStep and abs(yj - y) <= self.yStep:
+                    # 加权平均
+                    avg_x = (avg_x * total_weight + xj * wj) / (total_weight + wj)
+                    avg_y = (avg_y * total_weight + yj * wj) / (total_weight + wj)
+                    total_weight += wj
+                    matches += 1
+
+                    # 标记为已使用
+                    points_with_flag[j] = (xj, yj, wj, True)
+
+            results.append((avg_x, avg_y))
+
+        return results
+
+    def _separate_leads_simple(
+        self,
+        points: List[Tuple[float, float]]
+    ) -> List[np.ndarray]:
+        """
+        将混合的点分离成不同导联
+
+        策略：
+        1. 按x排序所有点
+        2. 对每个点，尝试匹配现有导联（y距离和x连续性）
+        3. 如果无法匹配，创建新导联
+        4. 过滤太短的导联（噪声）
+
+        参数:
+            points: [(x, y), ...] 混合的点列表
+
+        返回:
+            [array([[x1,y1], [x2,y2], ...]), ...] 每个导联的点数组
+        """
+        if not points:
+            return []
+
+        # 按x排序
+        points_sorted = sorted(points, key=lambda p: p[0])
+
+        # 初始化导联列表
+        leads = []
+
+        for x, y in points_sorted:
+            # 尝试匹配现有导联
+            matched = False
+
+            for lead in leads:
+                if lead:
+                    last_x, last_y = lead[-1]
+
+                    # 检查y距离和x连续性
+                    y_close = abs(y - last_y) < self.yStep * 2
+                    x_continuous = x - last_x < self.xStep * 3
+
+                    if y_close and x_continuous:
+                        lead.append((x, y))
+                        matched = True
+                        break
+
+            if not matched:
+                # 创建新导联
+                leads.append([(x, y)])
+
+        # 过滤太短的导联（噪声）
+        min_points = 20  # 至少20个点
+        leads_filtered = [
+            np.array(lead)
+            for lead in leads
+            if len(lead) >= min_points
+        ]
+
+        return leads_filtered
+
+    def extract_signals(
+        self,
+        binary_mask: np.ndarray,
+        multi_lead: bool = True
+    ) -> List[np.ndarray]:
+        """
+        从二值掩码提取信号
+
+        流程：
+        1. 逐列扫描，检测blob
+        2. 水平聚合平滑
+        3. （可选）分离多导联
+
+        参数:
+            binary_mask: 二值图像 (height, width)，>0为前景
+            multi_lead: 是否分离多导联
+
+        返回:
+            [array([[x1,y1], [x2,y2], ...]), ...] 每个导联的(x,y)坐标
+        """
+        height, width = binary_mask.shape
+
+        # 阶段1：垂直扫描检测blobs
+        candidate_points = []
+
+        for x in range(width):
+            column = binary_mask[:, x]
+            blobs = self._detect_blobs_in_column(column)
+
+            for y_center, pixel_count in blobs:
+                # 添加 0.5 偏移到像素中心
+                candidate_points.append((
+                    x + 0.5,
+                    y_center + 0.5,
+                    pixel_count  # 权重
+                ))
+
+        if not candidate_points:
+            return []
+
+        # 阶段2：水平聚合
+        smoothed_points = self._horizontal_averaging(candidate_points)
+
+        if not smoothed_points:
+            return []
+
+        # 阶段3：分离导联（可选）
+        if multi_lead:
+            leads = self._separate_leads_simple(smoothed_points)
+            return leads
+        else:
+            # 单导联，返回所有点
+            return [np.array(smoothed_points)]
 
 
 # ============================================================================
@@ -1051,11 +1307,11 @@ class CalibrationPulseDetector:
 
 class SignalExtractor:
     """
-    从骨架描迹中提取心电信号值
+    从二值描迹掩码中提取心电信号值
 
-    核心算法:
-    1. 检测导联区域(多导联支持)
-    2. 逐列扫描
+    核心算法（基于WebPlotDigitizer）:
+    1. 使用AveragingWindowExtractor检测blob并平滑
+    2. 自动分离多导联
     3. 使用标定将y坐标转换为电压
     4. 插值填补空缺并计算时间值
     """
@@ -1069,128 +1325,94 @@ class SignalExtractor:
         # 在25mm/s: 1像素 = (1/pixels_per_mm) mm = (1/pixels_per_mm)/25 秒
         self.sampling_rate = grid_info.pixels_per_mm_est * grid_info.paper_speed_mm_s
 
+        # 初始化平均窗口提取器（参数基于网格尺寸）
+        xStep = max(3, int(grid_info.small_box_px * 0.5))  # 约半个小格
+        yStep = max(3, int(grid_info.small_box_px * 0.4))  # 约0.4个小格
+        self.averaging_extractor = AveragingWindowExtractor(xStep=xStep, yStep=yStep)
+
+        self.logger.info(f"平均窗口参数: xStep={xStep}px, yStep={yStep}px")
+
     def extract_signals(
         self,
-        skeleton: np.ndarray,
+        trace_mask: np.ndarray,
         multi_lead: bool = True
     ) -> List[LeadSignal]:
         """
-        从骨架图像提取信号
+        从二值掩码提取信号
 
         参数:
-            skeleton: 二值骨架(0或255)
+            trace_mask: 二值掩码(0或255)，不是骨架！
             multi_lead: 是否检测并提取多个导联
 
         返回:
             LeadSignal对象列表
         """
-        if multi_lead:
-            regions = self._detect_lead_regions(skeleton)
-            if len(regions) == 0:
-                self.logger.warning("未检测到导联,作为单导联处理")
-                regions = [(0, skeleton.shape[0])]
-        else:
-            regions = [(0, skeleton.shape[0])]
+        # 使用改进的AveragingWindow算法提取
+        lead_points = self.averaging_extractor.extract_signals(trace_mask, multi_lead=multi_lead)
 
-        self.logger.info(f"正在提取 {len(regions)} 个导联")
+        if len(lead_points) == 0:
+            self.logger.warning("未检测到任何导联信号")
+            return []
 
+        self.logger.info(f"检测到 {len(lead_points)} 个导联")
+
+        # 转换每个导联的点为LeadSignal
         leads = []
-        for i, region in enumerate(regions):
-            lead_signal = self._extract_single_lead(skeleton, region, lead_idx=i)
+        for i, points in enumerate(lead_points):
+            if len(points) == 0:
+                continue
+
+            lead_signal = self._points_to_lead_signal(points, lead_idx=i)
             if lead_signal is not None:
                 leads.append(lead_signal)
 
         return leads
 
-    def _detect_lead_regions(self, skeleton: np.ndarray) -> List[Tuple[int, int]]:
-        """
-        使用行投影检测独立的导联区域
-
-        返回:
-            (y_start, y_end)元组列表
-        """
-        height, width = skeleton.shape
-
-        # 计算行投影(每行像素计数)
-        row_projection = np.sum(skeleton > 0, axis=1)
-
-        # 平滑以减少噪声
-        smoothed = gaussian_filter1d(row_projection, sigma=2.0)
-
-        # 查找具有显著描迹活动的区域
-        # 阈值: 至少10%的列有描迹像素
-        threshold = width * 0.10
-
-        # 查找连续的活动区域
-        active_rows = smoothed > threshold
-        regions = []
-        in_region = False
-        start_y = 0
-
-        min_lead_height = int(self.grid_info.small_box_px * 8)  # 至少约8mm高
-
-        for y in range(height):
-            if active_rows[y] and not in_region:
-                start_y = y
-                in_region = True
-            elif not active_rows[y] and in_region:
-                # 结束当前区域
-                region_height = y - start_y
-                if region_height > min_lead_height:
-                    regions.append((start_y, y))
-                in_region = False
-
-        # 处理最后一个区域
-        if in_region and height - start_y > min_lead_height:
-            regions.append((start_y, height))
-
-        return regions
-
-    def _extract_single_lead(
+    def _points_to_lead_signal(
         self,
-        skeleton: np.ndarray,
-        region: Tuple[int, int],
+        points: np.ndarray,
         lead_idx: int
     ) -> Optional[LeadSignal]:
         """
-        提取单个导联区域的信号
+        将(x, y)点数组转换为LeadSignal
 
         参数:
-            skeleton: 完整骨架图像
-            region: 此导联的(y_start, y_end)
-            lead_idx: 用于日志的导联索引
+            points: array([[x1, y1], [x2, y2], ...])
+            lead_idx: 导联索引
 
         返回:
-            LeadSignal或None(如果提取失败)
+            LeadSignal对象或None
         """
-        y_start, y_end = region
-        lead_skeleton = skeleton[y_start:y_end, :]
-
-        # 扫描列以提取信号
-        signal_y, x_coords = self._scan_columns(lead_skeleton)
-
-        if len(signal_y) == 0:
-            self.logger.warning(f"导联 {lead_idx}: 未找到信号")
+        if len(points) < 10:
+            self.logger.warning(f"导联 {lead_idx}: 点太少 ({len(points)}), 跳过")
             return None
 
+        x_coords = points[:, 0]
+        y_coords = points[:, 1]
+
         # 计算覆盖率
-        width = lead_skeleton.shape[1]
-        coverage = len(x_coords) / width
+        x_min, x_max = x_coords.min(), x_coords.max()
+        coverage = len(points) / (x_max - x_min + 1)
 
-        if coverage < 0.5:
-            self.logger.warning(
-                f"导联 {lead_idx}: 覆盖率低 {coverage:.1%}, 可能不可靠"
-            )
+        # 创建均匀采样的信号（插值）
+        # 生成均匀的x坐标
+        x_uniform = np.arange(x_min, x_max + 1)
 
-        # 插值填补空缺
-        signal_y_uniform = self._interpolate_gaps(signal_y, x_coords, width)
+        # 插值y坐标
+        if len(x_coords) == 1:
+            # 只有一个点，无法插值
+            signal_y_uniform = np.array([y_coords[0]])
+        else:
+            # 使用线性插值
+            from scipy.interpolate import interp1d
+            f = interp1d(x_coords, y_coords, kind='linear', fill_value='extrapolate')
+            signal_y_uniform = f(x_uniform)
 
-        # 将y坐标转换为电压
-        # 为裁剪区域调整基线
-        baseline_y_adj = self.calibration.baseline_y - y_start
-
-        # 电压 = (基线 - y) * mV_per_pixel
-        # 正电压 = 描迹在基线上方
+        # 转换为电压 (mV)
+        # y坐标: 图像顶部=0, 底部=height
+        # baseline_y: 0mV基线的y坐标
+        # 电压 = (baseline_y - y) * mV_per_pixel
+        baseline_y_adj = self.calibration.baseline_y
         signal_mv = (baseline_y_adj - signal_y_uniform) * self.calibration.mV_per_pixel
 
         # 计算时间值
@@ -1198,6 +1420,10 @@ class SignalExtractor:
 
         # 计算质量分数
         quality_score = self._calculate_quality(signal_mv, coverage)
+
+        # 计算region (bounding box)
+        y_min, y_max = y_coords.min(), y_coords.max()
+        region = (int(x_min), int(y_min), int(x_max), int(y_max))
 
         self.logger.info(
             f"导联 {lead_idx}: {len(signal_mv)} 个采样点, "
@@ -1213,64 +1439,6 @@ class SignalExtractor:
             sampling_rate=self.sampling_rate,
             coverage=coverage
         )
-
-    def _scan_columns(self, skeleton_region: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        扫描列以提取描迹的y坐标
-
-        返回:
-            (signal_y, x_coords) - y位置和对应x位置的数组
-        """
-        height, width = skeleton_region.shape
-        signal_y = []
-        x_coords = []
-
-        for x in range(width):
-            column = skeleton_region[:, x]
-            trace_pixels = np.where(column > 0)[0]
-
-            if len(trace_pixels) > 0:
-                # 使用中位数以对多个像素具有鲁棒性
-                y_coord = np.median(trace_pixels)
-                signal_y.append(y_coord)
-                x_coords.append(x)
-
-        return np.array(signal_y), np.array(x_coords)
-
-    def _interpolate_gaps(
-        self,
-        signal_y: np.ndarray,
-        x_coords: np.ndarray,
-        width: int
-    ) -> np.ndarray:
-        """
-        插值缺失样本以创建均匀信号
-
-        参数:
-            signal_y: 已知x位置的Y坐标
-            x_coords: 信号存在的X位置
-            width: 总宽度(目标采样点数)
-
-        返回:
-            signal_y_uniform: 每列一个采样点的插值信号
-        """
-        if len(signal_y) < 2:
-            # 点数不足以插值
-            return signal_y
-
-        # 创建插值器
-        interpolator = interp1d(
-            x_coords, signal_y,
-            kind='linear',
-            bounds_error=False,
-            fill_value='extrapolate'
-        )
-
-        # 插值到均匀网格
-        x_uniform = np.arange(width)
-        signal_y_uniform = interpolator(x_uniform)
-
-        return signal_y_uniform
 
     def _calculate_quality(self, signal_mv: np.ndarray, coverage: float) -> float:
         """
