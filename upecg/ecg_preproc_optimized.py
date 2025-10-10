@@ -1203,6 +1203,11 @@ class ECGPreprocessor:
             logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
 
+        # Instance state (set by process())
+        self.preproc_img = None
+        self.trace_mask = None
+        self.grid_info = None
+
     def process(self, path: str) -> Dict:
         """
         Process ECG image
@@ -1305,7 +1310,12 @@ class ECGPreprocessor:
 
         self.logger.info(f"Quality: overall={quality_scores.overall:.2f}")
 
-        # 10. Build result
+        # 10. Store instance state for signal extraction
+        self.preproc_img = img_enhanced
+        self.trace_mask = trace_mask
+        self.grid_info = grid_info
+
+        # 11. Build result
         result = {
             'preproc_img': img_enhanced,
             'trace_mask': trace_mask,
