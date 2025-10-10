@@ -473,6 +473,148 @@ class GridDetector:
 
 
 # ============================================================================
+# 颜色分离网格去除器
+# ============================================================================
+
+class ColorBasedGridRemover:
+    """
+    基于颜色特征去除网格背景
+
+    原理：
+    - 网格通常是浅色（高亮度）、低饱和度
+    - 心电trace是深色（低亮度）或高饱和度
+    - 使用HSV空间分离，避免删除trace
+
+    优点：
+    - 快速（纯颜色阈值，无形态学迭代）
+    - 直接（不需要检测网格线模式）
+    - 通用（适应各种浅色网格：粉色、红色、橙色等）
+    """
+
+    def __init__(self, params: AdaptiveParams):
+        self.params = params
+
+    def remove_grid(
+        self,
+        img_bgr: np.ndarray,
+        grid_info: GridInfo,
+        aggressive: bool = False
+    ) -> np.ndarray:
+        """
+        基于颜色分离去除网格
+
+        参数:
+            img_bgr: 输入彩色图像（BGR格式）
+            grid_info: 网格信息（用于自适应参数）
+            aggressive: 是否使用激进模式（更彻底但可能影响细trace）
+
+        返回:
+            去除网格后的图像（白色背景）
+        """
+        # 1. 转换到HSV颜色空间
+        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+
+        # 2. 灰度图用于深色检测
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+        # 3. 定义网格特征（浅色 + 低饱和度）
+        if aggressive:
+            # 激进模式：更宽松的阈值
+            light_mask = (v > 140)  # 更低的亮度阈值
+            low_sat_mask = (s < 120)  # 更高的饱和度容忍
+        else:
+            # 保守模式：更严格的阈值
+            light_mask = (v > 160)  # 较高的亮度阈值
+            low_sat_mask = (s < 80)   # 较低的饱和度阈值
+
+        # 网格候选区域
+        grid_candidate = light_mask & low_sat_mask
+
+        # 4. 保护深色区域（trace通常是深色）
+        # 自适应阈值：根据图像整体亮度调整
+        mean_brightness = np.mean(gray)
+        if mean_brightness > 200:  # 很亮的图像
+            dark_threshold = 140
+        elif mean_brightness > 150:  # 中等亮度
+            dark_threshold = 120
+        else:  # 较暗的图像
+            dark_threshold = 100
+
+        dark_mask = gray < dark_threshold
+
+        # 5. 保护高饱和度区域（红色trace）
+        high_sat_mask = s > 100
+
+        # 6. 综合保护区域
+        trace_protection = dark_mask | high_sat_mask
+
+        # 7. 最终网格掩码 = 网格候选 AND 非trace保护区域
+        grid_to_remove = grid_candidate & (~trace_protection)
+
+        # 8. 形态学后处理：清理孤立噪点
+        small_box_px = int(grid_info.small_box_px)
+        kernel_size = max(2, small_box_px // 8)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+
+        # 开运算：去除小噪点
+        grid_to_remove_clean = cv2.morphologyEx(
+            grid_to_remove.astype(np.uint8) * 255,
+            cv2.MORPH_OPEN,
+            kernel
+        )
+
+        # 闭运算：填充网格内部小孔
+        grid_to_remove_clean = cv2.morphologyEx(
+            grid_to_remove_clean,
+            cv2.MORPH_CLOSE,
+            kernel
+        )
+
+        # 9. 替换网格为白色
+        img_cleaned = img_bgr.copy()
+        img_cleaned[grid_to_remove_clean > 0] = [255, 255, 255]
+
+        return img_cleaned
+
+    def get_grid_removal_mask(
+        self,
+        img_bgr: np.ndarray,
+        grid_info: GridInfo,
+        aggressive: bool = False
+    ) -> np.ndarray:
+        """
+        仅返回网格掩码（不修改图像）
+        用于调试和可视化
+        """
+        hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+        h, s, v = cv2.split(hsv)
+        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+        # 网格特征
+        if aggressive:
+            light_mask = (v > 140)
+            low_sat_mask = (s < 120)
+        else:
+            light_mask = (v > 160)
+            low_sat_mask = (s < 80)
+
+        grid_candidate = light_mask & low_sat_mask
+
+        # 保护trace
+        mean_brightness = np.mean(gray)
+        dark_threshold = 140 if mean_brightness > 200 else (120 if mean_brightness > 150 else 100)
+        dark_mask = gray < dark_threshold
+        high_sat_mask = s > 100
+        trace_protection = dark_mask | high_sat_mask
+
+        # 最终掩码
+        grid_mask = grid_candidate & (~trace_protection)
+
+        return (grid_mask.astype(np.uint8) * 255)
+
+
+# ============================================================================
 # 描迹提取器
 # ============================================================================
 
@@ -1192,10 +1334,14 @@ class ECGPreprocessor:
         self,
         quality_threshold: float = 0.3,
         fallback_strategy: FallbackStrategy = FallbackStrategy.BALANCED,
+        grid_removal_method: str = 'color',  # 'color' 或 'morphology'
+        aggressive_grid_removal: bool = False,  # 激进模式（更彻底去除网格）
         verbose: bool = False
     ):
         self.quality_threshold = quality_threshold
         self.fallback_strategy = fallback_strategy
+        self.grid_removal_method = grid_removal_method
+        self.aggressive_grid_removal = aggressive_grid_removal
         self.verbose = verbose
 
         # 设置日志
@@ -1265,25 +1411,49 @@ class ECGPreprocessor:
             f"方法={grid_info.detection_method}"
         )
 
-        # 6. 描迹提取
-        extractor = TraceExtractor(params, self.fallback_strategy)
+        # 6. 网格去除（根据选择的方法）
+        if self.grid_removal_method == 'color':
+            # 新方法：基于颜色分离
+            self.logger.info(f"使用颜色分离方法去除网格（激进模式={'开' if self.aggressive_grid_removal else '关'}）")
 
-        # 提取描迹提示
-        trace_hint = extractor.extract_trace_hint(img_corrected, gray_corrected)
+            color_remover = ColorBasedGridRemover(params)
+            img_grid_removed = color_remover.remove_grid(
+                img_corrected,
+                grid_info,
+                aggressive=self.aggressive_grid_removal
+            )
 
-        # 保护掩码
-        protect_mask = extractor.get_protection_mask(trace_hint, grid_info)
+            # 用于调试的中间结果
+            grid_mask = color_remover.get_grid_removal_mask(
+                img_corrected,
+                grid_info,
+                aggressive=self.aggressive_grid_removal
+            )
+            protect_mask = None  # 颜色方法不需要单独的保护掩码
+            trace_hint = None
 
-        # 网格掩码
-        grid_mask = extractor.detect_grid_mask(gray_corrected, grid_info)
+        else:
+            # 原方法：形态学+inpainting
+            self.logger.info("使用形态学+修复方法去除网格")
 
-        # 修复
-        img_inpainted = extractor.inpaint_grid(
-            img_corrected, grid_mask, protect_mask, grid_info
-        )
+            extractor = TraceExtractor(params, self.fallback_strategy)
+
+            # 提取描迹提示
+            trace_hint = extractor.extract_trace_hint(img_corrected, gray_corrected)
+
+            # 保护掩码
+            protect_mask = extractor.get_protection_mask(trace_hint, grid_info)
+
+            # 网格掩码
+            grid_mask = extractor.detect_grid_mask(gray_corrected, grid_info)
+
+            # 修复
+            img_grid_removed = extractor.inpaint_grid(
+                img_corrected, grid_mask, protect_mask, grid_info
+            )
 
         # 7. 对比度增强
-        lab = cv2.cvtColor(img_inpainted, cv2.COLOR_BGR2LAB)
+        lab = cv2.cvtColor(img_grid_removed, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         l_enhanced = clahe.apply(l)
@@ -1291,6 +1461,10 @@ class ECGPreprocessor:
         img_enhanced = cv2.cvtColor(lab_enhanced, cv2.COLOR_LAB2BGR)
 
         # 8. 最终描迹掩码
+        # 需要创建extractor实例（如果使用颜色方法的话）
+        if self.grid_removal_method == 'color':
+            extractor = TraceExtractor(params, self.fallback_strategy)
+
         trace_mask = extractor.extract_final_mask(img_enhanced, grid_info)
 
         # 9. 质量评估
@@ -1419,18 +1593,38 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("用法: python ecg_preproc_optimized.py <心电图图像路径>")
+        print("用法: python ecg_preproc_optimized.py <心电图图像路径> [选项]")
         print("\n可选标志:")
-        print("  --verbose    启用详细日志")
-        print("  --debug      保存中间结果")
+        print("  --verbose              启用详细日志")
+        print("  --debug                保存中间结果")
+        print("  --method=<方法>        网格去除方法: 'color'(默认) 或 'morphology'")
+        print("  --aggressive           激进模式（更彻底去除网格，可能影响细trace）")
+        print("\n示例:")
+        print("  python ecg_preproc_optimized.py ecg1.png --verbose")
+        print("  python ecg_preproc_optimized.py ecg1.png --method=color --aggressive")
+        print("  python ecg_preproc_optimized.py ecg1.png --method=morphology")
         sys.exit(1)
 
     path = sys.argv[1]
     verbose = '--verbose' in sys.argv
     debug = '--debug' in sys.argv
+    aggressive = '--aggressive' in sys.argv
+
+    # 解析方法参数
+    grid_removal_method = 'color'  # 默认使用颜色方法
+    for arg in sys.argv:
+        if arg.startswith('--method='):
+            grid_removal_method = arg.split('=')[1]
+            if grid_removal_method not in ['color', 'morphology']:
+                print(f"错误: 无效的方法 '{grid_removal_method}'。必须是 'color' 或 'morphology'")
+                sys.exit(1)
 
     # 处理
-    preprocessor = ECGPreprocessor(verbose=verbose)
+    preprocessor = ECGPreprocessor(
+        verbose=verbose,
+        grid_removal_method=grid_removal_method,
+        aggressive_grid_removal=aggressive
+    )
     result = preprocessor.process(path)
 
     # 保存输出
