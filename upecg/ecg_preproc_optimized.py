@@ -445,7 +445,7 @@ class TraceExtractor:
         red_score = cv2.subtract(r, cv2.add(g, b) // 2)
 
         # Intensity-based detection (dark traces)
-        dark_score = cv2.subtract(np.uint8(255), gray)
+        dark_score = 255 - gray
 
         # Normalize both scores
         red_norm = cv2.normalize(red_score, None, 0, 255, cv2.NORM_MINMAX)
