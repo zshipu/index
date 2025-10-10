@@ -17,6 +17,7 @@ import numpy as np
 from skimage.morphology import skeletonize
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
+from scipy.interpolate import interp1d
 from typing import Dict, Optional, Tuple, List
 import logging
 from dataclasses import dataclass
@@ -70,6 +71,50 @@ class GridInfo:
             'detection_method': self.detection_method,
             'paper_speed_mm_s': float(self.paper_speed_mm_s),
             'voltage_scale_mm_mV': float(self.voltage_scale_mm_mV)
+        }
+
+
+@dataclass
+class CalibrationInfo:
+    """Calibration information extracted from square wave pulse"""
+    baseline_y: float  # Y-coordinate of 0mV baseline
+    mV_per_pixel: float  # Voltage per pixel
+    pulse_detected: bool  # Whether calibration pulse was found
+    confidence: float  # 0-1, detection confidence
+    pulse_region: Optional[Tuple[int, int, int, int]] = None  # (x1, y1, x2, y2)
+    pulse_height_px: Optional[float] = None  # Height in pixels
+
+    def to_dict(self) -> Dict:
+        return {
+            'baseline_y': float(self.baseline_y),
+            'mV_per_pixel': float(self.mV_per_pixel),
+            'pulse_detected': bool(self.pulse_detected),
+            'confidence': float(self.confidence),
+            'pulse_region': self.pulse_region,
+            'pulse_height_px': float(self.pulse_height_px) if self.pulse_height_px else None
+        }
+
+
+@dataclass
+class LeadSignal:
+    """Extracted ECG signal for one lead"""
+    signal_mv: np.ndarray  # Voltage values in millivolts
+    time_s: np.ndarray  # Time values in seconds
+    region: Tuple[int, int]  # (y_start, y_end) in image coordinates
+    quality_score: float  # 0-1, signal quality
+    sampling_rate: float  # Hz
+    coverage: float  # 0-1, fraction of columns with trace
+
+    def to_dict(self) -> Dict:
+        return {
+            'signal_mv': self.signal_mv.tolist(),
+            'time_s': self.time_s.tolist(),
+            'region': self.region,
+            'quality_score': float(self.quality_score),
+            'sampling_rate': float(self.sampling_rate),
+            'coverage': float(self.coverage),
+            'duration_s': float(self.time_s[-1]) if len(self.time_s) > 0 else 0.0,
+            'amplitude_range_mv': (float(self.signal_mv.min()), float(self.signal_mv.max()))
         }
 
 
@@ -659,6 +704,478 @@ class QualityAssessor:
 
 
 # ============================================================================
+# Calibration Pulse Detection
+# ============================================================================
+
+class CalibrationPulseDetector:
+    """
+    Detect and extract calibration from square wave pulse
+
+    Standard ECG calibration pulse:
+    - Amplitude: 1 mV (10mm)
+    - Duration: 0.2s (5mm at 25mm/s)
+    - Shape: Rectangular with sharp edges
+    """
+
+    def __init__(self, grid_info: GridInfo, logger: logging.Logger):
+        self.grid_info = grid_info
+        self.logger = logger
+
+    def detect(self, image: np.ndarray, skeleton: np.ndarray) -> CalibrationInfo:
+        """
+        Detect calibration pulse in left region of image
+
+        Args:
+            image: Preprocessed image (grayscale or color)
+            skeleton: Binary skeleton of ECG trace
+
+        Returns:
+            CalibrationInfo with baseline and voltage calibration
+        """
+        height, width = skeleton.shape
+
+        # Define search ROI: left 20% of image
+        roi_width = int(width * 0.2)
+        roi_skeleton = skeleton[:, :roi_width]
+
+        # Expected pulse dimensions
+        expected_width_px = self.grid_info.small_box_px * 5  # ~5mm
+        expected_height_px = self.grid_info.small_box_px * 10  # ~10mm
+
+        # Try to find square wave pattern
+        pulse_region = self._find_square_wave_region(
+            roi_skeleton, expected_width_px, expected_height_px
+        )
+
+        if pulse_region is not None:
+            x1, y1, x2, y2 = pulse_region
+            confidence = self._validate_pulse(
+                roi_skeleton[y1:y2, x1:x2], expected_width_px, expected_height_px
+            )
+
+            if confidence > 0.5:
+                # Extract calibration parameters
+                baseline_y = float(y2)  # Bottom of pulse = 0mV
+                pulse_height_px = float(y2 - y1)
+                mV_per_pixel = 1.0 / pulse_height_px  # Standard 1mV pulse
+
+                self.logger.info(
+                    f"Calibration pulse detected: baseline_y={baseline_y:.1f}, "
+                    f"height={pulse_height_px:.1f}px, confidence={confidence:.2f}"
+                )
+
+                return CalibrationInfo(
+                    baseline_y=baseline_y,
+                    mV_per_pixel=mV_per_pixel,
+                    pulse_detected=True,
+                    confidence=confidence,
+                    pulse_region=(x1, y1, x2, y2),
+                    pulse_height_px=pulse_height_px
+                )
+
+        # Fallback: use grid-based calibration
+        self.logger.warning("Square wave not detected, using grid-based calibration")
+        return self._fallback_calibration(skeleton)
+
+    def _find_square_wave_region(
+        self, roi_skeleton: np.ndarray,
+        expected_width: float, expected_height: float
+    ) -> Optional[Tuple[int, int, int, int]]:
+        """
+        Find square wave pattern using horizontal projection
+
+        Returns (x1, y1, x2, y2) or None
+        """
+        height, width = roi_skeleton.shape
+
+        # Calculate row projection (pixels per row)
+        row_projection = np.sum(roi_skeleton > 0, axis=1)
+
+        # Smooth to reduce noise
+        if len(row_projection) > 5:
+            row_projection = gaussian_filter1d(row_projection, sigma=1.5)
+
+        # Find plateau: region with consistently high pixel count
+        # Expected: top of pulse has many trace pixels across width
+        threshold = expected_width * 0.3  # At least 30% of expected width
+
+        # Find contiguous regions above threshold
+        above_threshold = row_projection > threshold
+
+        # Find the first substantial plateau
+        in_plateau = False
+        start_y = 0
+        best_region = None
+
+        for y in range(height):
+            if above_threshold[y] and not in_plateau:
+                start_y = y
+                in_plateau = True
+            elif not above_threshold[y] and in_plateau:
+                plateau_height = y - start_y
+
+                # Check if this matches expected pulse height
+                height_ratio = plateau_height / expected_height
+                if 0.6 < height_ratio < 1.5:  # Allow 40% tolerance
+                    # Found candidate pulse region
+                    # Find horizontal extent
+                    pulse_row = roi_skeleton[start_y:y, :]
+                    col_projection = np.sum(pulse_row > 0, axis=0)
+                    cols_with_trace = np.where(col_projection > 0)[0]
+
+                    if len(cols_with_trace) > 0:
+                        x1 = int(cols_with_trace[0])
+                        x2 = int(cols_with_trace[-1])
+                        pulse_width = x2 - x1
+
+                        # Check width
+                        width_ratio = pulse_width / expected_width
+                        if 0.5 < width_ratio < 2.0:  # Allow wider tolerance
+                            best_region = (x1, start_y, x2, y)
+                            break  # Use first match
+
+                in_plateau = False
+
+        return best_region
+
+    def _validate_pulse(
+        self, pulse_region: np.ndarray,
+        expected_width: float, expected_height: float
+    ) -> float:
+        """
+        Validate pulse characteristics, return confidence score
+        """
+        if pulse_region.size == 0:
+            return 0.0
+
+        height, width = pulse_region.shape
+
+        # Check 1: Dimensions match expectations
+        width_score = 1.0 - min(abs(width - expected_width) / expected_width, 1.0)
+        height_score = 1.0 - min(abs(height - expected_height) / expected_height, 1.0)
+        dimension_score = (width_score + height_score) / 2
+
+        # Check 2: Top and bottom should be flat (low row variance)
+        row_sums = np.sum(pulse_region > 0, axis=1)
+        if len(row_sums) > 4:
+            top_variance = np.std(row_sums[:len(row_sums)//3])
+            bottom_variance = np.std(row_sums[-len(row_sums)//3:])
+            mean_width = np.mean(row_sums)
+            flatness_score = 1.0 - min((top_variance + bottom_variance) / (2 * mean_width + 1), 1.0)
+        else:
+            flatness_score = 0.5
+
+        # Check 3: Should have rectangular shape (coverage)
+        total_pixels = pulse_region.sum() / 255
+        expected_pixels = width * height * 0.8  # Expect ~80% coverage
+        coverage_score = min(total_pixels / max(expected_pixels, 1), 1.0)
+
+        # Weighted average
+        confidence = (
+            dimension_score * 0.4 +
+            flatness_score * 0.3 +
+            coverage_score * 0.3
+        )
+
+        return float(confidence)
+
+    def _fallback_calibration(self, skeleton: np.ndarray) -> CalibrationInfo:
+        """
+        Fallback: use grid-based calibration when pulse not detected
+        """
+        height, width = skeleton.shape
+
+        # Use center line as baseline estimate
+        baseline_y = height / 2.0
+
+        # Calculate mV_per_pixel from grid info
+        # Standard: 10mm = 1mV
+        pixels_per_mm_v = self.grid_info.small_box_px  # Assuming 1mm grid
+        mV_per_pixel = 0.1 / pixels_per_mm_v  # 0.1 mV per 1mm
+
+        return CalibrationInfo(
+            baseline_y=baseline_y,
+            mV_per_pixel=mV_per_pixel,
+            pulse_detected=False,
+            confidence=0.3,  # Low confidence for fallback
+            pulse_region=None,
+            pulse_height_px=None
+        )
+
+
+# ============================================================================
+# Signal Extraction
+# ============================================================================
+
+class SignalExtractor:
+    """
+    Extract ECG signal values from skeleton traces
+
+    Core algorithm:
+    1. Detect lead regions (multi-lead support)
+    2. Column-by-column scanning
+    3. Convert y-coordinates to voltage using calibration
+    4. Interpolate gaps and calculate time values
+    """
+
+    def __init__(self, calibration: CalibrationInfo, grid_info: GridInfo, logger: logging.Logger):
+        self.calibration = calibration
+        self.grid_info = grid_info
+        self.logger = logger
+
+        # Calculate sampling rate from grid spacing
+        # At 25mm/s: 1 pixel = (1/pixels_per_mm) mm = (1/pixels_per_mm)/25 seconds
+        self.sampling_rate = grid_info.pixels_per_mm_est * grid_info.paper_speed_mm_s
+
+    def extract_signals(
+        self,
+        skeleton: np.ndarray,
+        multi_lead: bool = True
+    ) -> List[LeadSignal]:
+        """
+        Extract signals from skeleton image
+
+        Args:
+            skeleton: Binary skeleton (0 or 255)
+            multi_lead: Whether to detect and extract multiple leads
+
+        Returns:
+            List of LeadSignal objects
+        """
+        if multi_lead:
+            regions = self._detect_lead_regions(skeleton)
+            if len(regions) == 0:
+                self.logger.warning("No leads detected, treating as single lead")
+                regions = [(0, skeleton.shape[0])]
+        else:
+            regions = [(0, skeleton.shape[0])]
+
+        self.logger.info(f"Extracting {len(regions)} lead(s)")
+
+        leads = []
+        for i, region in enumerate(regions):
+            lead_signal = self._extract_single_lead(skeleton, region, lead_idx=i)
+            if lead_signal is not None:
+                leads.append(lead_signal)
+
+        return leads
+
+    def _detect_lead_regions(self, skeleton: np.ndarray) -> List[Tuple[int, int]]:
+        """
+        Detect separate lead regions using row projection
+
+        Returns:
+            List of (y_start, y_end) tuples
+        """
+        height, width = skeleton.shape
+
+        # Calculate row projection (pixel count per row)
+        row_projection = np.sum(skeleton > 0, axis=1)
+
+        # Smooth to reduce noise
+        smoothed = gaussian_filter1d(row_projection, sigma=2.0)
+
+        # Find regions with significant trace activity
+        # Threshold: at least 10% of columns have trace pixels
+        threshold = width * 0.10
+
+        # Find contiguous active regions
+        active_rows = smoothed > threshold
+        regions = []
+        in_region = False
+        start_y = 0
+
+        min_lead_height = int(self.grid_info.small_box_px * 8)  # At least ~8mm high
+
+        for y in range(height):
+            if active_rows[y] and not in_region:
+                start_y = y
+                in_region = True
+            elif not active_rows[y] and in_region:
+                # End current region
+                region_height = y - start_y
+                if region_height > min_lead_height:
+                    regions.append((start_y, y))
+                in_region = False
+
+        # Handle last region
+        if in_region and height - start_y > min_lead_height:
+            regions.append((start_y, height))
+
+        return regions
+
+    def _extract_single_lead(
+        self,
+        skeleton: np.ndarray,
+        region: Tuple[int, int],
+        lead_idx: int
+    ) -> Optional[LeadSignal]:
+        """
+        Extract signal for a single lead region
+
+        Args:
+            skeleton: Full skeleton image
+            region: (y_start, y_end) for this lead
+            lead_idx: Lead index for logging
+
+        Returns:
+            LeadSignal or None if extraction fails
+        """
+        y_start, y_end = region
+        lead_skeleton = skeleton[y_start:y_end, :]
+
+        # Scan columns to extract signal
+        signal_y, x_coords = self._scan_columns(lead_skeleton)
+
+        if len(signal_y) == 0:
+            self.logger.warning(f"Lead {lead_idx}: No signal found")
+            return None
+
+        # Calculate coverage
+        width = lead_skeleton.shape[1]
+        coverage = len(x_coords) / width
+
+        if coverage < 0.5:
+            self.logger.warning(
+                f"Lead {lead_idx}: Low coverage {coverage:.1%}, may be unreliable"
+            )
+
+        # Interpolate to fill gaps
+        signal_y_uniform = self._interpolate_gaps(signal_y, x_coords, width)
+
+        # Convert y-coordinates to voltage
+        # Adjust baseline for cropped region
+        baseline_y_adj = self.calibration.baseline_y - y_start
+
+        # Voltage = (baseline - y) * mV_per_pixel
+        # Positive voltage = trace above baseline
+        signal_mv = (baseline_y_adj - signal_y_uniform) * self.calibration.mV_per_pixel
+
+        # Calculate time values
+        time_s = np.arange(len(signal_mv)) / self.sampling_rate
+
+        # Calculate quality score
+        quality_score = self._calculate_quality(signal_mv, coverage)
+
+        self.logger.info(
+            f"Lead {lead_idx}: {len(signal_mv)} samples, "
+            f"range [{signal_mv.min():.2f}, {signal_mv.max():.2f}] mV, "
+            f"quality={quality_score:.2f}"
+        )
+
+        return LeadSignal(
+            signal_mv=signal_mv,
+            time_s=time_s,
+            region=region,
+            quality_score=quality_score,
+            sampling_rate=self.sampling_rate,
+            coverage=coverage
+        )
+
+    def _scan_columns(self, skeleton_region: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Scan columns to extract y-coordinates of trace
+
+        Returns:
+            (signal_y, x_coords) - Arrays of y positions and corresponding x positions
+        """
+        height, width = skeleton_region.shape
+        signal_y = []
+        x_coords = []
+
+        for x in range(width):
+            column = skeleton_region[:, x]
+            trace_pixels = np.where(column > 0)[0]
+
+            if len(trace_pixels) > 0:
+                # Use median for robustness to multiple pixels
+                y_coord = np.median(trace_pixels)
+                signal_y.append(y_coord)
+                x_coords.append(x)
+
+        return np.array(signal_y), np.array(x_coords)
+
+    def _interpolate_gaps(
+        self,
+        signal_y: np.ndarray,
+        x_coords: np.ndarray,
+        width: int
+    ) -> np.ndarray:
+        """
+        Interpolate missing samples to create uniform signal
+
+        Args:
+            signal_y: Y-coordinates at known x positions
+            x_coords: X positions where signal exists
+            width: Total width (target sample count)
+
+        Returns:
+            signal_y_uniform: Interpolated signal with one sample per column
+        """
+        if len(signal_y) < 2:
+            # Not enough points to interpolate
+            return signal_y
+
+        # Create interpolator
+        interpolator = interp1d(
+            x_coords, signal_y,
+            kind='linear',
+            bounds_error=False,
+            fill_value='extrapolate'
+        )
+
+        # Interpolate to uniform grid
+        x_uniform = np.arange(width)
+        signal_y_uniform = interpolator(x_uniform)
+
+        return signal_y_uniform
+
+    def _calculate_quality(self, signal_mv: np.ndarray, coverage: float) -> float:
+        """
+        Calculate signal quality score
+
+        Factors:
+        - Coverage: fraction of columns with trace
+        - Amplitude: signal should be in expected ECG range
+        - Continuity: signal should not have extreme jumps
+        """
+        # Coverage score (already 0-1)
+        coverage_score = coverage
+
+        # Amplitude sanity check
+        amplitude = np.ptp(signal_mv)  # peak-to-peak
+        # Normal ECG: 0.5 to 3.0 mV range
+        if 0.3 < amplitude < 5.0:
+            amplitude_score = 1.0
+        elif amplitude < 0.3:
+            amplitude_score = amplitude / 0.3  # Too small
+        else:
+            amplitude_score = max(0.0, 1.0 - (amplitude - 5.0) / 5.0)  # Too large
+
+        # Continuity check (gradient should be reasonable)
+        if len(signal_mv) > 1:
+            gradient = np.abs(np.diff(signal_mv))
+            max_gradient = np.percentile(gradient, 95)  # 95th percentile
+            # Gradient should be < 0.5mV per sample at typical sampling rates
+            expected_max_gradient = 0.5
+            if max_gradient < expected_max_gradient:
+                continuity_score = 1.0
+            else:
+                continuity_score = max(0.0, 1.0 - (max_gradient - expected_max_gradient) / 2.0)
+        else:
+            continuity_score = 0.5
+
+        # Weighted average
+        quality = (
+            coverage_score * 0.4 +
+            amplitude_score * 0.3 +
+            continuity_score * 0.3
+        )
+
+        return float(quality)
+
+
+# ============================================================================
 # Main Preprocessor
 # ============================================================================
 
@@ -806,6 +1323,56 @@ class ECGPreprocessor:
 
         return result
 
+    def extract_signals(
+        self,
+        multi_lead: bool = True,
+        apply_filtering: bool = False
+    ) -> List[LeadSignal]:
+        """
+        Extract ECG signals after preprocessing
+
+        Must be called after process() to have valid trace_mask and grid_info
+
+        Args:
+            multi_lead: Whether to detect and extract multiple leads
+            apply_filtering: Whether to apply post-processing filters (not implemented)
+
+        Returns:
+            List of LeadSignal objects
+
+        Raises:
+            RuntimeError: If process() hasn't been called yet
+        """
+        if self.trace_mask is None:
+            raise RuntimeError(
+                "Must call process() before extract_signals(). "
+                "trace_mask is not available."
+            )
+
+        self.logger.info("=== Starting Signal Extraction ===")
+
+        # 1. Detect calibration pulse
+        calibration_detector = CalibrationPulseDetector(self.grid_info, self.logger)
+        calibration = calibration_detector.detect(self.preproc_img, self.trace_mask)
+
+        self.logger.info(
+            f"Calibration: pulse_detected={calibration.pulse_detected}, "
+            f"confidence={calibration.confidence:.2f}, "
+            f"mV_per_pixel={calibration.mV_per_pixel:.4f}"
+        )
+
+        # 2. Extract signals
+        signal_extractor = SignalExtractor(calibration, self.grid_info, self.logger)
+        signals = signal_extractor.extract_signals(self.trace_mask, multi_lead=multi_lead)
+
+        self.logger.info(f"Extracted {len(signals)} lead signal(s)")
+
+        # 3. Optional post-processing (not implemented yet)
+        if apply_filtering:
+            self.logger.warning("Signal filtering not yet implemented, returning raw signals")
+
+        return signals
+
 
 # ============================================================================
 # Backward-compatible Interface
@@ -868,6 +1435,19 @@ if __name__ == "__main__":
         print("\nWarnings:")
         for warning in result['warnings']:
             print(f"  - {warning}")
+
+    # Extract signals
+    print("\n=== Signal Extraction ===")
+    signals = preprocessor.extract_signals(multi_lead=True)
+
+    for i, lead in enumerate(signals):
+        print(f"\nLead {i+1}:")
+        print(f"  Samples: {len(lead.signal_mv)}")
+        print(f"  Duration: {lead.time_s[-1]:.2f} s")
+        print(f"  Amplitude range: [{lead.signal_mv.min():.2f}, {lead.signal_mv.max():.2f}] mV")
+        print(f"  Sampling rate: {lead.sampling_rate:.1f} Hz")
+        print(f"  Coverage: {lead.coverage:.1%}")
+        print(f"  Quality score: {lead.quality_score:.2f}")
 
     if debug:
         # Save intermediate results
