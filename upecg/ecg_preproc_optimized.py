@@ -83,6 +83,7 @@ class CalibrationInfo:
     confidence: float  # 0-1, 检测置信度
     pulse_region: Optional[Tuple[int, int, int, int]] = None  # (x1, y1, x2, y2)
     pulse_height_px: Optional[float] = None  # 高度(像素)
+    lead_calibrations: Optional[List[Dict]] = None  # 每个导联的独立标定
 
     def to_dict(self) -> Dict:
         return {
@@ -91,7 +92,8 @@ class CalibrationInfo:
             'pulse_detected': bool(self.pulse_detected),
             'confidence': float(self.confidence),
             'pulse_region': self.pulse_region,
-            'pulse_height_px': float(self.pulse_height_px) if self.pulse_height_px else None
+            'pulse_height_px': float(self.pulse_height_px) if self.pulse_height_px else None,
+            'lead_calibrations': self.lead_calibrations
         }
 
 
@@ -1107,58 +1109,96 @@ class QualityAssessor:
 
 class CalibrationPulseDetector:
     """
-    检测并提取方波脉冲的标定信息
+    检测并提取方波脉冲的标定信息 - 改进的多导联版本
 
     标准心电图标定脉冲:
     - 幅度: 1 mV (10mm)
     - 持续时间: 0.2s (25mm/s时为5mm)
-    - 形状: 边缘锐利的矩形
+    - 形状: 边缘锐利的矩形波
+
+    核心改进:
+    - 使用水平投影(列密度)替代行投影,更鲁棒
+    - 支持多导联独立检测,不只搜索全局左侧
+    - 不依赖skeleton,直接使用trace_mask
     """
 
     def __init__(self, grid_info: GridInfo, logger: logging.Logger):
         self.grid_info = grid_info
         self.logger = logger
 
-    def detect(self, image: np.ndarray, skeleton: np.ndarray) -> CalibrationInfo:
+    def detect(
+        self,
+        trace_mask: np.ndarray,
+        lead_regions: Optional[List[Tuple[int, int, int, int]]] = None
+    ) -> CalibrationInfo:
         """
-        在图像左侧区域检测标定脉冲
+        检测标定脉冲 - 支持多导联独立检测
 
         参数:
-            image: 预处理图像(灰度或彩色)
-            skeleton: 心电描迹的二值骨架
+            trace_mask: 二值描迹掩码(不是skeleton!)
+            lead_regions: 可选的导联边界框列表 [(x1,y1,x2,y2), ...]
+                        如果提供,将为每个导联独立检测方波
 
         返回:
-            包含基线和电压标定的CalibrationInfo
+            CalibrationInfo对象,包含全局或每导联的标定信息
         """
-        height, width = skeleton.shape
-
-        # 定义搜索ROI: 图像左侧20%
-        roi_width = int(width * 0.2)
-        roi_skeleton = skeleton[:, :roi_width]
+        height, width = trace_mask.shape
 
         # 预期的脉冲尺寸
         expected_width_px = self.grid_info.small_box_px * 5  # 约5mm
         expected_height_px = self.grid_info.small_box_px * 10  # 约10mm
 
-        # 尝试找到方波模式
+        # 多导联检测模式
+        if lead_regions is not None and len(lead_regions) > 0:
+            self.logger.info(f"多导联模式: 检测 {len(lead_regions)} 个导联的方波")
+            lead_calibrations = []
+
+            for idx, bbox in enumerate(lead_regions):
+                pulse_info = self._detect_pulse_in_lead(
+                    trace_mask, bbox, expected_width_px, expected_height_px, idx
+                )
+                if pulse_info is not None:
+                    lead_calibrations.append(pulse_info)
+
+            if len(lead_calibrations) > 0:
+                # 使用第一个导联的全局信息
+                first = lead_calibrations[0]
+                self.logger.info(f"成功检测 {len(lead_calibrations)}/{len(lead_regions)} 个导联方波")
+
+                return CalibrationInfo(
+                    baseline_y=first['baseline_y'],
+                    mV_per_pixel=first['mV_per_pixel'],
+                    pulse_detected=True,
+                    confidence=first['confidence'],
+                    pulse_region=first['pulse_region'],
+                    pulse_height_px=first['pulse_height_px'],
+                    lead_calibrations=lead_calibrations
+                )
+            else:
+                self.logger.warning("多导联模式未检测到任何方波")
+
+        # 全局检测模式(后备或无导联信息时)
+        self.logger.info("全局模式: 在图像左侧30%区域搜索方波")
+        roi_width = int(width * 0.3)
+        roi_mask = trace_mask[:, :roi_width]
+
         pulse_region = self._find_square_wave_region(
-            roi_skeleton, expected_width_px, expected_height_px
+            roi_mask, expected_width_px, expected_height_px
         )
 
         if pulse_region is not None:
             x1, y1, x2, y2 = pulse_region
             confidence = self._validate_pulse(
-                roi_skeleton[y1:y2, x1:x2], expected_width_px, expected_height_px
+                roi_mask[y1:y2, x1:x2], expected_width_px, expected_height_px
             )
 
             if confidence > 0.5:
-                # 提取标定参数
-                baseline_y = float(y2)  # 脉冲底部 = 0mV
+                baseline_y = float(y2)
                 pulse_height_px = float(y2 - y1)
-                mV_per_pixel = 1.0 / pulse_height_px  # 标准1mV脉冲
+                mV_per_pixel = 1.0 / pulse_height_px
 
                 self.logger.info(
-                    f"检测到标定脉冲: baseline_y={baseline_y:.1f}, "
+                    f"全局检测到方波: baseline_y={baseline_y:.1f}, "
                     f"height={pulse_height_px:.1f}px, confidence={confidence:.2f}"
                 )
 
@@ -1171,65 +1211,169 @@ class CalibrationPulseDetector:
                     pulse_height_px=pulse_height_px
                 )
 
-        # 后备: 使用基于网格的标定
+        # 最终后备
         self.logger.warning("未检测到方波,使用基于网格的标定")
-        return self._fallback_calibration(skeleton)
+        return self._fallback_calibration(trace_mask)
+
+    def _detect_pulse_in_lead(
+        self,
+        trace_mask: np.ndarray,
+        lead_bbox: Tuple[int, int, int, int],
+        expected_width: float,
+        expected_height: float,
+        lead_idx: int
+    ) -> Optional[Dict]:
+        """
+        在单个导联区域内检测方波
+
+        参数:
+            trace_mask: 完整的描迹掩码
+            lead_bbox: 导联边界框 (x1, y1, x2, y2)
+            expected_width: 预期方波宽度(像素)
+            expected_height: 预期方波高度(像素)
+            lead_idx: 导联索引
+
+        返回:
+            包含标定信息的字典,或None
+        """
+        x1, y1, x2, y2 = lead_bbox
+        lead_width = x2 - x1
+        lead_height = y2 - y1
+
+        # 搜索导联左侧30%区域
+        search_width = int(lead_width * 0.3)
+        if search_width < expected_width:
+            search_width = int(lead_width * 0.5)  # 扩大搜索范围
+
+        roi = trace_mask[y1:y2, x1:x1+search_width]
+
+        # 核心算法: 水平投影(列密度)检测方波
+        col_projection = np.sum(roi > 0, axis=0)
+
+        # 平滑以减少噪声
+        if len(col_projection) > 5:
+            col_projection = gaussian_filter1d(col_projection, sigma=1.0)
+
+        # 查找连续高密度列(方波平台)
+        # 阈值: 至少覆盖expected_height的40%
+        threshold = expected_height * 0.4
+
+        # 查找阈值以上的连续区域
+        above_threshold = col_projection > threshold
+        in_plateau = False
+        start_x = 0
+        best_region = None
+
+        for x in range(len(col_projection)):
+            if above_threshold[x] and not in_plateau:
+                start_x = x
+                in_plateau = True
+            elif not above_threshold[x] and in_plateau:
+                plateau_width = x - start_x
+
+                # 检查宽度是否匹配预期
+                width_ratio = plateau_width / expected_width
+                if 0.4 < width_ratio < 2.5:  # 宽松容差
+                    # 找到候选平台,现在检查垂直范围
+                    plateau_col = roi[:, start_x:x]
+                    row_projection = np.sum(plateau_col > 0, axis=1)
+                    rows_with_trace = np.where(row_projection > 0)[0]
+
+                    if len(rows_with_trace) > 0:
+                        py1 = int(rows_with_trace[0])
+                        py2 = int(rows_with_trace[-1])
+                        plateau_height = py2 - py1
+
+                        # 检查高度
+                        height_ratio = plateau_height / expected_height
+                        if 0.6 < height_ratio < 1.5:
+                            best_region = (start_x, py1, x, py2)
+                            break  # 使用第一个匹配
+
+                in_plateau = False
+
+        if best_region is None:
+            return None
+
+        # 验证检测到的方波
+        px1, py1, px2, py2 = best_region
+        pulse_roi = roi[py1:py2, px1:px2]
+        confidence = self._validate_pulse(pulse_roi, expected_width, expected_height)
+
+        if confidence < 0.4:  # 降低阈值,更宽松
+            return None
+
+        # 计算标定参数(相对于全图坐标)
+        baseline_y_global = y1 + py2  # 方波底部
+        pulse_height_px = py2 - py1
+        mV_per_pixel = 1.0 / pulse_height_px
+
+        self.logger.info(
+            f"导联 {lead_idx}: 检测到方波 baseline_y={baseline_y_global:.1f}, "
+            f"height={pulse_height_px:.1f}px, confidence={confidence:.2f}"
+        )
+
+        return {
+            'lead_idx': lead_idx,
+            'baseline_y': baseline_y_global,
+            'mV_per_pixel': mV_per_pixel,
+            'confidence': confidence,
+            'pulse_region': (x1 + px1, y1 + py1, x1 + px2, y1 + py2),  # 全图坐标
+            'pulse_height_px': pulse_height_px
+        }
 
     def _find_square_wave_region(
-        self, roi_skeleton: np.ndarray,
+        self, roi_mask: np.ndarray,
         expected_width: float, expected_height: float
     ) -> Optional[Tuple[int, int, int, int]]:
         """
-        使用水平投影查找方波模式
+        使用水平投影(列密度)查找方波模式 - 改进算法
 
         返回 (x1, y1, x2, y2) 或 None
         """
-        height, width = roi_skeleton.shape
+        height, width = roi_mask.shape
 
-        # 计算行投影(每行像素数)
-        row_projection = np.sum(roi_skeleton > 0, axis=1)
+        # 使用水平投影(列的像素数)替代行投影
+        col_projection = np.sum(roi_mask > 0, axis=0)
 
         # 平滑以减少噪声
-        if len(row_projection) > 5:
-            row_projection = gaussian_filter1d(row_projection, sigma=1.5)
+        if len(col_projection) > 5:
+            col_projection = gaussian_filter1d(col_projection, sigma=1.0)
 
-        # 查找平台: 像素计数持续高的区域
-        # 预期: 脉冲顶部在宽度上有许多描迹像素
-        threshold = expected_width * 0.3  # 至少为预期宽度的30%
+        # 查找连续高密度列(方波平台)
+        # 阈值: 至少为预期高度的40%
+        threshold = expected_height * 0.4
 
         # 查找阈值以上的连续区域
-        above_threshold = row_projection > threshold
-
-        # 查找第一个实质性平台
+        above_threshold = col_projection > threshold
         in_plateau = False
-        start_y = 0
+        start_x = 0
         best_region = None
 
-        for y in range(height):
-            if above_threshold[y] and not in_plateau:
-                start_y = y
+        for x in range(width):
+            if above_threshold[x] and not in_plateau:
+                start_x = x
                 in_plateau = True
-            elif not above_threshold[y] and in_plateau:
-                plateau_height = y - start_y
+            elif not above_threshold[x] and in_plateau:
+                plateau_width = x - start_x
 
-                # 检查是否匹配预期脉冲高度
-                height_ratio = plateau_height / expected_height
-                if 0.6 < height_ratio < 1.5:  # 允许40%容差
-                    # 找到候选脉冲区域
-                    # 查找水平范围
-                    pulse_row = roi_skeleton[start_y:y, :]
-                    col_projection = np.sum(pulse_row > 0, axis=0)
-                    cols_with_trace = np.where(col_projection > 0)[0]
+                # 检查宽度是否匹配预期
+                width_ratio = plateau_width / expected_width
+                if 0.5 < width_ratio < 2.0:
+                    # 找到候选平台,现在检查垂直范围
+                    plateau_cols = roi_mask[:, start_x:x]
+                    row_projection = np.sum(plateau_cols > 0, axis=1)
+                    rows_with_trace = np.where(row_projection > 0)[0]
 
-                    if len(cols_with_trace) > 0:
-                        x1 = int(cols_with_trace[0])
-                        x2 = int(cols_with_trace[-1])
-                        pulse_width = x2 - x1
+                    if len(rows_with_trace) > 0:
+                        y1 = int(rows_with_trace[0])
+                        y2 = int(rows_with_trace[-1])
+                        plateau_height = y2 - y1
 
-                        # 检查宽度
-                        width_ratio = pulse_width / expected_width
-                        if 0.5 < width_ratio < 2.0:  # 允许更宽的容差
-                            best_region = (x1, start_y, x2, y)
+                        # 检查高度
+                        height_ratio = plateau_height / expected_height
+                        if 0.6 < height_ratio < 1.5:
+                            best_region = (start_x, y1, x, y2)
                             break  # 使用第一个匹配
 
                 in_plateau = False
@@ -1277,11 +1421,11 @@ class CalibrationPulseDetector:
 
         return float(confidence)
 
-    def _fallback_calibration(self, skeleton: np.ndarray) -> CalibrationInfo:
+    def _fallback_calibration(self, trace_mask: np.ndarray) -> CalibrationInfo:
         """
         后备: 未检测到脉冲时使用基于网格的标定
         """
-        height, width = skeleton.shape
+        height, width = trace_mask.shape
 
         # 使用中心线作为基线估计
         baseline_y = height / 2.0
@@ -1412,8 +1556,24 @@ class SignalExtractor:
         # y坐标: 图像顶部=0, 底部=height
         # baseline_y: 0mV基线的y坐标
         # 电压 = (baseline_y - y) * mV_per_pixel
-        baseline_y_adj = self.calibration.baseline_y
-        signal_mv = (baseline_y_adj - signal_y_uniform) * self.calibration.mV_per_pixel
+
+        # 检查是否有该导联的独立标定
+        if (self.calibration.lead_calibrations is not None and
+            lead_idx < len(self.calibration.lead_calibrations)):
+            # 使用导联特定的标定
+            lead_cal = self.calibration.lead_calibrations[lead_idx]
+            baseline_y_adj = lead_cal['baseline_y']
+            mV_per_pixel = lead_cal['mV_per_pixel']
+            self.logger.debug(
+                f"导联 {lead_idx}: 使用独立标定 baseline_y={baseline_y_adj:.1f}, "
+                f"mV_per_pixel={mV_per_pixel:.4f}"
+            )
+        else:
+            # 使用全局标定
+            baseline_y_adj = self.calibration.baseline_y
+            mV_per_pixel = self.calibration.mV_per_pixel
+
+        signal_mv = (baseline_y_adj - signal_y_uniform) * mV_per_pixel
 
         # 计算时间值
         time_s = np.arange(len(signal_mv)) / self.sampling_rate
@@ -1703,9 +1863,45 @@ class ECGPreprocessor:
 
         self.logger.info("=== 开始信号提取 ===")
 
-        # 1. 检测标定脉冲
+        # 1. 先提取导联信号点,获取导联区域
+        signal_extractor_temp = SignalExtractor(
+            CalibrationInfo(  # 临时标定,后面会更新
+                baseline_y=self.trace_mask.shape[0] / 2.0,
+                mV_per_pixel=0.01,
+                pulse_detected=False,
+                confidence=0.0
+            ),
+            self.grid_info,
+            self.logger
+        )
+
+        # 提取导联点数据,用于获取导联边界
+        lead_points = signal_extractor_temp.averaging_extractor.extract_signals(
+            self.trace_mask, multi_lead=multi_lead
+        )
+
+        # 计算导联边界框
+        lead_regions = []
+        if len(lead_points) > 0:
+            for points in lead_points:
+                if len(points) > 0:
+                    x_coords = points[:, 0]
+                    y_coords = points[:, 1]
+                    bbox = (
+                        int(x_coords.min()),
+                        int(y_coords.min()),
+                        int(x_coords.max()),
+                        int(y_coords.max())
+                    )
+                    lead_regions.append(bbox)
+            self.logger.info(f"计算得到 {len(lead_regions)} 个导联边界框")
+
+        # 2. 使用导联区域检测标定脉冲
         calibration_detector = CalibrationPulseDetector(self.grid_info, self.logger)
-        calibration = calibration_detector.detect(self.preproc_img, self.trace_mask)
+        calibration = calibration_detector.detect(
+            self.trace_mask,
+            lead_regions if len(lead_regions) > 0 else None
+        )
 
         self.logger.info(
             f"标定: pulse_detected={calibration.pulse_detected}, "
@@ -1713,13 +1909,16 @@ class ECGPreprocessor:
             f"mV_per_pixel={calibration.mV_per_pixel:.4f}"
         )
 
-        # 2. 提取信号
+        if calibration.lead_calibrations is not None:
+            self.logger.info(f"每导联标定: {len(calibration.lead_calibrations)} 个导联")
+
+        # 3. 使用正确的标定重新提取信号
         signal_extractor = SignalExtractor(calibration, self.grid_info, self.logger)
         signals = signal_extractor.extract_signals(self.trace_mask, multi_lead=multi_lead)
 
         self.logger.info(f"已提取 {len(signals)} 个导联信号")
 
-        # 3. 可选的后处理(尚未实现)
+        # 4. 可选的后处理(尚未实现)
         if apply_filtering:
             self.logger.warning("信号滤波尚未实现,返回原始信号")
 
@@ -1822,11 +2021,14 @@ if __name__ == "__main__":
         print(f"  质量分数: {lead.quality_score:.2f}")
 
     if debug:
-        # 保存中间结果
+        # 保存中间结果(仅保存非None的)
         inter = result['intermediate_results']
-        cv2.imwrite('debug_trace_hint.png', inter['trace_hint'])
-        cv2.imwrite('debug_protect_mask.png', inter['protect_mask'])
-        cv2.imwrite('debug_grid_mask.png', inter['grid_mask'])
+        if inter['trace_hint'] is not None:
+            cv2.imwrite('debug_trace_hint.png', inter['trace_hint'])
+        if inter['protect_mask'] is not None:
+            cv2.imwrite('debug_protect_mask.png', inter['protect_mask'])
+        if inter['grid_mask'] is not None:
+            cv2.imwrite('debug_grid_mask.png', inter['grid_mask'])
         print("\n调试图像已保存 (debug_*.png)")
 
     print("\n输出图像已保存: preproc.png, mask.png")
