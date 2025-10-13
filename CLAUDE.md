@@ -7,10 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **zshipu-index** is a comprehensive static website repository serving as a Chinese-language information hub covering AI tools, technology resources, stock market content, and educational materials. The site is hosted on **GitHub Pages** and consists of multiple independent content sections, each with its own static HTML structure.
 
 **Key Characteristics:**
-- Pure static HTML site (no build framework required)
+- Static HTML site generated with Hugo (but deployed as pure HTML - no build step on deployment)
 - Chinese-language primary content (Simplified Chinese)
 - Multi-domain content organization (AI, tech, finance, education, health)
 - Automatic deployment via GitHub Actions
+- Domain: `https://index.zshipu.com/`
 
 ## Repository Architecture
 
@@ -19,9 +20,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The repository is organized into domain-specific directories, each representing a complete sub-site:
 
 **Primary Domains:**
-- `ai/` - AI tools, resources, tutorials, and news (1200+ articles)
+- `ai/`, `ai001/`, `ai002/` - AI tools, resources, tutorials, and news (1200+ articles, different versions)
 - `geek/`, `geek001/`, `geek002/` - Technology and developer content (different versions/topics)
 - `stock/`, `stock001/`, `stock002/` - Stock market analysis and resources
+- `gpt/` - ChatGPT and large language model content
+- `go/` - Go language programming content
+- `ecg/` - ECG health and medical science content
 - `ai1000website/` - Curated AI tools directory (1700+ entries in markdown)
 - `upecg/` - ECG signal processing project (Python-based)
 
@@ -34,6 +38,8 @@ The repository is organized into domain-specific directories, each representing 
 - `ds/` - Data science resources
 
 ### Sub-Project Details
+
+Each major sub-project has its own CLAUDE.md with detailed architecture:
 
 #### upecg/ - ECG Signal Processing
 A Python-based image processing system for extracting ECG signals from paper recordings.
@@ -76,6 +82,15 @@ python -m http.server 8000
 
 See `ai1000website/CLAUDE.md` for detailed architecture.
 
+#### weibo/ - Weibo UI Mockup
+A static HTML mockup of Weibo (微博) interface for UI/UX reference.
+
+**Files:**
+- `index.html` - Single-file application with embedded CSS
+- Three-column responsive layout optimized for Chinese typography
+
+See `weibo/CLAUDE.md` for design patterns and styling conventions.
+
 #### fly-by/ - Three.js Game
 A WebGL-based flying experience using procedural terrain generation.
 
@@ -86,6 +101,30 @@ A WebGL-based flying experience using procedural terrain generation.
 - detect-gpu
 
 Just open `fly-by/index.html` in a browser to play.
+
+### Root Homepage
+
+The main site homepage (`index.html`) has a modern design with:
+
+**Key Files:**
+- `index.html` - Modern homepage with hero section, content cards, featured projects
+- `index.html.backup` - Original homepage backup
+- `css/homepage.css` - Homepage-specific styles
+- `js/homepage.js` - Homepage interactive scripts
+
+**Homepage Sections:**
+- Hero section with search and site statistics
+- 6 content domain cards (AI, Tech, Stock, GPT, Go, ECG)
+- Featured projects showcase (AI1000 tools, Fly-by game, ECG processing)
+- Recent articles aggregation from all domains
+
+**Updating Homepage Content:**
+Edit `index.html` directly:
+- Lines 266-308: Recent articles list
+- Lines 140-230: Domain card information
+- Lines 122-136: Statistics numbers
+
+See `README-HOMEPAGE.md` and `claudedocs/homepage-*.md` for detailed homepage documentation.
 
 ## Deployment
 
@@ -108,12 +147,21 @@ Automatic deployment to GitHub Pages on push to `main`:
 
 Since all sites are static HTML:
 ```bash
-# Root site
+# Root site with homepage
 python -m http.server 8000
+# Visit: http://localhost:8000
 
 # Test specific sub-site
 cd ai && python -m http.server 8001
 cd geek002 && python -m http.server 8002
+```
+
+**Testing homepage changes:**
+```bash
+# After editing index.html, homepage.css, or homepage.js
+python -m http.server 8000
+# Visit: http://localhost:8000
+# Refresh browser to see changes
 ```
 
 ## Content Management
@@ -147,6 +195,12 @@ domain/
 
 ### Adding New Content
 
+**For root homepage:**
+1. Edit `index.html` directly
+2. Add new articles to recent articles section (lines 266-308)
+3. Update statistics if needed (lines 122-136)
+4. Maintain responsive design and test on mobile
+
 **For existing domains (ai/, geek/, etc.):**
 1. Create HTML file in appropriate `post/` directory
 2. Follow existing HTML template structure
@@ -176,6 +230,33 @@ domain/
 - **MAINTAIN** consistent styling across domain sections
 
 ## Important Context
+
+### Hugo and Static Generation
+
+While the repository shows Hugo metadata in HTML files (`<meta name="generator" content="Hugo 0.124.1">`), the deployment process does NOT involve a build step:
+
+- **Content was generated** with Hugo at some point in the past
+- **Deployed files** are pre-generated static HTML committed to the repository
+- **No build on deployment** - GitHub Actions deploys HTML files as-is
+- **Manual updates** should edit HTML directly, not regenerate with Hugo
+- **Theme**: Maupassant theme (modified, see footer credits)
+
+If you need to regenerate content with Hugo:
+```bash
+# NOT typically needed - Hugo is not in the deployment workflow
+hugo  # Would regenerate all HTML from source content
+```
+
+### Documentation Structure
+
+Project documentation is organized in `claudedocs/`:
+- Implementation reports and design proposals
+- Sub-project documentation in respective directories:
+  - `upecg/CLAUDE.md` + `upecg/docs/` - ECG processing architecture
+  - `ai1000website/CLAUDE.md` - AI tools directory architecture
+  - `weibo/CLAUDE.md` - Weibo mockup design patterns
+  - `xiaoshuo/*.md` - Novel/story creation guides and PRDs
+  - `weibo/PRD_*.md` - Product requirement documents for health projects
 
 ### Multi-Site Repository Pattern
 
@@ -340,6 +421,12 @@ Each domain has consistent nav structure:
 - Use relative paths for all internal links
 - Test in browser before committing
 
+**If editing homepage (index.html):**
+- Test responsive design at different breakpoints
+- Update recent articles section when adding new content
+- Maintain consistency with domain-specific sites
+- Test search functionality
+
 **If adding new tools to ai1000website/:**
 - Edit `app.js` only (don't regenerate HTML)
 - Follow existing tool object structure
@@ -354,3 +441,40 @@ Each domain has consistent nav structure:
 - Test locally first if possible
 - Understand deployment will be automatic
 - Don't break the GitHub Pages configuration
+
+## Quick Reference
+
+### Common Commands
+```bash
+# Local development
+python -m http.server 8000
+
+# Run ECG processing
+cd upecg && python ecg_preproc_poc.py <image_path>
+
+# Run ECG tests
+cd upecg && python test_ecg_preproc.py
+
+# Check for localhost URLs (should be none)
+grep -r "localhost" --include="*.html" .
+
+# Verify UTF-8 encoding
+file -I *.html
+```
+
+### Important File Paths
+- **Homepage**: `index.html`, `css/homepage.css`, `js/homepage.js`
+- **AI Tools Data**: `ai1000website/app.js`
+- **Deployment**: `.github/workflows/static.yml`
+- **Domain Config**: `CNAME` (contains: index.zshipu.com)
+- **Sub-project Docs**: `*/CLAUDE.md` in respective directories
+
+### Site URLs Structure
+- Main site: `https://index.zshipu.com/`
+- AI section: `https://index.zshipu.com/ai/`
+- Tech section: `https://index.zshipu.com/geek/`
+- Stock section: `https://index.zshipu.com/stock/`
+- AI tools: `https://index.zshipu.com/ai1000website/`
+- ECG section: `https://index.zshipu.com/ecg/`
+- GPT section: `https://index.zshipu.com/gpt/`
+- Go section: `https://index.zshipu.com/go/`
