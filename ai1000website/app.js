@@ -1734,8 +1734,17 @@ categoryTabs.forEach(tab => {
         currentCategory = category;
         filterTools();
 
-        // 平滑滚动到工具区域
-        toolsGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // 平滑滚动到工具区域，考虑sticky header和filter的高度
+        const headerHeight = document.querySelector('.header').offsetHeight;
+        const filtersHeight = document.querySelector('.filters').offsetHeight;
+        const offset = headerHeight + filtersHeight + 24; // 24px额外间距
+        const elementPosition = toolsGrid.getBoundingClientRect().top + window.scrollY;
+        const offsetPosition = elementPosition - offset;
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+        });
     });
 });
 
