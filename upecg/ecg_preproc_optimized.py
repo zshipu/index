@@ -1224,14 +1224,13 @@ class CalibrationPulseDetector:
         lead_idx: int
     ) -> Optional[Dict]:
         """
-        在单个导联区域内检测方波
+        在单个导联区域内检测方波 - 改进版(适配条带布局)
 
         参数:
             trace_mask: 完整的描迹掩码
-            lead_bbox: 导联边界框 (x1, y1, x2, y2)
-            expected_width: 预期方波宽度(像素)
-            expected_height: 预期方波高度(像素)
-            lead_idx: 导联索引
+            lead_bbox: 导联边界框 (x1, y1, x2, y2) - 现在是条带区域
+            expected_width: 预期方波宽度(像素) - 基于网格的估计
+            expected_height: 预期方波高度(像素) - 基于网格的估计
 
         返回:
             包含标定信息的字典,或None
@@ -1240,12 +1239,16 @@ class CalibrationPulseDetector:
         lead_width = x2 - x1
         lead_height = y2 - y1
 
-        # 搜索导联左侧30%区域
-        search_width = int(lead_width * 0.3)
+        # 关键改进1: 搜索左侧50%区域 (从30%扩大)
+        search_width = int(lead_width * 0.5)
         if search_width < expected_width:
-            search_width = int(lead_width * 0.5)  # 扩大搜索范围
+            search_width = int(lead_width * 0.6)  # 更宽松
 
         roi = trace_mask[y1:y2, x1:x1+search_width]
+
+        # 关键改进2: 预期方波高度相对于条带高度,不是grid估计
+        # 对于一行一导联布局,方波通常占条带高度的70-95%
+        strip_expected_height = lead_height * 0.85
 
         # 核心算法: 水平投影(列密度)检测方波
         col_projection = np.sum(roi > 0, axis=0)
@@ -1254,9 +1257,9 @@ class CalibrationPulseDetector:
         if len(col_projection) > 5:
             col_projection = gaussian_filter1d(col_projection, sigma=1.0)
 
-        # 查找连续高密度列(方波平台)
-        # 阈值: 至少覆盖expected_height的40%
-        threshold = expected_height * 0.4
+        # 关键改进3: 查找连续高密度列(方波平台)
+        # 降低阈值: 只需20% (从40%大幅降低)
+        threshold = strip_expected_height * 0.2
 
         # 查找阈值以上的连续区域
         above_threshold = col_projection > threshold
@@ -1271,9 +1274,10 @@ class CalibrationPulseDetector:
             elif not above_threshold[x] and in_plateau:
                 plateau_width = x - start_x
 
-                # 检查宽度是否匹配预期
+                # 关键改进4: 检查宽度是否匹配预期
+                # 极宽松容差: 0.2-5.0 (从0.4-2.5大幅放宽)
                 width_ratio = plateau_width / expected_width
-                if 0.4 < width_ratio < 2.5:  # 宽松容差
+                if 0.2 < width_ratio < 5.0:  # 极宽松容差
                     # 找到候选平台,现在检查垂直范围
                     plateau_col = roi[:, start_x:x]
                     row_projection = np.sum(plateau_col > 0, axis=1)
@@ -1284,9 +1288,10 @@ class CalibrationPulseDetector:
                         py2 = int(rows_with_trace[-1])
                         plateau_height = py2 - py1
 
-                        # 检查高度
-                        height_ratio = plateau_height / expected_height
-                        if 0.6 < height_ratio < 1.5:
+                        # 关键改进5: 检查高度相对于条带高度,不是grid估计
+                        # 方波应占条带高度的50-100%
+                        height_ratio = plateau_height / strip_expected_height
+                        if 0.5 < height_ratio < 1.2:  # 相对于条带的容差
                             best_region = (start_x, py1, x, py2)
                             break  # 使用第一个匹配
 
@@ -1298,9 +1303,11 @@ class CalibrationPulseDetector:
         # 验证检测到的方波
         px1, py1, px2, py2 = best_region
         pulse_roi = roi[py1:py2, px1:px2]
-        confidence = self._validate_pulse(pulse_roi, expected_width, expected_height)
 
-        if confidence < 0.4:  # 降低阈值,更宽松
+        # 关键改进6: 使用条带高度验证,并降低置信度阈值
+        confidence = self._validate_pulse(pulse_roi, expected_width, strip_expected_height)
+
+        if confidence < 0.3:  # 从0.4降低到0.3,更宽松
             return None
 
         # 计算标定参数(相对于全图坐标)
@@ -1476,40 +1483,146 @@ class SignalExtractor:
 
         self.logger.info(f"平均窗口参数: xStep={xStep}px, yStep={yStep}px")
 
+    def detect_lead_strips(self, trace_mask: np.ndarray) -> List[Tuple[int, int]]:
+        """
+        检测一行一导联布局中的导联条带 - 改进版(更鲁棒)
+
+        使用水平投影(行密度)检测连续的trace区域,
+        对稀疏mask更宽容(合并相近的片段)
+
+        参数:
+            trace_mask: 二值描迹掩码
+
+        返回:
+            [(y_start, y_end), ...] 导联条带列表
+        """
+        height, width = trace_mask.shape
+
+        # 水平投影: 每行的trace像素数
+        row_projection = np.sum(trace_mask > 0, axis=1)
+
+        # 平滑以减少噪声
+        row_projection_smooth = gaussian_filter1d(row_projection, sigma=3.0)  # sigma=3更平滑
+
+        # 自适应阈值: 基于有trace行的统计
+        if np.any(row_projection_smooth > 0):
+            # 使用第10百分位作为阈值(更低,保证召回)
+            threshold = np.percentile(row_projection_smooth[row_projection_smooth > 0], 10)
+            threshold = max(threshold, 1.0)  # 至少1像素
+        else:
+            threshold = 1
+
+        self.logger.info(f"导联条带检测阈值: {threshold:.1f}")
+
+        # 第一步: 查找所有超过阈值的行
+        has_trace = row_projection_smooth > threshold
+        candidate_rows = np.where(has_trace)[0]
+
+        if len(candidate_rows) == 0:
+            self.logger.warning("未找到任何trace行")
+            return []
+
+        # 第二步: 聚类相近的行成为条带
+        # 关键改进: 使用最大间隙法自动确定条带分界
+        gaps = np.diff(candidate_rows)
+
+        # 找出"大间隙"(导联之间的间隔)
+        # 使用第75百分位作为分界点
+        if len(gaps) > 0:
+            gap_threshold = max(np.percentile(gaps, 75), 20)  # 至少20行
+        else:
+            gap_threshold = 20
+
+        self.logger.info(f"导联间隙阈值: {gap_threshold:.1f}")
+
+        # 基于大间隙分组
+        strips = []
+        strip_start = candidate_rows[0]
+
+        for i in range(len(gaps)):
+            if gaps[i] > gap_threshold:
+                # 这是一个导联分界
+                strip_end = candidate_rows[i] + 1  # 包含当前行
+
+                # 检查条带高度
+                if strip_end - strip_start > 10:  # 至少10行高
+                    strips.append((int(strip_start), int(strip_end)))
+
+                # 开始新条带
+                strip_start = candidate_rows[i+1]
+
+        # 添加最后一个条带
+        strip_end = candidate_rows[-1] + 1
+        if strip_end - strip_start > 10:
+            strips.append((int(strip_start), int(strip_end)))
+
+        self.logger.info(f"检测到 {len(strips)} 个导联条带:")
+        for i, (y1, y2) in enumerate(strips):
+            self.logger.info(f"  条带{i+1}: 行 {y1}-{y2} (高度{y2-y1}px)")
+
+        return strips
+
     def extract_signals(
         self,
         trace_mask: np.ndarray,
         multi_lead: bool = True
     ) -> List[LeadSignal]:
         """
-        从二值掩码提取信号
+        从二值掩码提取信号 - 基于导联条带的改进算法
 
         参数:
             trace_mask: 二值掩码(0或255)，不是骨架！
-            multi_lead: 是否检测并提取多个导联
+            multi_lead: 是否检测并提取多个导联(True=条带模式)
 
         返回:
             LeadSignal对象列表
         """
-        # 使用改进的AveragingWindow算法提取
-        lead_points = self.averaging_extractor.extract_signals(trace_mask, multi_lead=multi_lead)
+        if not multi_lead:
+            # 单导联模式: 使用原算法
+            lead_points = self.averaging_extractor.extract_signals(trace_mask, multi_lead=False)
+            if len(lead_points) == 0 or len(lead_points[0]) == 0:
+                return []
+            lead_signal = self._points_to_lead_signal(lead_points[0], lead_idx=0)
+            return [lead_signal] if lead_signal is not None else []
 
-        if len(lead_points) == 0:
-            self.logger.warning("未检测到任何导联信号")
-            return []
+        # 多导联模式: 使用导联条带检测
+        lead_strips = self.detect_lead_strips(trace_mask)
 
-        self.logger.info(f"检测到 {len(lead_points)} 个导联")
+        if len(lead_strips) == 0:
+            self.logger.warning("未检测到导联条带,回退到原算法")
+            # 回退到原来的聚类算法
+            lead_points = self.averaging_extractor.extract_signals(trace_mask, multi_lead=True)
+            leads = []
+            for i, points in enumerate(lead_points):
+                if len(points) > 0:
+                    lead_signal = self._points_to_lead_signal(points, lead_idx=i)
+                    if lead_signal is not None:
+                        leads.append(lead_signal)
+            return leads
 
-        # 转换每个导联的点为LeadSignal
+        # 基于条带提取信号
         leads = []
-        for i, points in enumerate(lead_points):
-            if len(points) == 0:
+        for i, (y1, y2) in enumerate(lead_strips):
+            # 提取该条带的ROI
+            strip_roi = trace_mask[y1:y2, :]
+
+            # 在条带内运行AveragingWindow算法(单导联模式)
+            strip_points = self.averaging_extractor.extract_signals(strip_roi, multi_lead=False)
+
+            if len(strip_points) == 0 or len(strip_points[0]) == 0:
+                self.logger.warning(f"条带{i+1}未提取到信号点")
                 continue
 
+            # 转换坐标: ROI坐标 → 全图坐标
+            points = strip_points[0].copy()
+            points[:, 1] += y1  # y坐标偏移
+
+            # 转换为LeadSignal
             lead_signal = self._points_to_lead_signal(points, lead_idx=i)
             if lead_signal is not None:
                 leads.append(lead_signal)
 
+        self.logger.info(f"从 {len(lead_strips)} 个条带成功提取 {len(leads)} 个导联信号")
         return leads
 
     def _points_to_lead_signal(
@@ -1863,7 +1976,7 @@ class ECGPreprocessor:
 
         self.logger.info("=== 开始信号提取 ===")
 
-        # 1. 先提取导联信号点,获取导联区域
+        # 1. 先检测导联条带(用于strip-based方波检测)
         signal_extractor_temp = SignalExtractor(
             CalibrationInfo(  # 临时标定,后面会更新
                 baseline_y=self.trace_mask.shape[0] / 2.0,
@@ -1875,26 +1988,17 @@ class ECGPreprocessor:
             self.logger
         )
 
-        # 提取导联点数据,用于获取导联边界
-        lead_points = signal_extractor_temp.averaging_extractor.extract_signals(
-            self.trace_mask, multi_lead=multi_lead
-        )
+        # 关键修改: 使用条带检测获取导联边界,而不是点聚类
+        lead_strips = signal_extractor_temp.detect_lead_strips(self.trace_mask)
 
-        # 计算导联边界框
+        # 转换为bbox格式: (x1, y1, x2, y2)
         lead_regions = []
-        if len(lead_points) > 0:
-            for points in lead_points:
-                if len(points) > 0:
-                    x_coords = points[:, 0]
-                    y_coords = points[:, 1]
-                    bbox = (
-                        int(x_coords.min()),
-                        int(y_coords.min()),
-                        int(x_coords.max()),
-                        int(y_coords.max())
-                    )
-                    lead_regions.append(bbox)
-            self.logger.info(f"计算得到 {len(lead_regions)} 个导联边界框")
+        width = self.trace_mask.shape[1]
+        for y1, y2 in lead_strips:
+            bbox = (0, y1, width, y2)  # 整行宽度
+            lead_regions.append(bbox)
+
+        self.logger.info(f"从 {len(lead_strips)} 个条带生成 {len(lead_regions)} 个导联边界框")
 
         # 2. 使用导联区域检测标定脉冲
         calibration_detector = CalibrationPulseDetector(self.grid_info, self.logger)
