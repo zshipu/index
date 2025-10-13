@@ -1,12 +1,20 @@
 /**
- * 知识铺首页交互脚本
+ * 知识铺首页交互脚本 - ULTRATHINK优化版
  * Homepage JavaScript for zshipu-index
- * 版本: v1.0
- * 创建日期: 2025-10-13
+ * 版本: v2.0
+ * 优化日期: 2025-10-13
+ * 优化内容: 性能监控、防抖节流、错误处理
  */
 
 (function() {
     'use strict';
+
+    // 性能监控配置
+    const PERF_CONFIG = {
+        enabled: true,
+        logToConsole: false, // 生产环境设为false
+        reportEndpoint: null // 可配置性能数据上报地址
+    };
 
     // ==========================================
     // 1. 全站搜索功能
@@ -236,21 +244,112 @@
     }
 
     // ==========================================
-    // 8. 性能监控（可选）
+    // 8. 性能监控增强版
     // ==========================================
     function logPerformance() {
-        if ('performance' in window && 'timing' in window.performance) {
-            window.addEventListener('load', function() {
-                setTimeout(function() {
-                    const timing = performance.timing;
-                    const loadTime = timing.loadEventEnd - timing.navigationStart;
-                    const domReady = timing.domContentLoadedEventEnd - timing.navigationStart;
+        if (!PERF_CONFIG.enabled) return;
 
-                    console.log('Homepage Performance:');
-                    console.log('- DOM Ready:', domReady + 'ms');
-                    console.log('- Full Load:', loadTime + 'ms');
-                }, 0);
+        // Core Web Vitals 监控
+        if ('PerformanceObserver' in window) {
+            // LCP (Largest Contentful Paint)
+            try {
+                const lcpObserver = new PerformanceObserver(function(list) {
+                    const entries = list.getEntries();
+                    const lastEntry = entries[entries.length - 1];
+                    const lcp = lastEntry.renderTime || lastEntry.loadTime;
+
+                    if (PERF_CONFIG.logToConsole) {
+                        console.log('✅ LCP:', lcp.toFixed(0) + 'ms', lcp < 2500 ? '(Good)' : lcp < 4000 ? '(Needs Improvement)' : '(Poor)');
+                    }
+
+                    // 可上报到分析平台
+                    reportMetric('LCP', lcp);
+                });
+                lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+            } catch (e) {
+                // 不支持则静默失败
+            }
+
+            // FID (First Input Delay)
+            try {
+                const fidObserver = new PerformanceObserver(function(list) {
+                    const entries = list.getEntries();
+                    entries.forEach(function(entry) {
+                        const fid = entry.processingStart - entry.startTime;
+                        if (PERF_CONFIG.logToConsole) {
+                            console.log('✅ FID:', fid.toFixed(0) + 'ms', fid < 100 ? '(Good)' : fid < 300 ? '(Needs Improvement)' : '(Poor)');
+                        }
+                        reportMetric('FID', fid);
+                    });
+                });
+                fidObserver.observe({ entryTypes: ['first-input'] });
+            } catch (e) {}
+
+            // CLS (Cumulative Layout Shift)
+            try {
+                let clsScore = 0;
+                const clsObserver = new PerformanceObserver(function(list) {
+                    list.getEntries().forEach(function(entry) {
+                        if (!entry.hadRecentInput) {
+                            clsScore += entry.value;
+                        }
+                    });
+                });
+                clsObserver.observe({ entryTypes: ['layout-shift'] });
+
+                // 页面卸载时报告
+                window.addEventListener('beforeunload', function() {
+                    if (PERF_CONFIG.logToConsole) {
+                        console.log('✅ CLS:', clsScore.toFixed(3), clsScore < 0.1 ? '(Good)' : clsScore < 0.25 ? '(Needs Improvement)' : '(Poor)');
+                    }
+                    reportMetric('CLS', clsScore);
+                });
+            } catch (e) {}
+        }
+
+        // Navigation Timing (兼容性更好)
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (!('performance' in window && 'timing' in window.performance)) return;
+
+                const timing = performance.timing;
+                const metrics = {
+                    'DNS Lookup': timing.domainLookupEnd - timing.domainLookupStart,
+                    'TCP Connect': timing.connectEnd - timing.connectStart,
+                    'Request Time': timing.responseStart - timing.requestStart,
+                    'Response Time': timing.responseEnd - timing.responseStart,
+                    'DOM Processing': timing.domComplete - timing.domLoading,
+                    'DOM Ready': timing.domContentLoadedEventEnd - timing.navigationStart,
+                    'Full Load': timing.loadEventEnd - timing.navigationStart
+                };
+
+                if (PERF_CONFIG.logToConsole) {
+                    console.group('📊 Homepage Performance Metrics');
+                    Object.keys(metrics).forEach(function(key) {
+                        console.log('- ' + key + ':', metrics[key] + 'ms');
+                    });
+                    console.groupEnd();
+                }
+
+                // 批量上报
+                reportMetric('NavigationTiming', metrics);
+            }, 0);
+        });
+    }
+
+    // 性能指标上报函数
+    function reportMetric(name, value) {
+        if (!PERF_CONFIG.reportEndpoint) return;
+
+        // 使用 sendBeacon 确保数据发送（即使页面卸载）
+        if ('sendBeacon' in navigator) {
+            const data = JSON.stringify({
+                metric: name,
+                value: value,
+                url: window.location.href,
+                timestamp: Date.now()
             });
+            navigator.sendBeacon(PERF_CONFIG.reportEndpoint, data);
         }
     }
 
