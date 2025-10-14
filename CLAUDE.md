@@ -320,10 +320,27 @@ But they DO NOT share:
 
 ### Git Workflow Notes
 
-- **All pushes to `main` deploy to production immediately**
+- **All pushes to `main` deploy to production immediately** (via GitHub Actions within 1-2 minutes)
 - No staging environment exists
 - Large number of modified files is normal (many HTML pages regenerated)
 - Git status will frequently show 100+ modified files after content updates
+
+**Best Practices:**
+```bash
+# ALWAYS check git status before committing
+git status
+
+# Review what will be deployed before pushing
+git diff --stat
+
+# For major changes, consider testing locally first
+python -m http.server 8000  # Test at http://localhost:8000
+
+# Create meaningful commit messages
+git commit -m "feat: add new AI tools section with 10 resources"
+git commit -m "fix: correct broken links in stock section"
+git commit -m "docs: update homepage with latest articles"
+```
 
 ### File Organization Rules
 
@@ -661,6 +678,7 @@ file -I *.html
 ### Important File Paths
 - **Homepage**: `index.html`, `css/homepage.css`, `js/homepage.js`
 - **AI Tools Data**: `ai1000website/app.js`
+- **App Prototypes**: `app/*.html` (25+ creative app mockups)
 - **Deployment**: `.github/workflows/static.yml`
 - **Domain Config**: `CNAME` (contains: index.zshipu.com)
 - **Scripts**: `scripts/*.py` (content generation and SEO)
