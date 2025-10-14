@@ -36,6 +36,7 @@ The repository is organized into domain-specific directories, each representing 
 - `weibo/` - Weibo social media integration
 - `xiaoshuo/` - Novel/story content
 - `ds/` - Data science resources
+- `app/` - Creative application prototypes (100+ app ideas with interactive HTML mockups)
 
 ### Sub-Project Details
 
@@ -101,6 +102,29 @@ A WebGL-based flying experience using procedural terrain generation.
 - detect-gpu
 
 Just open `fly-by/index.html` in a browser to play.
+
+#### app/ - Creative Application Prototypes
+A collection of 100+ creative application concepts presented as interactive HTML prototypes.
+
+**Project Focus:**
+- Health & wellness apps (心脉守护, AR心跳日记, 心率游戏, 情绪日历)
+- Education apps (LingoLearn, 儿童故事创作, 英语扫描助手)
+- Personal productivity (MindVault AI记忆助手, 智能文案生成器)
+- Creative tools (梦境绘本 - DreamCanvas, 创意市集 - IdeaBazaar)
+- Entertainment & lifestyle (宠物探险家 - PetQuest, WanderWorld)
+
+**Structure:**
+- Each app is a self-contained HTML file with embedded CSS/JS
+- Interactive prototypes demonstrating UI/UX concepts
+- Primarily Chinese-language content with modern design patterns
+
+**Viewing prototypes:**
+```bash
+cd app
+# Open any HTML file in browser, or:
+python -m http.server 8000
+# Visit: http://localhost:8000
+```
 
 ### Root Homepage
 
@@ -536,6 +560,13 @@ The repository includes Python scripts in `/scripts/` for generating JSON indexe
 - `generate_site_index.py` - Generates complete site indexes, sitemaps, and robots.txt
 - `generate_homepage_seo_links.py` - Generates SEO-optimized internal links for homepage
 - `generate_tags_data.py` - Extracts and generates tag cloud data
+
+**Script Dependencies:**
+```bash
+# All scripts require Python 3.6+ with standard library only
+# No external dependencies needed - uses built-in modules:
+# - json, os, re, datetime, html.parser, pathlib
+```
 
 **Regenerating Site Indexes:**
 ```bash
