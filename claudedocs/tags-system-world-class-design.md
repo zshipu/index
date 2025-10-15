@@ -170,15 +170,72 @@
 - 每个聚合页包含该分类下所有标签
 ```
 
-#### 2.3 URL 语义化
+#### 2.3 URL 语义化与多域映射策略
+
+**标准结构**:
 ```
-标准结构:
 /tags/ - 标签云首页
-/tags/{tag-name}/ - 单个标签页
+/tags/{tag-name}/ - 单个标签页（根域标签）
+/{domain}/tags/{tag-name}/ - 域特定标签页
 /tags/category/{category-slug}/ - 分类聚合页
 /tags/hot/ - 热门标签页
 /tags/trending/ - 趋势标签页
 ```
+
+**多域标签URL映射策略** ⭐ (已实施):
+
+由于标签分布在13个不同域中，我们实施了智能URL映射策略：
+
+```python
+# 域优先级（有序）
+domains_priority = [
+    'root',      # /tags/
+    'ai',        # /ai/tags/
+    'ai001',     # /ai001/tags/
+    'geek',      # /geek/tags/
+    'geek001',   # /geek001/tags/
+    'stock',     # /stock/tags/
+    'stock001',  # /stock001/tags/
+    'gpt',       # /gpt/tags/
+    'go',        # /go/tags/
+    'ecg',       # /ecg/tags/
+    # ...
+]
+
+# URL生成逻辑
+if domain == 'root':
+    url = f'/tags/{tag_name}/'
+else:
+    url = f'/{domain}/tags/{tag_name}/'
+```
+
+**URL映射规则**:
+1. **Primary URL**: 标签的主要URL指向首次出现的域
+2. **域优先级**: root域优先级最高，其次是主要内容域（ai, geek, stock）
+3. **零重定向**: 不依赖服务器重定向，直接生成正确URL
+4. **向后兼容**: 保持现有URL结构不变
+
+**实际示例**:
+| 标签 | Primary Domain | URL |
+|------|----------------|-----|
+| 人工智能 | root | `/tags/人工智能/` |
+| ChatGPT | root | `/tags/ChatGPT/` |
+| AI | ai | `/ai/tags/AI/` |
+| Python | geek | `/geek/tags/Python/` |
+| 股票投资 | stock | `/stock/tags/股票投资/` |
+| 心电图 | ecg | `/ecg/tags/心电图/` |
+
+**分布统计**:
+- stock: 1,466 个标签 (26.4%)
+- geek001: 800 个标签 (14.4%)
+- stock001: 794 个标签 (14.3%)
+- geek: 617 个标签 (11.1%)
+- ecg: 494 个标签 (8.9%)
+- ai001: 470 个标签 (8.5%)
+- 其他域: 906 个标签 (16.4%)
+- **总计**: 5,547 个标签
+
+详见: [`claudedocs/tags-404-fix-report.md`](./tags-404-fix-report.md)
 
 ### 3. UI/UX 现代化设计
 

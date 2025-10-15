@@ -153,32 +153,31 @@ def scan_all_tags():
 
     base_path = Path(__file__).parent.parent
 
-    # 所有需要扫描的tags目录
+    # 所有需要扫描的tags目录（按优先级排序）
+    # 优先级：root > ai > geek > stock > gpt > go > ecg
     tags_dirs = [
-        base_path / 'tags',
-        base_path / 'ai' / 'tags',
-        base_path / 'ai001' / 'tags',
-        base_path / 'ai002' / 'tags',
-        base_path / 'geek' / 'tags',
-        base_path / 'geek001' / 'tags',
-        base_path / 'geek002' / 'tags',
-        base_path / 'stock' / 'tags',
-        base_path / 'stock001' / 'tags',
-        base_path / 'stock002' / 'tags',
-        base_path / 'gpt' / 'tags',
-        base_path / 'go' / 'tags',
-        base_path / 'ecg' / 'tags',
+        ('root', base_path / 'tags'),
+        ('ai', base_path / 'ai' / 'tags'),
+        ('ai001', base_path / 'ai001' / 'tags'),
+        ('ai002', base_path / 'ai002' / 'tags'),
+        ('geek', base_path / 'geek' / 'tags'),
+        ('geek001', base_path / 'geek001' / 'tags'),
+        ('geek002', base_path / 'geek002' / 'tags'),
+        ('stock', base_path / 'stock' / 'tags'),
+        ('stock001', base_path / 'stock001' / 'tags'),
+        ('stock002', base_path / 'stock002' / 'tags'),
+        ('gpt', base_path / 'gpt' / 'tags'),
+        ('go', base_path / 'go' / 'tags'),
+        ('ecg', base_path / 'ecg' / 'tags'),
     ]
 
-    all_tags = {}  # {tag_name: {count, urls, domain, articles}}
+    all_tags = {}  # {tag_name: {count, primary_url, primary_domain, domains, articles}}
     domain_stats = defaultdict(int)
     tag_articles = defaultdict(list)  # 用于计算标签共现
 
-    for tags_dir in tags_dirs:
+    for domain, tags_dir in tags_dirs:
         if not tags_dir.exists():
             continue
-
-        domain = tags_dir.parent.name if tags_dir.parent.name != base_path.name else 'root'
         print(f"\n📂 扫描域: {domain}")
         print("-" * 80)
 
@@ -207,17 +206,23 @@ def scan_all_tags():
 
             if article_count > 0:
                 if tag_name not in all_tags:
+                    # 第一次遇到这个标签，设置primary_url（优先级最高的域）
+                    if domain == 'root':
+                        primary_url = f'/tags/{tag_name}/'
+                    else:
+                        primary_url = f'/{domain}/tags/{tag_name}/'
+
                     all_tags[tag_name] = {
                         'name': tag_name,
                         'count': 0,
+                        'primary_url': primary_url,
+                        'primary_domain': domain,
                         'domains': set(),
-                        'urls': set(),
                         'articles': []
                     }
 
                 all_tags[tag_name]['count'] += article_count
                 all_tags[tag_name]['domains'].add(domain)
-                all_tags[tag_name]['urls'].add(f'/tags/{tag_name}/')
                 all_tags[tag_name]['articles'].extend(article_paths)
 
                 domain_stats[domain] += 1
@@ -225,7 +230,7 @@ def scan_all_tags():
                 # 记录标签的文章用于计算共现
                 tag_articles[tag_name].extend(article_paths)
 
-                print(f"  ✅ {tag_name:40s}: {article_count:4d} 篇")
+                print(f"  ✅ {tag_name:40s}: {article_count:4d} 篇 → {all_tags[tag_name]['primary_url']}")
 
     # 转换为列表格式
     tags_list = []
@@ -233,7 +238,8 @@ def scan_all_tags():
         tags_list.append({
             'name': tag_name,
             'count': data['count'],
-            'url': list(data['urls'])[0],  # 使用第一个URL
+            'url': data['primary_url'],  # 使用primary_url（优先级最高的域）
+            'primary_domain': data['primary_domain'],
             'domains': list(data['domains']),
             'category': classify_tag(tag_name),
             'articles': data['articles'][:10]  # 只保留前10篇用于展示
@@ -356,6 +362,7 @@ def generate_enhanced_json(tags_list, relations, categorized, category_stats):
                 'name': t['name'],
                 'count': t['count'],
                 'url': t['url'],
+                'primary_domain': t.get('primary_domain', 'root'),
                 'category': t['category'],
                 'domains': t.get('domains', [])
             }
