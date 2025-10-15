@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HRV 时域分析报告</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+            padding-bottom: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .time-info {
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #555;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 15px 10px;
+            text-align: center;
+            color: white;
+        }
+
+        .stat-item:nth-child(1) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .stat-item:nth-child(2) {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .stat-item:nth-child(3) {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .stat-item:nth-child(4) {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        }
+
+        .stat-label {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .stat-unit {
+            font-size: 0.5em;
+            opacity: 0.8;
+        }
+
+        .distribution-container {
+            margin: 15px 0;
+        }
+
+        .distribution-chart {
+            position: relative;
+            height: 200px;
+            margin-bottom: 10px;
+        }
+
+        .distribution-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        .dist-stat {
+            background: #f5f7fa;
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dist-label {
+            color: #666;
+        }
+
+        .dist-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .trend-container {
+            margin: 15px 0;
+        }
+
+        .info-box {
+            background: #e8f4ff;
+            border-left: 3px solid #667eea;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            color: #555;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 3px solid #ff9800;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            color: #e65100;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+
+        .range-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .range-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 10px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        .range-item:nth-child(1) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .range-item:nth-child(2) {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .range-item:nth-child(3) {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .range-item:nth-child(4) {
+            background: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+        }
+
+        .range-label {
+            font-size: 0.75em;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .range-value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        .health-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px;
+            background: #f0f4ff;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-good { background: #43e97b; }
+        .status-moderate { background: #feca57; }
+        .status-low { background: #ff6b6b; }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .sdnn-highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .sdnn-highlight .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .sdnn-highlight .value {
+            font-size: 3em;
+            font-weight: bold;
+        }
+
+        .sdnn-highlight .unit {
+            font-size: 0.4em;
+        }
+
+        .sdnn-highlight .status {
+            font-size: 0.85em;
+            margin-top: 8px;
+            opacity: 0.95;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💓 HRV 时域分析报告</h1>
+            <div class="subtitle">Heart Rate Variability Time Domain Analysis</div>
+        </div>
+
+        <div class="time-info" id="timeRange"></div>
+
+        <!-- SDNN 重点指标 -->
+        <div class="sdnn-highlight">
+            <div class="label">SDNN 标准差</div>
+            <div class="value" id="sdnnValue">-<span class="unit">ms</span></div>
+            <div class="status" id="sdnnStatus">正在分析...</div>
+        </div>
+
+        <div class="warning-box" id="sdnnWarning" style="display: none;">
+            ⚠️ 当SDNN大于100ms就表示自主神经调节功能正常
+        </div>
+
+        <!-- 主要统计指标 -->
+        <div class="card">
+            <div class="card-title">📊 主要统计指标</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">平均值</div>
+                    <div class="stat-value" id="avgHrv">-</div>
+                    <div class="stat-unit">ms</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">最大值</div>
+                    <div class="stat-value" id="maxHrv">-</div>
+                    <div class="stat-unit">ms</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">最小值</div>
+                    <div class="stat-value" id="minHrv">-</div>
+                    <div class="stat-unit">ms</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">rMSSD</div>
+                    <div class="stat-value" id="rmssd">-</div>
+                    <div class="stat-unit">ms</div>
+                </div>
+            </div>
+            <div class="health-status">
+                <div class="status-dot" id="healthDot"></div>
+                <span id="healthStatus">-</span>
+            </div>
+        </div>
+
+        <!-- HRV时域分布图 -->
+        <div class="card">
+            <div class="card-title">📈 HRV 时域分布图</div>
+            <div class="info-box">
+                显示HRV数值的分布情况，横轴为HRV值（ms），纵轴为出现频次
+            </div>
+            <div class="distribution-container">
+                <div class="distribution-chart">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+                <div class="distribution-stats">
+                    <div class="dist-stat">
+                        <span class="dist-label">中位数</span>
+                        <span class="dist-value" id="medianValue">-</span>
+                    </div>
+                    <div class="dist-stat">
+                        <span class="dist-label">峰值</span>
+                        <span class="dist-value" id="peakValue">-</span>
+                    </div>
+                    <div class="dist-stat">
+                        <span class="dist-label">偏度</span>
+                        <span class="dist-value" id="skewnessValue">-</span>
+                    </div>
+                    <div class="dist-stat">
+                        <span class="dist-label">峰度</span>
+                        <span class="dist-value" id="kurtosisValue">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 最近7条走势 -->
+        <div class="card">
+            <div class="card-title">📉 最近7条走势（动态甬道）</div>
+            <div class="info-box">
+                蓝色线为实际HRV值，绿色区域为动态甬道（平均值±标准差），基于时间窗口累积计算
+            </div>
+            <div class="trend-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 区间分布 -->
+        <div class="card">
+            <div class="card-title">📊 HRV 区间分布统计</div>
+            <div class="range-grid">
+                <div class="range-item">
+                    <div class="range-label">低区间 (60-100)</div>
+                    <div class="range-value" id="lowRange">-</div>
+                    <div class="range-label">次</div>
+                </div>
+                <div class="range-item">
+                    <div class="range-label">正常 (100-120)</div>
+                    <div class="range-value" id="normalRange">-</div>
+                    <div class="range-label">次</div>
+                </div>
+                <div class="range-item">
+                    <div class="range-label">良好 (120-140)</div>
+                    <div class="range-value" id="goodRange">-</div>
+                    <div class="range-label">次</div>
+                </div>
+                <div class="range-item">
+                    <div class="range-label">优秀 (>140)</div>
+                    <div class="range-value" id="excellentRange">-</div>
+                    <div class="range-label">次</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const hrvData = [
+            { "hrv_value": 108, "take_time": "2025-10-15 09:56:18" },
+            { "hrv_value": 141, "take_time": "2025-10-14 20:32:30" },
+            { "hrv_value": 129, "take_time": "2025-10-14 20:31:42" },
+            { "hrv_value": 112, "take_time": "2025-10-14 17:25:31" },
+            { "hrv_value": 110, "take_time": "2025-10-14 14:53:31" },
+            { "hrv_value": 109, "take_time": "2025-10-14 09:00:39" },
+            { "hrv_value": 116, "take_time": "2025-10-14 05:19:57" },
+            { "hrv_value": 117, "take_time": "2025-10-13 19:56:28" },
+            { "hrv_value": 142, "take_time": "2025-10-13 18:27:42" },
+            { "hrv_value": 96, "take_time": "2025-10-13 15:02:41" },
+            { "hrv_value": 92, "take_time": "2025-10-13 11:18:52" },
+            { "hrv_value": 110, "take_time": "2025-10-12 22:15:59" },
+            { "hrv_value": 116, "take_time": "2025-10-12 15:54:02" },
+            { "hrv_value": 119, "take_time": "2025-10-12 13:53:44" },
+            { "hrv_value": 121, "take_time": "2025-10-12 13:51:50" },
+            { "hrv_value": 117, "take_time": "2025-10-12 13:43:16" },
+            { "hrv_value": 107, "take_time": "2025-10-12 12:52:20" },
+            { "hrv_value": 121, "take_time": "2025-10-11 23:07:01" },
+            { "hrv_value": 113, "take_time": "2025-10-10 21:51:11" },
+            { "hrv_value": 95, "take_time": "2025-10-09 17:29:53" },
+            { "hrv_value": 115, "take_time": "2025-10-07 23:27:33" },
+            { "hrv_value": 95, "take_time": "2025-10-06 22:04:58" },
+            { "hrv_value": 129, "take_time": "2025-10-06 16:15:41" }
+        ];
+
+        hrvData.sort((a, b) => new Date(a.take_time) - new Date(b.take_time));
+        const recentData = hrvData.slice(-7);
+
+        function calculateStats() {
+            const values = hrvData.map(d => d.hrv_value);
+            const sum = values.reduce((a, b) => a + b, 0);
+            const avg = sum / values.length;
+            const max = Math.max(...values);
+            const min = Math.min(...values);
+            
+            const variance = values.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / values.length;
+            const std = Math.sqrt(variance);
+            
+            // 计算 rMSSD (连续差值的均方根)
+            let sumSquaredDiffs = 0;
+            for (let i = 1; i < values.length; i++) {
+                sumSquaredDiffs += Math.pow(values[i] - values[i-1], 2);
+            }
+            const rmssd = Math.sqrt(sumSquaredDiffs / (values.length - 1));
+            
+            // 计算中位数
+            const sorted = [...values].sort((a, b) => a - b);
+            const median = sorted.length % 2 === 0 
+                ? (sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2 
+                : sorted[Math.floor(sorted.length/2)];
+            
+            return { avg, max, min, std, rmssd, median };
+        }
+
+        function calculateDistributionStats(values) {
+            const avg = values.reduce((a, b) => a + b, 0) / values.length;
+            
+            // 偏度
+            const skewness = values.reduce((acc, val) => 
+                acc + Math.pow((val - avg) / Math.sqrt(values.reduce((a, v) => a + Math.pow(v - avg, 2), 0) / values.length), 3)
+            , 0) / values.length;
+            
+            // 峰度
+            const kurtosis = values.reduce((acc, val) => 
+                acc + Math.pow((val - avg) / Math.sqrt(values.reduce((a, v) => a + Math.pow(v - avg, 2), 0) / values.length), 4)
+            , 0) / values.length - 3;
+            
+            return { skewness, kurtosis };
+        }
+
+        function createHistogram(values) {
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const binWidth = 10; // 每10ms一个区间
+            const bins = {};
+            
+            for (let i = Math.floor(min / binWidth) * binWidth; i <= max; i += binWidth) {
+                bins[i] = 0;
+            }
+            
+            values.forEach(val => {
+                const binKey = Math.floor(val / binWidth) * binWidth;
+                bins[binKey]++;
+            });
+            
+            return bins;
+        }
+
+        function calculateCumulativeStats(allData, upToIndex) {
+            const subset = allData.slice(0, upToIndex + 1);
+            const values = subset.map(d => d.hrv_value);
+            const sum = values.reduce((a, b) => a + b, 0);
+            const avg = sum / values.length;
+            
+            const variance = values.reduce((acc, val) => acc + Math.pow(val - avg, 2), 0) / values.length;
+            const std = Math.sqrt(variance);
+
+            return { avg, std, upper: avg + std, lower: avg - std };
+        }
+
+        function calculateRanges() {
+            let low = 0, normal = 0, good = 0, excellent = 0;
+            
+            hrvData.forEach(d => {
+                if (d.hrv_value < 100) low++;
+                else if (d.hrv_value < 120) normal++;
+                else if (d.hrv_value < 140) good++;
+                else excellent++;
+            });
+
+            return { low, normal, good, excellent };
+        }
+
+        function getHealthStatus(avg, sdnn) {
+            if (sdnn >= 100 && avg >= 120) return { text: '优秀 - 神经调节功能正常', class: 'status-good' };
+            if (sdnn >= 100) return { text: '良好 - 神经调节功能正常', class: 'status-moderate' };
+            return { text: '需关注 - 建议加强休息', class: 'status-low' };
+        }
+
+        const stats = calculateStats();
+        const ranges = calculateRanges();
+        const values = hrvData.map(d => d.hrv_value);
+        const histogram = createHistogram(values);
+        const distStats = calculateDistributionStats(values);
+        const healthStatus = getHealthStatus(stats.avg, stats.std);
+
+        // 更新统计数据
+        document.getElementById('avgHrv').textContent = stats.avg.toFixed(1);
+        document.getElementById('maxHrv').textContent = stats.max;
+        document.getElementById('minHrv').textContent = stats.min;
+        document.getElementById('rmssd').textContent = stats.rmssd.toFixed(1);
+        
+        document.getElementById('sdnnValue').innerHTML = stats.std.toFixed(1) + '<span class="unit">ms</span>';
+        document.getElementById('sdnnStatus').textContent = stats.std >= 100 ? '✓ 自主神经调节功能正常' : '⚠ 需要关注';
+        
+        if (stats.std < 100) {
+            document.getElementById('sdnnWarning').style.display = 'block';
+        }
+
+        document.getElementById('healthDot').className = `status-dot ${healthStatus.class}`;
+        document.getElementById('healthStatus').textContent = healthStatus.text;
+
+        document.getElementById('medianValue').textContent = stats.median.toFixed(1) + ' ms';
+        const peakBin = Object.entries(histogram).reduce((a, b) => a[1] > b[1] ? a : b);
+        document.getElementById('peakValue').textContent = peakBin[0] + ' ms';
+        document.getElementById('skewnessValue').textContent = distStats.skewness.toFixed(2);
+        document.getElementById('kurtosisValue').textContent = distStats.kurtosis.toFixed(2);
+
+        document.getElementById('lowRange').textContent = ranges.low;
+        document.getElementById('normalRange').textContent = ranges.normal;
+        document.getElementById('goodRange').textContent = ranges.good;
+        document.getElementById('excellentRange').textContent = ranges.excellent;
+
+        const firstDate = hrvData[0].take_time.split(' ')[0];
+        const lastDate = hrvData[hrvData.length - 1].take_time.split(' ')[0];
+        document.getElementById('timeRange').textContent = `数据时间: ${firstDate} 至 ${lastDate} (共${hrvData.length}条记录)`;
+
+        // 绘制时域分布图
+        const distCtx = document.getElementById('distributionChart').getContext('2d');
+        new Chart(distCtx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(histogram).map(k => k + '-' + (parseInt(k) + 10)),
+                datasets: [{
+                    label: '频次',
+                    data: Object.values(histogram),
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: '#667eea',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        callbacks: {
+                            title: (items) => `HRV: ${items[0].label} ms`,
+                            label: (item) => `出现次数: ${item.parsed.y}`
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1, font: { size: 10 } },
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    },
+                    x: {
+                        ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // 为最近7条数据计算甬道
+        const trendDataWithCorridor = recentData.map((dataPoint, index) => {
+            const globalIndex = hrvData.findIndex(d => 
+                d.take_time === dataPoint.take_time && d.hrv_value === dataPoint.hrv_value
+            );
+            const stats = calculateCumulativeStats(hrvData, globalIndex);
+            return { ...dataPoint, ...stats };
+        });
+
+        // 绘制走势图
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: trendDataWithCorridor.map(d => {
+                    const date = new Date(d.take_time);
+                    return `${date.getMonth()+1}/${date.getDate()}\n${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+                }),
+                datasets: [
+                    {
+                        label: '上限',
+                        data: trendDataWithCorridor.map(d => d.upper),
+                        borderColor: 'rgba(67, 233, 123, 0.6)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'HRV',
+                        data: trendDataWithCorridor.map(d => d.hrv_value),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                        borderWidth: 3,
+                        fill: '+1',
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: '下限',
+                        data: trendDataWithCorridor.map(d => d.lower),
+                        borderColor: 'rgba(67, 233, 123, 0.6)',
+                        backgroundColor: 'rgba(67, 233, 123, 0.2)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        fill: '-1',
+                        pointRadius: 0,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { size: 11 }, padding: 10, usePointStyle: true }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 10,
+                        titleFont: { size: 11 },
+                        bodyFont: { size: 10 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: { font: { size: 10 } }
+                    },
+                    x: {
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: { font: { size: 9 } }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
