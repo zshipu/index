@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UPECG - 开源心电图信号提取系统 | 从纸质心电图记录中提取数字ECG信号的Python工具">
+    <meta name="keywords" content="ECG,心电图,信号提取,图像处理,OpenCV,Python,医疗诊断工具">
+    <title>UPECG - 开源心电图信号提取系统 | 知识铺</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #06B6D4;
+            --secondary-color: #0891B2;
+            --accent-color: #22D3EE;
+            --text-dark: #1a202c;
+            --text-light: #718096;
+            --bg-light: #f7fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --success-color: #10B981;
+            --code-bg: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+            line-height: 1.7;
+            color: var(--text-dark);
+            background: var(--bg-light);
+        }
+
+        /* 导航栏 */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Hero区域 */
+        .hero {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            padding: 5rem 2rem;
+            text-align: center;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.95;
+        }
+
+        .hero-description {
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+            opacity: 0.9;
+            line-height: 1.8;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.9rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: var(--primary-color);
+        }
+
+        /* 容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        /* 章节标题 */
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--text-dark);
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 4px;
+            background: var(--primary-color);
+            margin: 1rem auto 0;
+            border-radius: 2px;
+        }
+
+        /* 功能卡片 */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .feature-description {
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* 流程图 */
+        .pipeline {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 4rem;
+        }
+
+        .pipeline-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .pipeline-step {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            background: var(--bg-light);
+            border-radius: 10px;
+            border-left: 4px solid var(--primary-color);
+            transition: all 0.3s;
+        }
+
+        .pipeline-step:hover {
+            transform: translateX(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+
+        .step-content h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .step-content p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        /* 代码块 */
+        .code-section {
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 4rem;
+        }
+
+        .code-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .code-tab {
+            padding: 0.8rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .code-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .code-block {
+            background: var(--code-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .code-block pre {
+            margin: 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .code-block code {
+            color: var(--text-dark);
+        }
+
+        /* 技术栈 */
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+
+        .tech-badge {
+            background: white;
+            padding: 0.8rem 1.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            color: var(--text-dark);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+        }
+
+        .tech-badge:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        /* 演示图库 */
+        .demo-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .demo-item {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .demo-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .demo-title {
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .demo-description {
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        /* 统计数据 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-light);
+            font-size: 1rem;
+        }
+
+        /* 页脚 */
+        .footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+        }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .pipeline-step {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/upecg/" class="logo">
+                <span class="logo-icon">📊</span>
+                <span>UPECG</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">首页</a></li>
+                <li><a href="#features">核心功能</a></li>
+                <li><a href="#pipeline">处理流程</a></li>
+                <li><a href="#usage">快速开始</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero区域 -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>📊 UPECG</h1>
+            <p class="hero-subtitle">开源心电图信号提取系统</p>
+            <p class="hero-description">
+                从纸质心电图记录中提取数字ECG信号的Python工具<br>
+                支持网格检测、信号保护、几何校正与物理单位标定
+            </p>
+            <div class="cta-buttons">
+                <a href="#usage" class="btn btn-primary">
+                    <span>快速开始</span>
+                    <span>→</span>
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    <span>返回首页</span>
+                    <span>↩</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- 统计数据 -->
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">开源免费</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">7+</div>
+                <div class="stat-label">处理阶段</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">Python</div>
+                <div class="stat-label">开发语言</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">医疗级</div>
+                <div class="stat-label">精度标准</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 核心功能 -->
+    <section id="features" class="container">
+        <h2 class="section-title">核心功能</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔍</div>
+                <h3 class="feature-title">智能网格检测</h3>
+                <p class="feature-description">
+                    自动检测心电图纸网格间距（1mm或5mm小格）
+                    通过投影分析精确估算像素密度与比例
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3 class="feature-title">信号保护机制</h3>
+                <p class="feature-description">
+                    在网格移除过程中智能保护ECG波形轨迹
+                    避免损坏关键QRS波群等重要特征点
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📐</div>
+                <h3 class="feature-title">几何校正</h3>
+                <p class="feature-description">
+                    使用Hough变换检测倾斜角度并自动纠正
+                    确保图像网格线水平垂直对齐
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">⚖️</div>
+                <h3 class="feature-title">物理单位标定</h3>
+                <p class="feature-description">
+                    基于标准ECG纸张参数(25mm/s, 10mm/mV)自动推算标尺
+                    提供准确的时间轴与电压轴物理单位换算
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎨</div>
+                <h3 class="feature-title">多色轨迹支持</h3>
+                <p class="feature-description">
+                    支持红色、黑色等多种颜色ECG轨迹的识别与提取
+                    适配不同厂商和打印方式的心电图纸张
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔬</div>
+                <h3 class="feature-title">骨架提取</h3>
+                <p class="feature-description">
+                    使用Zhang-Suen算法将ECG波形细化为单像素骨架
+                    便于后续波形分析与特征点检测
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 处理流程 -->
+    <section id="pipeline" class="container">
+        <h2 class="section-title">7阶段处理流程</h2>
+        <div class="pipeline">
+            <div class="pipeline-steps">
+                <div class="pipeline-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>图像读取与预处理</h3>
+                        <p>读取彩色图像，转换色彩空间，进行初步降噪和增强</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>几何校正</h3>
+                        <p>使用Hough线检测倾斜角度，旋转图像使网格线水平垂直</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>网格检测与标定</h3>
+                        <p>通过垂直投影分析检测网格间距，建立像素到物理单位映射</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>轨迹提示</h3>
+                        <p>基于颜色空间分离提取可能的ECG波形区域提示</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>保护掩码</h3>
+                        <p>生成保守的保护掩码，标记在网格移除过程中需要保留的像素</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">6</div>
+                    <div class="step-content">
+                        <h3>网格移除</h3>
+                        <p>使用掩码修复网格线像素，同时保留ECG波形</p>
+                    </div>
+                </div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">7</div>
+                    <div class="step-content">
+                        <h3>对比度增强与骨架提取</h3>
+                        <p>使用CLAHE增强对比度，细化波形为单像素骨架便于分析</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 技术栈 -->
+    <section class="container">
+        <h2 class="section-title">技术栈</h2>
+        <div class="tech-stack">
+            <div class="tech-badge">🐍 Python 3.6+</div>
+            <div class="tech-badge">📷 OpenCV</div>
+            <div class="tech-badge">🔢 NumPy</div>
+            <div class="tech-badge">🔬 Scikit-Image</div>
+            <div class="tech-badge">📊 SciPy</div>
+        </div>
+    </section>
+
+    <!-- 快速开始 -->
+    <section id="usage" class="container">
+        <h2 class="section-title">快速开始</h2>
+        <div class="code-section">
+            <div class="code-tabs">
+                <button class="code-tab active">安装依赖</button>
+            </div>
+            <div class="code-block">
+                <pre><code># 安装必需的Python包
+pip install opencv-python numpy scikit-image scipy
+
+# 进入upecg项目目录
+cd upecg</code></pre>
+            </div>
+        </div>
+
+        <div class="code-section">
+            <div class="code-tabs">
+                <button class="code-tab active">基本使用</button>
+            </div>
+            <div class="code-block">
+                <pre><code># 处理单张ECG图像
+python ecg_preproc_poc.py ecg1.png
+
+# 输出文件:
+# - preproc.png  (网格移除后的图像)
+# - mask.png     (ECG轨迹骨架掩码)
+# - 控制台输出网格标定信息</code></pre>
+            </div>
+        </div>
+
+        <div class="code-section">
+            <div class="code-tabs">
+                <button class="code-tab active">Python API</button>
+            </div>
+            <div class="code-block">
+                <pre><code>import cv2
+from ecg_preproc_poc import process_ecg_image
+
+# 读取图像
+img = cv2.imread('ecg1.png')
+
+# 处理
+result_img, mask, grid_info = process_ecg_image(img)
+
+# 查看标定信息
+print(f"像素密度: {grid_info['pixels_per_mm']}")
+print(f"采样率: {grid_info['sampling_rate_hz']} Hz")
+print(f"时间分辨率: {grid_info['time_per_pixel_s']*1000} ms/像素")</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- 演示图库 -->
+    <section class="container">
+        <h2 class="section-title">处理效果演示</h2>
+        <div class="demo-gallery">
+            <div class="demo-item">
+                <img src="ecg1.png" alt="原始ECG图像" onerror="this.style.display='none'">
+                <div class="demo-title">原始输入</div>
+                <div class="demo-description">带网格线的ECG纸张扫描件或照片</div>
+            </div>
+
+            <div class="demo-item">
+                <img src="preproc.png" alt="处理后的图像" onerror="this.style.display='none'">
+                <div class="demo-title">网格移除</div>
+                <div class="demo-description">保留纯净ECG波形，网格线智能移除</div>
+            </div>
+
+            <div class="demo-item">
+                <img src="mask.png" alt="骨架掩码" onerror="this.style.display='none'">
+                <div class="demo-title">骨架提取</div>
+                <div class="demo-title">骨架提取</div>
+                <div class="demo-description">细化为单像素骨架，便于波形分析与特征检测</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 应用场景 -->
+    <section class="container">
+        <h2 class="section-title">应用场景</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🏥</div>
+                <h3 class="feature-title">医疗档案数字化</h3>
+                <p class="feature-description">
+                    将历史纸质心电图档案批量转换为数字格式
+                    便于长期保存与电子病历系统集成
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3 class="feature-title">AI模型训练</h3>
+                <p class="feature-description">
+                    为深度学习模型提供干净的训练数据
+                    支持自动化心电图诊断算法研发
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 class="feature-title">临床研究</h3>
+                <p class="feature-description">
+                    批量处理历史ECG数据用于回顾性研究
+                    提供标准化的信号处理流程保证数据质量
+                </p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🔬</div>
+                <h3 class="feature-title">科研教学</h3>
+                <p class="feature-description">
+                    用于心电图信号处理算法开发与教学演示
+                    完整开源代码适合学习和二次开发
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="footer-links">
+            <a href="/">知识铺首页</a>
+            <a href="/archives/">文章归档</a>
+            <a href="/about/">关于我们</a>
+        </div>
+        <p>&copy; 2025 UPECG - 知识铺出品</p>
+    </footer>
+
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // 代码标签切换
+        document.querySelectorAll('.code-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const parent = this.parentElement;
+                parent.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -166,33 +166,6 @@ def generate_sitemap_links():
     html.append('</section>')
     return '\n'.join(html)
 
-def generate_tag_cloud():
-    """生成标签云（静态HTML）"""
-    html = []
-    html.append('<!-- 🏷️ SEO内链区域：热门标签 -->')
-    html.append('<section class="seo-tags-section">')
-    html.append('    <h2 class="seo-section-title">🏷️ 热门标签</h2>')
-    html.append('    <div class="seo-tag-cloud">')
-
-    tags = [
-        ('ChatGPT', '/tags/ChatGPT/', '大语言模型应用'),
-        ('AI浪潮', '/tags/AI浪潮/', 'AI行业趋势'),
-        ('OpenAI', '/tags/OpenAI/', 'OpenAI技术'),
-        ('人工智能', '/tags/人工智能/', 'AI基础知识'),
-        ('Prompt工程', '/tags/Prompt-Engineering/', 'Prompt技巧'),
-        ('自然语言处理', '/tags/自然语言处理/', 'NLP技术'),
-        ('大模型协作', '/tags/大模型协作/', 'AI协作'),
-        ('Prompt技术', '/tags/Prompt技术/', 'Prompt应用'),
-    ]
-
-    for tag_name, tag_url, tag_desc in tags:
-        html.append(f'        <a href="{tag_url}" class="seo-tag-link" title="{tag_desc}">')
-        html.append(f'            🏷️ {tag_name}')
-        html.append(f'        </a>')
-
-    html.append('    </div>')
-    html.append('</section>')
-    return '\n'.join(html)
 
 def generate_css():
     """生成SEO内链区域的CSS样式"""
@@ -458,11 +431,6 @@ def main():
         f.write(sitemap_html)
     print("✅ sitemap-links.html (站点导航)")
 
-    # 4. 标签云
-    tags_html = generate_tag_cloud()
-    with open(output_dir / 'tag-cloud.html', 'w', encoding='utf-8') as f:
-        f.write(tags_html)
-    print("✅ tag-cloud.html (热门标签)")
 
     # 5. CSS样式
     css = generate_css()

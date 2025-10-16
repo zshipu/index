@@ -800,6 +800,7 @@ The repository includes Python scripts in `/scripts/` for generating JSON indexe
 
 **Key Scripts:**
 - `generate_site_index.py` - Generates complete site indexes, sitemaps, and robots.txt
+- `generate_hot_tags.py` - Generates hot tags from all sub-sites for homepage tag cloud
 - `generate_homepage_seo_links.py` - Generates SEO-optimized internal links for homepage
 - `generate_tags_data.py` - Extracts and generates tag cloud data
 
@@ -815,6 +816,9 @@ The repository includes Python scripts in `/scripts/` for generating JSON indexe
 # Generate all JSON indexes and sitemaps (run after adding/updating articles)
 python scripts/generate_site_index.py
 
+# Generate hot tags for homepage (collects from all sub-sites)
+python scripts/generate_hot_tags.py
+
 # Generate homepage SEO links
 python scripts/generate_homepage_seo_links.py
 
@@ -828,6 +832,7 @@ python scripts/generate_tags_data.py
 - `site-links-by-category.json` - Articles grouped by category
 - `site-links-by-month.json` - Articles grouped by month
 - `site-links-search.json` - Compressed search index
+- `tag-hot.json` - Hot tags from all sub-sites (5530+ tags, top 100 displayed)
 - `sitemap.xml` + sub-sitemaps - SEO sitemap files (7 files total)
 - `robots.txt` - Search engine crawling instructions
 - `seo-fragments/*.html` - Pre-generated HTML fragments for SEO
@@ -898,6 +903,9 @@ cd ai1000website && python -m http.server 8003
 # After adding/updating articles - regenerate all indexes and sitemaps
 python scripts/generate_site_index.py
 
+# After modifying tags - regenerate hot tags for homepage
+python scripts/generate_hot_tags.py
+
 # After modifying tags - regenerate tag data
 python scripts/generate_tags_data.py
 
@@ -958,7 +966,7 @@ python optimize_articles.py                # SEO optimization
 - **Tag Data**: `site-tags*.json`, `tag-*.json` (5 files)
   - `site-tags.json` - Basic tag list
   - `site-tags-enhanced.json` - Full tag metadata (1.2MB)
-  - `tag-hot.json` - Popular tags
+  - `tag-hot.json` - Hot tags from all sub-sites (5530+ tags, used by homepage)
   - `tag-categories.json` - Tag categorization
   - `tag-relations.json` - Tag relationship graph
 
