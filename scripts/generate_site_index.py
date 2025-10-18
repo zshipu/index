@@ -67,6 +67,52 @@ def extract_title(html_path):
     except Exception as e:
         return os.path.basename(os.path.dirname(html_path))
 
+def extract_images(html_path, base_url='https://index.zshipu.com'):
+    """从HTML文件提取图片信息（用于图片sitemap）"""
+    images = []
+    try:
+        with open(html_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # 匹配 <img> 标签，提取src、alt、title
+        img_pattern = r'<img[^>]+src=["\']([^"\']+)["\'](?:[^>]*alt=["\']([^"\']*)["\'])?(?:[^>]*title=["\']([^"\']*)["\'])?[^>]*>'
+        matches = re.finditer(img_pattern, content, re.IGNORECASE)
+
+        for match in matches:
+            src = match.group(1)
+            alt = match.group(2) or ''
+            title = match.group(3) or alt or ''
+
+            # 过滤无关图片：favicon、icon、logo、data URI等
+            if any(skip in src.lower() for skip in ['favicon', 'icon.', 'logo.', 'data:', '.ico', 'avatar', 'badge']):
+                continue
+
+            # 规范化图片URL
+            if src.startswith('http://') or src.startswith('https://'):
+                # 外部图片直接使用（CDN图片、第三方图床等）
+                img_url = src
+            elif src.startswith('/'):
+                # 绝对路径
+                img_url = base_url + src
+            else:
+                # 相对路径（简化处理，假设在当前域下）
+                img_url = base_url + '/' + src
+
+            images.append({
+                'loc': img_url,
+                'title': clean_title(title[:100]) if title else '',
+                'caption': clean_title(alt[:200]) if alt else ''
+            })
+
+            # 限制每篇文章最多提取10张图片
+            if len(images) >= 10:
+                break
+
+    except Exception as e:
+        pass
+
+    return images
+
 def extract_date_from_path(path_str):
     """从路径提取日期"""
     # 匹配 20241013, 202410, 20240405 等格式
@@ -111,6 +157,7 @@ def scan_category(base_dir, category_name, icon, limit=None):
             title = extract_title(index_file)
             rel_path = f"/{category_name}/post/{date_dir.name}/{article_dir.name}/"
             date = extract_date_from_path(rel_path)
+            images = extract_images(index_file)  # 提取图片信息
 
             articles.append({
                 'title': title,
@@ -118,6 +165,7 @@ def scan_category(base_dir, category_name, icon, limit=None):
                 'date': date or datetime.fromtimestamp(index_file.stat().st_mtime).strftime('%Y-%m-%d'),
                 'category': category_name,
                 'icon': icon,
+                'images': images,  # 添加图片信息
                 'mtime': index_file.stat().st_mtime
             })
 
@@ -166,8 +214,10 @@ def generate_site_index(max_per_category=500):
     # 按修改时间排序
     all_articles.sort(key=lambda x: x['mtime'], reverse=True)
 
+    # 注意：保留images字段用于sitemap生成，稍后在JSON生成时移除
     # 移除mtime字段
     for article in all_articles:
+        article['mtime_temp'] = article['mtime']  # 临时保存用于后续
         del article['mtime']
 
     print("\n" + "=" * 60)
@@ -181,11 +231,21 @@ def generate_json_files(articles):
     # 获取项目根目录
     base_path = Path(__file__).parent.parent
 
+    # 移除images字段（仅用于sitemap，不需要在JSON中）
+    articles_clean = []
+    for article in articles:
+        article_copy = article.copy()
+        if 'images' in article_copy:
+            del article_copy['images']
+        if 'mtime_temp' in article_copy:
+            del article_copy['mtime_temp']
+        articles_clean.append(article_copy)
+
     # 1. 完整索引
     full_index = {
         'generated_at': datetime.now().isoformat(),
-        'total': len(articles),
-        'articles': articles
+        'total': len(articles_clean),
+        'articles': articles_clean
     }
 
     with open(base_path / 'site-links-full.json', 'w', encoding='utf-8') as f:
@@ -195,8 +255,8 @@ def generate_json_files(articles):
     # 2. 最新100篇（首页用）
     recent_100 = {
         'generated_at': datetime.now().isoformat(),
-        'total': len(articles[:100]),
-        'articles': articles[:100]
+        'total': len(articles_clean[:100]),
+        'articles': articles_clean[:100]
     }
 
     with open(base_path / 'site-links-recent.json', 'w', encoding='utf-8') as f:
@@ -205,7 +265,7 @@ def generate_json_files(articles):
 
     # 3. 按分类分组
     by_category = defaultdict(list)
-    for article in articles:
+    for article in articles_clean:
         by_category[article['category']].append(article)
 
     category_index = {
@@ -220,7 +280,7 @@ def generate_json_files(articles):
 
     # 4. 按年月分组
     by_month = defaultdict(list)
-    for article in articles:
+    for article in articles_clean:
         if article['date']:
             month_key = article['date'][:7]  # YYYY-MM
             by_month[month_key].append(article)
@@ -238,7 +298,7 @@ def generate_json_files(articles):
     # 5. 精简版（只包含标题和路径，搜索用）
     search_index = [
         {'t': a['title'], 'p': a['path'], 'c': a['category']}
-        for a in articles
+        for a in articles_clean
     ]
 
     with open(base_path / 'site-links-search.json', 'w', encoding='utf-8') as f:
@@ -341,7 +401,8 @@ def generate_sitemaps(articles, base_url='https://index.zshipu.com'):
         category_sitemaps.append(sitemap_name)
 
         sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
-        sitemap_lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+        sitemap_lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"')
+        sitemap_lines.append('        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">')
 
         for article in cat_articles[:1000]:  # 限制每个sitemap最多1000个URL
             # 根据文章发布时间计算优先级
@@ -367,6 +428,21 @@ def generate_sitemaps(articles, base_url='https://index.zshipu.com'):
                 sitemap_lines.append(f'    <lastmod>{article["date"]}</lastmod>')
             sitemap_lines.append('    <changefreq>monthly</changefreq>')
             sitemap_lines.append(f'    <priority>{priority}</priority>')
+
+            # 添加图片信息（Google图片搜索优化）
+            if article.get('images'):
+                for img in article['images'][:5]:  # 每篇文章最多5张图片进sitemap
+                    sitemap_lines.append('    <image:image>')
+                    sitemap_lines.append(f'      <image:loc>{img["loc"]}</image:loc>')
+                    if img.get('title'):
+                        # XML转义
+                        title_escaped = img["title"].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        sitemap_lines.append(f'      <image:title>{title_escaped}</image:title>')
+                    if img.get('caption'):
+                        caption_escaped = img["caption"].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        sitemap_lines.append(f'      <image:caption>{caption_escaped}</image:caption>')
+                    sitemap_lines.append('    </image:image>')
+
             sitemap_lines.append('  </url>')
 
         sitemap_lines.append('</urlset>')
@@ -386,7 +462,8 @@ def generate_sitemaps(articles, base_url='https://index.zshipu.com'):
         category_sitemaps.append(sitemap_name)
 
         sitemap_lines = ['<?xml version="1.0" encoding="UTF-8"?>']
-        sitemap_lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+        sitemap_lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"')
+        sitemap_lines.append('        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">')
 
         for article in other_articles:
             sitemap_lines.append('  <url>')
@@ -395,6 +472,20 @@ def generate_sitemaps(articles, base_url='https://index.zshipu.com'):
                 sitemap_lines.append(f'    <lastmod>{article["date"]}</lastmod>')
             sitemap_lines.append('    <changefreq>monthly</changefreq>')
             sitemap_lines.append('    <priority>0.7</priority>')
+
+            # 添加图片信息
+            if article.get('images'):
+                for img in article['images'][:5]:
+                    sitemap_lines.append('    <image:image>')
+                    sitemap_lines.append(f'      <image:loc>{img["loc"]}</image:loc>')
+                    if img.get('title'):
+                        title_escaped = img["title"].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        sitemap_lines.append(f'      <image:title>{title_escaped}</image:title>')
+                    if img.get('caption'):
+                        caption_escaped = img["caption"].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        sitemap_lines.append(f'      <image:caption>{caption_escaped}</image:caption>')
+                    sitemap_lines.append('    </image:image>')
+
             sitemap_lines.append('  </url>')
 
         sitemap_lines.append('</urlset>')
