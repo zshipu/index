@@ -53,6 +53,16 @@ def clean_title(title):
     title = re.sub(r'\s*\|\s*最新资讯.*$', '', title)
     title = re.sub(r'\s*-\s*知识铺.*$', '', title)
     title = re.sub(r'_.*$', '', title)
+
+    # 移除单独的 "|" 和 "-" 及其周围空白
+    title = re.sub(r'^\s*\|\s*', '', title)  # 开头的 "| "
+    title = re.sub(r'\s*\|\s*$', '', title)  # 结尾的 " |"
+    title = re.sub(r'^\s*-\s*$', '', title)  # 只有 "-" 的情况
+    title = re.sub(r'\s*-\s*$', '', title)   # 结尾的 " -"
+
+    # 移除分类标签（如 "| 心电资讯 -"）
+    title = re.sub(r'^\s*\|\s*[\u4e00-\u9fa5]+\s*-\s*$', '', title)
+
     return title.strip()
 
 def extract_title(html_path):

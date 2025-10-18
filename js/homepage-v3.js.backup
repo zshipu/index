@@ -399,8 +399,6 @@
       this.grid = document.getElementById('articlesGrid');
       this.loadMoreBtn = document.getElementById('loadMoreBtn');
       this.currentPage = 1;
-      this.articlesPerPage = 12;
-      this.allArticles = [];
       this.loading = false;
 
       if (!this.grid) return;
@@ -423,12 +421,10 @@
       try {
         // 从site-links-recent.json加载数据
         const response = await fetch('/site-links-recent.json');
-        const data = await response.json();
-        this.allArticles = data.articles || [];
+        const articles = await response.json();
 
-        if (this.allArticles && this.allArticles.length) {
-          this.renderArticles(this.allArticles.slice(0, this.articlesPerPage));
-          this.updateLoadMoreButton();
+        if (articles && articles.length) {
+          this.renderArticles(articles.slice(0, 12));
         } else {
           this.showEmptyState();
         }
@@ -452,15 +448,12 @@
     },
 
     createArticleCard(article) {
-      // 兼容 path 和 url 两种字段名
-      const articleUrl = article.url || article.path || '#';
-
       // 提取分类
-      const category = this.extractCategory(articleUrl);
+      const category = this.extractCategory(article.url);
       const categoryConfig = this.getCategoryConfig(category);
 
       // 提取日期
-      const date = this.extractDate(articleUrl);
+      const date = this.extractDate(article.url);
 
       return `
         <div class="article-card" data-category="${category}">
@@ -475,11 +468,16 @@
               <span class="article-date">${date}</span>
             </div>
             <h3 class="article-card-title">
-              <a href="${articleUrl}">${article.title}</a>
+              <a href="${article.url}">${article.title}</a>
             </h3>
             <p class="article-card-excerpt">
               ${this.generateExcerpt(article.title)}
             </p>
+            <div class="article-card-footer">
+              <span class="article-stat">👁 ${this.randomViews()}</span>
+              <span class="article-stat">💬 ${this.randomComments()}</span>
+              <span class="article-stat">⭐ ${this.randomLikes()}</span>
+            </div>
           </div>
         </div>
       `;
@@ -523,6 +521,18 @@
       return title.length > 60 ? title.substring(0, 60) + '...' : title;
     },
 
+    randomViews() {
+      return Math.floor(Math.random() * 2000) + 500;
+    },
+
+    randomComments() {
+      return Math.floor(Math.random() * 50) + 5;
+    },
+
+    randomLikes() {
+      return Math.floor(Math.random() * 150) + 20;
+    },
+
     animateCards() {
       const cards = this.grid.querySelectorAll('.article-card');
       cards.forEach((card, index) => {
@@ -538,36 +548,9 @@
     },
 
     loadMore() {
-      const startIndex = this.currentPage * this.articlesPerPage;
-      const endIndex = startIndex + this.articlesPerPage;
-      const moreArticles = this.allArticles.slice(startIndex, endIndex);
-
-      if (moreArticles.length > 0) {
-        // 追加渲染
-        const html = moreArticles.map(article => this.createArticleCard(article)).join('');
-        this.grid.insertAdjacentHTML('beforeend', html);
-        this.currentPage++;
-        this.updateLoadMoreButton();
-
-        // 动画
-        this.animateCards();
-      }
-    },
-
-    updateLoadMoreButton() {
-      const totalLoaded = this.currentPage * this.articlesPerPage;
-      const hasMore = totalLoaded < this.allArticles.length;
-
-      if (this.loadMoreBtn) {
-        this.loadMoreBtn.style.display = hasMore ? 'flex' : 'none';
-
-        // 更新按钮文本
-        const remaining = this.allArticles.length - totalLoaded;
-        const btnText = this.loadMoreBtn.querySelector('.btn-text');
-        if (btnText && hasMore) {
-          btnText.textContent = `加载更多 (还剩 ${remaining} 篇)`;
-        }
-      }
+      this.currentPage++;
+      // 实现加载更多逻辑
+      utils.log('Load more articles, page:', this.currentPage);
     },
 
     showEmptyState() {
