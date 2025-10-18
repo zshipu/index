@@ -405,6 +405,19 @@ But they DO NOT share:
 - Navigation (each site has independent nav structure)
 - Build process (there is none - all pre-generated HTML)
 
+**Multi-Version Domain Strategy:**
+The numbered domain versions (`ai/`, `ai001/`, `ai002/`) represent:
+- **Content evolution**: Different topic focuses or content reorganization
+- **A/B testing**: Experimenting with different structures or approaches
+- **Specialization**: Splitting broad topics into focused sub-sites
+- **Migration**: Moving from older to newer content organization
+
+All versions are live and indexed. When adding content:
+- **ai/** - Main AI content hub (1200+ articles)
+- **ai001/** - Specialized AI content subset or newer organization
+- **ai002/** - Additional AI content or experimental structure
+- Choose the appropriate version based on content topic and existing patterns
+
 ### Git Workflow Notes
 
 - **All pushes to `main` deploy to production immediately** (via GitHub Actions within 1-2 minutes)
@@ -462,11 +475,19 @@ These should be preserved when editing HTML templates.
 # Check for localhost URLs (should be none)
 grep -r "localhost" --include="*.html" .
 
-# Verify UTF-8 encoding
+# Verify UTF-8 encoding (Windows: use file command from Git Bash or WSL)
 file -I *.html
 
 # Check for broken internal links (manual test in browser)
 ```
+
+### Platform-Specific Notes
+
+**Windows Development:**
+- Use Git Bash, PowerShell, or WSL for running Python scripts
+- Python scripts handle Windows console encoding automatically (see UTF-8 wrapper in scripts)
+- File paths use forward slashes in generated URLs even on Windows
+- Use `python -m http.server 8000` works identically on Windows/Linux/Mac
 
 **For Python code (upecg/):**
 ```bash
@@ -494,6 +515,11 @@ python -m py_compile *.py   # Check syntax
 **Problem:** GitHub Pages not updating
 - **Cause:** Workflow failed or CNAME conflict
 - **Check:** `.github/workflows/static.yml` logs
+
+**Problem:** Git shows deleted files but they still exist
+- **Cause:** Files moved or renamed in filesystem but git tracking lost
+- **Fix:** `git add .` to stage the current state, or `git rm <file>` to confirm deletion
+- **Example:** If you see deleted files in `git status`, verify they actually exist before committing
 
 ## Project History Context
 
@@ -799,10 +825,12 @@ git push origin main
 The repository includes Python scripts in `/scripts/` for generating JSON indexes and SEO files:
 
 **Key Scripts:**
-- `generate_site_index.py` - Generates complete site indexes, sitemaps, and robots.txt
-- `generate_hot_tags.py` - Generates hot tags from all sub-sites for homepage tag cloud
-- `generate_homepage_seo_links.py` - Generates SEO-optimized internal links for homepage
-- `generate_tags_data.py` - Extracts and generates tag cloud data
+- `generate_site_index.py` (571 lines) - **CRITICAL**: Main index generator. Scans all domains, generates 5 JSON files + 8 XML sitemaps + robots.txt. Run this after ANY content changes.
+- `generate_tags_data.py` (127 lines) - Extracts tag data from tag directories, generates `site-tags.json`
+- `generate_tags_data_enhanced.py` (461 lines) - Enhanced tag processor with categorization and relationships
+- `generate_hot_tags.py` (110 lines) - Aggregates hot tags from all sub-sites (5530+ tags) for homepage tag cloud
+- `generate_homepage_seo_links.py` (473 lines) - Generates SEO-optimized internal links for homepage
+- `cleanup_obsolete_tags.py` (207 lines) - Removes obsolete tag directories and cleans up tag JSON files
 
 **Script Dependencies:**
 ```bash
@@ -813,18 +841,34 @@ The repository includes Python scripts in `/scripts/` for generating JSON indexe
 
 **Regenerating Site Indexes:**
 ```bash
-# Generate all JSON indexes and sitemaps (run after adding/updating articles)
+# ALWAYS run from repository root (not from scripts/ directory)
+cd D:\app\zsp\zshipu-index  # Or your repo path
+
+# 1. PRIMARY: Generate all JSON indexes and sitemaps (run after adding/updating articles)
 python scripts/generate_site_index.py
 
-# Generate hot tags for homepage (collects from all sub-sites)
+# 2. Generate tags data (if tags were modified)
+python scripts/generate_tags_data.py
+
+# 3. Optional: Enhanced tag processing with categorization
+python scripts/generate_tags_data_enhanced.py
+
+# 4. Optional: Generate hot tags for homepage tag cloud
 python scripts/generate_hot_tags.py
 
-# Generate homepage SEO links
+# 5. Optional: Generate homepage SEO internal links
 python scripts/generate_homepage_seo_links.py
 
-# Generate tags data
-python scripts/generate_tags_data.py
+# 6. Maintenance: Clean up obsolete tags
+python scripts/cleanup_obsolete_tags.py
 ```
+
+**Script Output Details:**
+- `generate_site_index.py` generates 13 files total:
+  - 5 JSON files: `site-links-*.json`
+  - 8 XML files: `sitemap*.xml` + `robots.txt`
+  - Scans ~3700+ articles across all domains
+  - Runtime: ~10-30 seconds depending on article count
 
 **Generated Files:**
 - `site-links-full.json` - Complete article index (~3700+ articles)
@@ -949,12 +993,13 @@ python optimize_articles.py                # SEO optimization
 - **Domain Config**: `CNAME` (contains: index.zshipu.com)
 
 **Content Management:**
-- **Scripts**: `scripts/*.py` (5 Python scripts for content generation and SEO)
-  - `generate_site_index.py` (571 lines) - Main index/sitemap generator
-  - `generate_tags_data.py` (127 lines) - Tag data extraction
-  - `generate_homepage_seo_links.py` (505 lines) - SEO link generation
-  - `generate_tags_data_enhanced.py` (461 lines) - Enhanced tag processing
-  - `cleanup_obsolete_tags.py` (207 lines) - Tag cleanup
+- **Scripts**: `scripts/*.py` (6 Python scripts for content generation and SEO)
+  - `generate_site_index.py` (571 lines) - **PRIMARY SCRIPT**: Main index/sitemap generator
+  - `generate_tags_data.py` (127 lines) - Tag data extraction from tag directories
+  - `generate_tags_data_enhanced.py` (461 lines) - Enhanced tag processing with categorization
+  - `generate_hot_tags.py` (110 lines) - Hot tags aggregation for homepage
+  - `generate_homepage_seo_links.py` (473 lines) - SEO internal link generation
+  - `cleanup_obsolete_tags.py` (207 lines) - Tag cleanup and maintenance
 
 **Generated JSON Data Files:**
 - **Article Indexes**: `site-links-*.json` (5 files, ~3700+ articles)
