@@ -341,10 +341,9 @@
       this.tabs.forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
 
-      // 滚动到对应内容（如果有对应区块）
-      const targetSection = document.querySelector(`[data-section="${category}"]`);
-      if (targetSection) {
-        utils.scrollToElement(targetSection, 120);
+      // 过滤文章
+      if (window.ArticlesModuleInstance) {
+        window.ArticlesModuleInstance.filterByCategory(category);
       }
 
       utils.log('Tab clicked:', category);
@@ -384,7 +383,7 @@
 
     renderTags(tags) {
       const html = tags.map(tag =>
-        `<a href="${tag.url}" title="${tag.count}篇文章">${tag.name}</a>`
+        `<a href="${tag.url}" title="${tag.count}篇文章" target="_blank" rel="noopener noreferrer">${tag.name}</a>`
       ).join('');
 
       this.container.innerHTML = html;
@@ -401,19 +400,51 @@
       this.currentPage = 1;
       this.articlesPerPage = 12;
       this.allArticles = [];
+      this.filteredArticles = [];
+      this.currentCategory = 'all';
       this.loading = false;
 
       if (!this.grid) return;
 
+      // 暴露实例到全局
+      window.ArticlesModuleInstance = this;
+
       // 加载首页文章
       this.loadArticles();
 
-      // 绑定加载更多
+      // 隐藏"加载更多"按钮，使用无限滚动
       if (this.loadMoreBtn) {
-        this.loadMoreBtn.addEventListener('click', () => this.loadMore());
+        this.loadMoreBtn.style.display = 'none';
       }
 
+      // 绑定无限滚动
+      this.initInfiniteScroll();
+
       utils.log('ArticlesModule initialized');
+    },
+
+    initInfiniteScroll() {
+      // 使用节流优化性能
+      const handleScroll = utils.throttle(() => {
+        // 检查是否滚动到底部附近 (距离底部300px)
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const docHeight = document.documentElement.scrollHeight;
+
+        if (scrollTop + windowHeight >= docHeight - 300) {
+          // 如果还有更多内容且未在加载中
+          if (!this.loading && this.hasMoreArticles()) {
+            this.loadMore();
+          }
+        }
+      }, 200);
+
+      window.addEventListener('scroll', handleScroll);
+    },
+
+    hasMoreArticles() {
+      const totalLoaded = this.currentPage * this.articlesPerPage;
+      return totalLoaded < this.filteredArticles.length;
     },
 
     async loadArticles() {
@@ -425,9 +456,10 @@
         const response = await fetch('/site-links-recent.json');
         const data = await response.json();
         this.allArticles = data.articles || [];
+        this.filteredArticles = this.allArticles; // 初始显示全部
 
-        if (this.allArticles && this.allArticles.length) {
-          this.renderArticles(this.allArticles.slice(0, this.articlesPerPage));
+        if (this.filteredArticles && this.filteredArticles.length) {
+          this.renderArticles(this.filteredArticles.slice(0, this.articlesPerPage));
           this.updateLoadMoreButton();
         } else {
           this.showEmptyState();
@@ -438,6 +470,39 @@
       } finally {
         this.loading = false;
       }
+    },
+
+    filterByCategory(category) {
+      this.currentCategory = category;
+      this.currentPage = 1; // 重置页码
+
+      if (category === 'all') {
+        this.filteredArticles = this.allArticles;
+      } else {
+        // 根据 category tab 的 data-category 映射到文章的实际分类
+        const categoryMap = {
+          'ai': ['ai', 'ai001', 'ai002'],
+          'tech': ['geek', 'geek001', 'geek002'],
+          'stock': ['stock', 'stock001', 'stock002'],
+          'creative': ['app'],
+          'learn': ['gpt', 'go', 'ecg']
+        };
+
+        const categories = categoryMap[category] || [category];
+        this.filteredArticles = this.allArticles.filter(article =>
+          categories.includes(article.category)
+        );
+      }
+
+      // 重新渲染
+      if (this.filteredArticles.length > 0) {
+        this.renderArticles(this.filteredArticles.slice(0, this.articlesPerPage));
+        this.updateLoadMoreButton();
+      } else {
+        this.showEmptyState();
+      }
+
+      utils.log('Filtered by category:', category, 'Count:', this.filteredArticles.length);
     },
 
     renderArticles(articles) {
@@ -475,7 +540,7 @@
               <span class="article-date">${date}</span>
             </div>
             <h3 class="article-card-title">
-              <a href="${articleUrl}">${article.title}</a>
+              <a href="${articleUrl}" target="_blank" rel="noopener noreferrer">${article.title}</a>
             </h3>
             <p class="article-card-excerpt">
               ${this.generateExcerpt(article.title)}
@@ -538,31 +603,40 @@
     },
 
     loadMore() {
+      if (this.loading) return;
+      this.loading = true;
+
       const startIndex = this.currentPage * this.articlesPerPage;
       const endIndex = startIndex + this.articlesPerPage;
-      const moreArticles = this.allArticles.slice(startIndex, endIndex);
+      const moreArticles = this.filteredArticles.slice(startIndex, endIndex);
 
       if (moreArticles.length > 0) {
         // 追加渲染
         const html = moreArticles.map(article => this.createArticleCard(article)).join('');
         this.grid.insertAdjacentHTML('beforeend', html);
         this.currentPage++;
-        this.updateLoadMoreButton();
 
         // 动画
-        this.animateCards();
+        setTimeout(() => {
+          this.animateCards();
+          this.loading = false;
+        }, 100);
+
+        utils.log('Loaded more articles, page:', this.currentPage);
+      } else {
+        this.loading = false;
       }
     },
 
     updateLoadMoreButton() {
       const totalLoaded = this.currentPage * this.articlesPerPage;
-      const hasMore = totalLoaded < this.allArticles.length;
+      const hasMore = totalLoaded < this.filteredArticles.length;
 
       if (this.loadMoreBtn) {
         this.loadMoreBtn.style.display = hasMore ? 'flex' : 'none';
 
         // 更新按钮文本
-        const remaining = this.allArticles.length - totalLoaded;
+        const remaining = this.filteredArticles.length - totalLoaded;
         const btnText = this.loadMoreBtn.querySelector('.btn-text');
         if (btnText && hasMore) {
           btnText.textContent = `加载更多 (还剩 ${remaining} 篇)`;
@@ -690,6 +764,176 @@
   document.head.insertAdjacentHTML('beforeend', articleCardStyles);
 
   // ==========================================
+  // 侧边栏统计模块
+  // ==========================================
+  const SidebarStatsModule = {
+    init() {
+      this.loadStats();
+      utils.log('SidebarStatsModule initialized');
+    },
+
+    async loadStats() {
+      try {
+        const response = await fetch('/site-links-by-category.json');
+        const data = await response.json();
+        const categories = data.categories || {};
+
+        // 计算合并分类的统计
+        const stats = {
+          ai: (categories.ai || 0) + (categories.ai001 || 0) + (categories.ai002 || 0),
+          geek: (categories.geek || 0) + (categories.geek001 || 0) + (categories.geek002 || 0),
+          stock: (categories.stock || 0) + (categories.stock001 || 0) + (categories.stock002 || 0),
+          gpt: categories.gpt || 0,
+          go: categories.go || 0,
+          ecg: categories.ecg || 0
+        };
+
+        this.updateSidebar(stats);
+      } catch (error) {
+        utils.log('Failed to load sidebar stats:', error);
+      }
+    },
+
+    updateSidebar(stats) {
+      // 更新左侧导航的文章数量
+      const navItems = {
+        'ai': stats.ai,
+        'tech': stats.geek,
+        'stock': stats.stock,
+        'gpt': stats.gpt,
+        'go': stats.go,
+        'health': stats.ecg
+      };
+
+      Object.keys(navItems).forEach(category => {
+        const navItem = document.querySelector(`.nav-item[data-category="${category}"]`);
+        if (navItem && navItems[category] > 0) {
+          // 移除已存在的 badge（如果有）
+          const existingBadge = navItem.querySelector('.nav-count');
+          if (existingBadge) {
+            existingBadge.remove();
+          }
+
+          // 如果已有 nav-badge（1200+），也移除
+          const oldBadge = navItem.querySelector('.nav-badge');
+          if (oldBadge) {
+            oldBadge.remove();
+          }
+
+          // 添加新的计数
+          const badge = document.createElement('span');
+          badge.className = 'nav-count';
+          badge.textContent = navItems[category];
+          navItem.appendChild(badge);
+        }
+      });
+    }
+  };
+
+  // ==========================================
+  // 热点话题模块
+  // ==========================================
+  const HotTopicsModule = {
+    container: null,
+    topics: [],
+    maxTopics: 8,
+
+    init() {
+      this.container = document.getElementById('hotTopicsList');
+      if (!this.container) {
+        utils.log('Hot topics container not found');
+        return;
+      }
+
+      this.loadTopics();
+      utils.log('HotTopicsModule initialized');
+    },
+
+    async loadTopics() {
+      try {
+        const response = await fetch('/site-links-recent.json');
+        if (!response.ok) throw new Error('Failed to fetch recent articles');
+
+        const data = await response.json();
+        this.topics = (data.articles || []).slice(0, this.maxTopics);
+
+        if (this.topics.length > 0) {
+          this.renderTopics();
+        } else {
+          this.showEmptyState();
+        }
+      } catch (error) {
+        utils.log('Failed to load hot topics:', error);
+        this.showErrorState();
+      }
+    },
+
+    renderTopics() {
+      const html = this.topics.map((topic, index) =>
+        this.createTopicItem(topic, index + 1)
+      ).join('');
+
+      this.container.innerHTML = html;
+    },
+
+    createTopicItem(topic, rank) {
+      const url = topic.url || topic.path || '#';
+      const title = this.truncateTitle(topic.title, 30);
+      const badge = this.getBadge(rank, topic);
+      const rankClass = rank <= 3 ? `rank-${rank}` : '';
+
+      return `
+        <a href="${url}" class="hot-topic-item" target="_blank" rel="noopener noreferrer">
+          <span class="topic-rank ${rankClass}">${rank}</span>
+          <span class="topic-text">${title}</span>
+          ${badge}
+        </a>
+      `;
+    },
+
+    truncateTitle(title, maxLength) {
+      if (title.length <= maxLength) return title;
+      return title.substring(0, maxLength) + '...';
+    },
+
+    getBadge(rank, topic) {
+      // Top ranked gets hot badge
+      if (rank === 1) {
+        return '<span class="topic-badge hot">🔥</span>';
+      }
+
+      // Top 3 get new badge
+      if (rank <= 3) {
+        return '<span class="topic-badge new">新</span>';
+      }
+
+      // Check if article is from AI category for AI badge
+      const url = topic.url || topic.path || '';
+      if (url.includes('/ai/') || url.includes('/ai001/') || url.includes('/ai002/')) {
+        return '<span class="topic-badge ai">AI</span>';
+      }
+
+      return '';
+    },
+
+    showEmptyState() {
+      this.container.innerHTML = `
+        <div class="empty-state">
+          <p>暂无热点话题</p>
+        </div>
+      `;
+    },
+
+    showErrorState() {
+      this.container.innerHTML = `
+        <div class="error-state">
+          <p>加载失败，请刷新重试</p>
+        </div>
+      `;
+    }
+  };
+
+  // ==========================================
   // 性能监控模块
   // ==========================================
   const PerformanceModule = {
@@ -743,6 +987,8 @@
     CategoryTabsModule.init();
     TagCloudModule.init();
     ArticlesModule.init();
+    SidebarStatsModule.init(); // Load article counts for navigation
+    HotTopicsModule.init(); // Load hot topics from recent articles
     PerformanceModule.init();
 
     utils.log('Homepage v3.0 initialized successfully!');

@@ -975,7 +975,7 @@ def main():
     print("=" * 60)
     
     # 目标网站
-    target_url = "https://index.zshipu.com/"
+    target_url = "https://www.csdn.net/"
     
     print(f"\n正在分析网站: {target_url}")
     print("请稍候，正在进行深度SEO分析...\n")
