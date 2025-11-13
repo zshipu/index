@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="高效背单词应用 - 支持间隔重复、深色模式、数据持久化、统计图表、多种学习模式">
+    <meta name="theme-color" content="#667eea">
+    <link rel="manifest" href="/manifest.json">
+    <title>背单词神器 Pro - 完整版</title>
+    <style>
+        /* ==================== CSS自定义属性 - 主题系统 ==================== */
+        :root {
+            --color-primary: #667eea;
+            --color-primary-dark: #764ba2;
+            --color-secondary: #4facfe;
+            --color-secondary-light: #00f2fe;
+            --color-success: #4facfe;
+            --color-warning: #fa709a;
+            --color-danger: #f5576c;
+            --color-info: #f093fb;
+
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-bg: #ffffff;
+            --card-bg-secondary: #f8f9fa;
+            --text-primary: #333333;
+            --text-secondary: #888888;
+            --text-hint: #aaaaaa;
+
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.2);
+            --shadow-lg: 0 20px 60px rgba(0,0,0,0.3);
+
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 30px;
+
+            --transition-fast: 0.15s;
+            --transition-normal: 0.3s;
+            --transition-slow: 0.6s;
+
+            --particle-count: 10;
+        }
+
+        /* 深色模式 */
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --card-bg: #2d3748;
+            --card-bg-secondary: #1a202c;
+            --text-primary: #f7fafc;
+            --text-secondary: #cbd5e0;
+            --text-hint: #a0aec0;
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.5);
+            --shadow-lg: 0 20px 60px rgba(0,0,0,0.7);
+        }
+
+        /* ==================== 基础样式 ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+            color: var(--text-primary);
+            transition: background var(--transition-normal);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+            contain: layout style;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 12px;
+                max-width: 100%;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 900px;
+            }
+        }
+
+        /* ==================== 背景粒子 ==================== */
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 15s infinite;
+            will-change: transform, opacity;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate3d(0, 0, 0) rotate(0deg);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% {
+                transform: translate3d(0, -100vh, 0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 头部区域 ==================== */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: slideDown 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translate3d(0, -50px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .header h1 {
+            color: white;
+            font-size: clamp(1.8em, 5vw, 2.5em);
+            font-weight: 800;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            margin-bottom: 15px;
+        }
+
+        .header-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 18px;
+            border-radius: var(--radius-md);
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            font-weight: 600;
+            white-space: nowrap;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .header-btn:active {
+            transform: translateY(0);
+        }
+
+        .theme-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3em;
+            padding: 0;
+            min-width: 44px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* ==================== 进度条 ==================== */
+        .progress-container {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 25px;
+            animation: fadeIn 1s ease;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-success) 0%, var(--color-secondary-light) 100%);
+            border-radius: 10px;
+            transition: width 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            position: relative;
+            overflow: hidden;
+            will-change: width;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translate3d(-100%, 0, 0); }
+            100% { transform: translate3d(100%, 0, 0); }
+        }
+
+        .progress-text {
+            color: white;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ==================== 卡片堆叠区域 ==================== */
+        .card-stack {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            perspective: 1500px;
+            contain: layout style paint;
+        }
+
+        @media (max-width: 480px) {
+            .card-stack {
+                height: 450px;
+            }
+        }
+
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        .card.dragging {
+            transition: none;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition-slow) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-shadow: var(--shadow-lg);
+            will-change: transform;
+        }
+
+        .card-front {
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, var(--color-success) 0%, var(--color-secondary-light) 100%);
+            transform: rotateY(180deg);
+            color: white;
+        }
+
+        .word-main {
+            font-size: clamp(2.5em, 8vw, 3.5em);
+            font-weight: 800;
+            color: var(--color-primary);
+            margin-bottom: 20px;
+            animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            word-break: break-word;
+            text-align: center;
+        }
+
+        [data-theme="dark"] .word-main {
+            color: var(--color-secondary-light);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .phonetic {
+            font-size: 1.1em;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .sound-btn {
+            background: var(--bg-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-weight: 600;
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .sound-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .tap-hint {
+            font-size: 0.95em;
+            color: var(--text-hint);
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.6;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        .meaning {
+            font-size: 1.6em;
+            font-weight: 600;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .example {
+            font-size: 1.05em;
+            line-height: 1.6;
+            text-align: center;
+            opacity: 0.95;
+        }
+
+        /* ==================== 控制按钮 ==================== */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+            animation: fadeIn 1.2s ease;
+        }
+
+        .btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8em;
+            transition: all var(--transition-normal) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 200px;
+            height: 200px;
+        }
+
+        .btn:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .btn-skip {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-know {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-unknown {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        /* ==================== 卡片移除动画 ==================== */
+        .card.swipe-left {
+            animation: swipeLeft 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        .card.swipe-right {
+            animation: swipeRight 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        @keyframes swipeLeft {
+            to {
+                transform: translate3d(-150%, 0, 0) rotate(-30deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes swipeRight {
+            to {
+                transform: translate3d(150%, 0, 0) rotate(30deg);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== Toast通知系统 ==================== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            animation: slideInRight 0.3s ease;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast.success { border-left: 4px solid var(--color-success); }
+        .toast.error { border-left: 4px solid var(--color-danger); }
+        .toast.info { border-left: 4px solid var(--color-info); }
+        .toast.warning { border-left: 4px solid var(--color-warning); }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translate3d(100%, 0, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .toast.removing {
+            animation: slideOutRight 0.3s ease forwards;
+        }
+
+        @keyframes slideOutRight {
+            to {
+                opacity: 0;
+                transform: translate3d(100%, 0, 0);
+            }
+        }
+
+        /* ==================== 统计面板 ==================== */
+        .stats {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+            animation: fadeIn 1.4s ease;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: 800;
+            transition: all var(--transition-normal);
+        }
+
+        .stat-number.bump {
+            animation: bump 0.3s ease;
+        }
+
+        @keyframes bump {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        /* ==================== 庆祝特效 ==================== */
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            animation: celebrate 1s ease;
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        @keyframes celebrate {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8) translate3d(0, -100px, 0);
+            }
+        }
+
+        /* ==================== 粒子爆炸特效 ==================== */
+        .particle-burst {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+        }
+
+        @keyframes burst {
+            to {
+                transform: translate3d(var(--tx), var(--ty), 0) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 涟漪特效 ==================== */
+        .ripple {
+            position: fixed;
+            border: 3px solid;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9997;
+            animation: ripple 1s ease-out forwards;
+        }
+
+        @keyframes ripple {
+            from {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            to {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 闪光特效 ==================== */
+        .flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 9996;
+            animation: flash 0.3s ease;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ==================== 空状态 ==================== */
+        .empty-state {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .empty-state-text {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .empty-state-hint {
+            font-size: 0.95em;
+            opacity: 0.8;
+        }
+
+        /* ==================== Modal模态框 ==================== */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+            animation: slideUp 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translate3d(0, 50px, 0) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0) scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--card-bg-secondary);
+        }
+
+        .modal-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+            color: var(--text-secondary);
+        }
+
+        .modal-close:hover {
+            background: var(--card-bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            color: var(--text-primary);
+        }
+
+        /* ==================== Canvas图表容器 ==================== */
+        .chart-container {
+            margin: 20px 0;
+            background: var(--card-bg-secondary);
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+
+        #statsCanvas {
+            width: 100%;
+            height: 400px;
+            background: white;
+            border-radius: var(--radius-sm);
+        }
+
+        /* ==================== 可访问性 ==================== */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>✨ 背单词神器 Pro</h1>
+            <div class="header-controls">
+                <button class="header-btn theme-toggle" id="themeToggle" aria-label="切换主题">
+                    <span id="themeIcon">🌙</span>
+                </button>
+                <button class="header-btn" id="downloadTemplate">📥 下载模板</button>
+                <button class="header-btn" id="importWords">📂 导入单词</button>
+                <button class="header-btn" id="manageWordbooks">📚 词库管理</button>
+                <button class="header-btn" id="showStatistics">📊 统计</button>
+                <button class="header-btn" id="switchMode">🎯 模式</button>
+                <input type="file" id="fileInput" accept=".csv,.txt,.json" aria-label="选择文件">
+            </div>
+        </header>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0 / 0 单词</div>
+        </div>
+
+        <div class="card-stack" id="cardStack"></div>
+
+        <div class="controls">
+            <button class="btn btn-skip" id="btnSkip" title="跳过">⏭️</button>
+            <button class="btn btn-unknown" id="btnUnknown" title="不认识">❓</button>
+            <button class="btn btn-know" id="btnKnow" title="认识">✅</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="knownCount">0</div>
+                <div class="stat-label">已掌握</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="unknownCount">0</div>
+                <div class="stat-label">待学习</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="streakCount">0</div>
+                <div class="stat-label">连续天数</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 统计模态框 -->
+    <div class="modal" id="statsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">📊 学习统计</h2>
+                <button class="modal-close" id="closeStatsModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="chart-container">
+                    <canvas id="statsCanvas" width="800" height="400"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 词库管理模态框 -->
+    <div class="modal" id="wordbookModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">📚 词库管理</h2>
+                <button class="modal-close" id="closeWordbookModal">✕</button>
+            </div>
+            <div class="modal-body" id="wordbookList">
+                <p>正在加载词库...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 学习模式模态框 -->
+    <div class="modal" id="modeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">🎯 学习模式</h2>
+                <button class="modal-close" id="closeModeModal">✕</button>
+            </div>
+            <div class="modal-body" id="modeContainer">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <button class="header-btn" id="modeCardFlip" style="height: 80px; width: 100%;">
+                        🃏 卡片翻转
+                    </button>
+                    <button class="header-btn" id="modeSpelling" style="height: 80px; width: 100%;">
+                        ✍️ 拼写练习
+                    </button>
+                    <button class="header-btn" id="modeDictation" style="height: 80px; width: 100%;">
+                        🎤 听写模式
+                    </button>
+                    <button class="header-btn" id="modeQuickReview" style="height: 80px; width: 100%;">
+                        ⚡ 快速复习
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        // ==================== IndexedDB 数据库管理器 ====================
+        class IndexedDBManager {
+            constructor(dbName = 'WordLearnerDB', version = 3) {
+                this.dbName = dbName;
+                this.version = version;
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.version);
+
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        this.db = request.result;
+                        resolve(this.db);
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+
+                        if (!db.objectStoreNames.contains('wordbooks')) {
+                            const wordbookStore = db.createObjectStore('wordbooks', { keyPath: 'id', autoIncrement: true });
+                            wordbookStore.createIndex('name', 'name', { unique: false });
+                            wordbookStore.createIndex('createdAt', 'createdAt', { unique: false });
+                        }
+
+                        if (!db.objectStoreNames.contains('words')) {
+                            const wordStore = db.createObjectStore('words', { keyPath: 'id', autoIncrement: true });
+                            wordStore.createIndex('wordbookId', 'wordbookId', { unique: false });
+                            wordStore.createIndex('word', 'word', { unique: false });
+                            wordStore.createIndex('nextReview', 'sm2.nextReview', { unique: false });
+                        }
+
+                        if (!db.objectStoreNames.contains('study_records')) {
+                            const recordStore = db.createObjectStore('study_records', { keyPath: 'id', autoIncrement: true });
+                            recordStore.createIndex('wordId', 'wordId', { unique: false });
+                            recordStore.createIndex('timestamp', 'timestamp', { unique: false });
+                            recordStore.createIndex('date', 'date', { unique: false });
+                        }
+
+                        if (!db.objectStoreNames.contains('achievements')) {
+                            const achievementStore = db.createObjectStore('achievements', { keyPath: 'id' });
+                            achievementStore.createIndex('unlockedAt', 'unlockedAt', { unique: false });
+                        }
+
+                        if (!db.objectStoreNames.contains('settings')) {
+                            db.createObjectStore('settings', { keyPath: 'key' });
+                        }
+                    };
+                });
+            }
+
+            async add(storeName, data) {
+                const tx = this.db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.add(data);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async put(storeName, data) {
+                const tx = this.db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.put(data);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async get(storeName, key) {
+                const tx = this.db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.get(key);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async getAll(storeName) {
+                const tx = this.db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.getAll();
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async delete(storeName, key) {
+                const tx = this.db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.delete(key);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async query(storeName, indexName, value) {
+                const tx = this.db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                const index = store.index(indexName);
+                return new Promise((resolve, reject) => {
+                    const request = index.getAll(value);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async queryRange(storeName, indexName, lowerBound, upperBound) {
+                const tx = this.db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                const index = store.index(indexName);
+                const range = IDBKeyRange.bound(lowerBound, upperBound);
+                return new Promise((resolve, reject) => {
+                    const request = index.getAll(range);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+        }
+
+        // ==================== SM-2 间隔重复算法 ====================
+        class SM2Algorithm {
+            static calculate(card, quality) {
+                if (!card.sm2) {
+                    card.sm2 = {
+                        easeFactor: 2.5,
+                        interval: 0,
+                        repetitions: 0,
+                        nextReview: Date.now()
+                    };
+                }
+
+                const sm2 = card.sm2;
+
+                if (quality >= 3) {
+                    if (sm2.repetitions === 0) {
+                        sm2.interval = 1;
+                    } else if (sm2.repetitions === 1) {
+                        sm2.interval = 6;
+                    } else {
+                        sm2.interval = Math.round(sm2.interval * sm2.easeFactor);
+                    }
+                    sm2.repetitions += 1;
+                } else {
+                    sm2.repetitions = 0;
+                    sm2.interval = 1;
+                }
+
+                sm2.easeFactor = sm2.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+
+                if (sm2.easeFactor < 1.3) {
+                    sm2.easeFactor = 1.3;
+                }
+
+                sm2.nextReview = Date.now() + sm2.interval * 24 * 60 * 60 * 1000;
+
+                return sm2;
+            }
+
+            static getDueWords(words) {
+                const now = Date.now();
+                return words.filter(word => {
+                    if (!word.sm2) return true;
+                    return word.sm2.nextReview <= now;
+                });
+            }
+        }
+
+        // ==================== 图表绘制基类 ====================
+        class Chart {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.width = canvas.width;
+                this.height = canvas.height;
+                this.padding = { top: 40, right: 40, bottom: 60, left: 60 };
+            }
+
+            clear() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+            }
+
+            drawTitle(title) {
+                this.ctx.fillStyle = '#333';
+                this.ctx.font = 'bold 16px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(title, this.width / 2, 20);
+            }
+
+            drawXAxis(labels) {
+                const { left, right, bottom } = this.padding;
+                const chartWidth = this.width - left - right;
+                const y = this.height - bottom;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(left, y);
+                this.ctx.lineTo(this.width - right, y);
+                this.ctx.strokeStyle = '#ccc';
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = '#666';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'center';
+
+                const step = chartWidth / (labels.length || 1);
+                labels.forEach((label, index) => {
+                    const x = left + step * index + step / 2;
+                    this.ctx.save();
+                    this.ctx.translate(x, y + 15);
+                    this.ctx.rotate(-0.3);
+                    this.ctx.fillText(label, 0, 0);
+                    this.ctx.restore();
+                });
+            }
+
+            drawYAxis(maxValue) {
+                const { left, top, bottom } = this.padding;
+                const chartHeight = this.height - top - bottom;
+                const x = left;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, top);
+                this.ctx.lineTo(x, this.height - bottom);
+                this.ctx.strokeStyle = '#ccc';
+                this.ctx.stroke();
+
+                this.ctx.fillStyle = '#666';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'right';
+
+                const steps = 5;
+                for (let i = 0; i <= steps; i++) {
+                    const value = Math.round((maxValue / steps) * i);
+                    const y = this.height - bottom - (chartHeight / steps) * i;
+
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x - 5, y);
+                    this.ctx.lineTo(x, y);
+                    this.ctx.stroke();
+
+                    this.ctx.fillText(value.toString(), x - 10, y + 4);
+
+                    this.ctx.strokeStyle = '#f0f0f0';
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, y);
+                    this.ctx.lineTo(this.width - this.padding.right, y);
+                    this.ctx.stroke();
+                    this.ctx.strokeStyle = '#ccc';
+                }
+            }
+        }
+
+        // ==================== 折线图 ====================
+        class LineChart extends Chart {
+            draw(data, options = {}) {
+                this.clear();
+
+                const { title = '', color = '#667eea', fillArea = true } = options;
+                const { left, right, top, bottom } = this.padding;
+                const chartWidth = this.width - left - right;
+                const chartHeight = this.height - top - bottom;
+
+                if (title) this.drawTitle(title);
+
+                const maxValue = Math.max(...data.values, 1);
+
+                this.drawXAxis(data.labels);
+                this.drawYAxis(maxValue);
+
+                if (data.values.length === 0) return;
+
+                const step = chartWidth / data.values.length;
+                const scaleY = chartHeight / maxValue;
+
+                if (fillArea) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(left, this.height - bottom);
+
+                    data.values.forEach((value, index) => {
+                        const x = left + step * (index + 0.5);
+                        const y = this.height - bottom - value * scaleY;
+                        this.ctx.lineTo(x, y);
+                    });
+
+                    this.ctx.lineTo(left + chartWidth, this.height - bottom);
+                    this.ctx.closePath();
+
+                    const gradient = this.ctx.createLinearGradient(0, top, 0, this.height - bottom);
+                    gradient.addColorStop(0, color + '40');
+                    gradient.addColorStop(1, color + '00');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fill();
+                }
+
+                this.ctx.beginPath();
+                data.values.forEach((value, index) => {
+                    const x = left + step * (index + 0.5);
+                    const y = this.height - bottom - value * scaleY;
+                    if (index === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                });
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+
+                data.values.forEach((value, index) => {
+                    const x = left + step * (index + 0.5);
+                    const y = this.height - bottom - value * scaleY;
+
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, 4, 0, Math.PI * 2);
+                    this.ctx.fillStyle = color;
+                    this.ctx.fill();
+                    this.ctx.strokeStyle = '#fff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.stroke();
+                });
+            }
+        }
+
+        // ==================== 柱状图 ====================
+        class BarChart extends Chart {
+            draw(data, options = {}) {
+                this.clear();
+
+                const { title = '', colors = ['#667eea', '#4facfe', '#fa709a'] } = options;
+                const { left, right, top, bottom } = this.padding;
+                const chartWidth = this.width - left - right;
+                const chartHeight = this.height - top - bottom;
+
+                if (title) this.drawTitle(title);
+
+                const maxValue = Math.max(...data.values, 1);
+
+                this.drawXAxis(data.labels);
+                this.drawYAxis(maxValue);
+
+                const barWidth = (chartWidth / data.values.length) * 0.8;
+                const gap = (chartWidth / data.values.length) * 0.2;
+                const scaleY = chartHeight / maxValue;
+
+                data.values.forEach((value, index) => {
+                    const x = left + (chartWidth / data.values.length) * index + gap / 2;
+                    const y = this.height - bottom - value * scaleY;
+                    const height = value * scaleY;
+
+                    const gradient = this.ctx.createLinearGradient(x, y, x, y + height);
+                    gradient.addColorStop(0, colors[index % colors.length]);
+                    gradient.addColorStop(1, colors[index % colors.length] + '80');
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(x, y, barWidth, height);
+
+                    this.ctx.fillStyle = '#333';
+                    this.ctx.font = 'bold 12px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText(value.toString(), x + barWidth / 2, y - 5);
+                });
+            }
+        }
+
+        // ==================== 统计仪表板 ====================
+        class StatisticsDashboard {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                if (!this.canvas) {
+                    console.error('Canvas element not found');
+                    return;
+                }
+
+                const dpr = window.devicePixelRatio || 1;
+                const rect = this.canvas.getBoundingClientRect();
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.canvas.style.width = rect.width + 'px';
+                this.canvas.style.height = rect.height + 'px';
+
+                this.ctx = this.canvas.getContext('2d');
+                this.ctx.scale(dpr, dpr);
+
+                this.lineChart = new LineChart(this.canvas);
+                this.barChart = new BarChart(this.canvas);
+            }
+
+            showLearningTrend(records) {
+                const byDate = {};
+                records.forEach(record => {
+                    const date = new Date(record.timestamp).toDateString();
+                    byDate[date] = (byDate[date] || 0) + 1;
+                });
+
+                const days = 7;
+                const labels = [];
+                const values = [];
+                const today = new Date();
+
+                for (let i = days - 1; i >= 0; i--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toDateString();
+                    const label = `${date.getMonth() + 1}/${date.getDate()}`;
+
+                    labels.push(label);
+                    values.push(byDate[dateStr] || 0);
+                }
+
+                this.lineChart.draw({ labels, values }, { title: '学习趋势 (最近7天)', color: '#667eea', fillArea: true });
+            }
+
+            showDailyStudyTime(records) {
+                const byDate = {};
+                records.forEach(record => {
+                    const date = new Date(record.timestamp).toDateString();
+                    byDate[date] = (byDate[date] || 0) + 1;
+                });
+
+                const labels = [];
+                const values = [];
+                const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                const today = new Date();
+
+                for (let i = 6; i >= 0; i--) {
+                    const date = new Date(today);
+                    date.setDate(date.getDate() - i);
+                    const dateStr = date.toDateString();
+                    const dayLabel = weekDays[date.getDay()];
+
+                    labels.push(dayLabel);
+                    values.push(byDate[dateStr] || 0);
+                }
+
+                this.barChart.draw({ labels, values }, { title: '每日学习单词数' });
+            }
+        }
+
+        // ==================== 存储管理器 ====================
+        class StorageManager {
+            constructor() {
+                this.prefix = 'wordapp_';
+            }
+
+            get(key) {
+                try {
+                    const value = localStorage.getItem(this.prefix + key);
+                    return value ? JSON.parse(value) : null;
+                } catch (error) {
+                    console.error('读取存储失败:', error);
+                    return null;
+                }
+            }
+
+            set(key, value) {
+                try {
+                    localStorage.setItem(this.prefix + key, JSON.stringify(value));
+                } catch (error) {
+                    console.error('保存存储失败:', error);
+                }
+            }
+
+            remove(key) {
+                try {
+                    localStorage.removeItem(this.prefix + key);
+                } catch (error) {
+                    console.error('删除存储失败:', error);
+                }
+            }
+        }
+
+        // ==================== UI管理器 ====================
+        class UIManager {
+            constructor(app) {
+                this.app = app;
+                this.dragState = {
+                    isDragging: false,
+                    startX: 0,
+                    startY: 0,
+                    currentX: 0,
+                    currentY: 0,
+                    rafId: null
+                };
+            }
+
+            init() {
+                this.initCards();
+                this.updateProgress();
+            }
+
+            initCards() {
+                const cardStack = document.getElementById('cardStack');
+                cardStack.innerHTML = '';
+                this.app.state.cards = [];
+
+                const words = this.app.state.words;
+                const startIndex = this.app.state.currentIndex;
+
+                if (startIndex >= words.length) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                const renderCount = Math.min(3, words.length - startIndex);
+
+                for (let i = 0; i < renderCount; i++) {
+                    const wordIndex = startIndex + i;
+                    const card = this.createCard(words[wordIndex], i);
+                    this.app.state.cards.push(card);
+                    cardStack.appendChild(card);
+                }
+
+                if (this.app.state.settings.autoPlay && words[startIndex]) {
+                    this.app.tts.speak(words[startIndex].word);
+                }
+            }
+
+            createCard(wordData, index) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.zIndex = 100 - index;
+                card.style.transform = `translate3d(0, ${index * 10}px, 0) scale(${1 - index * 0.05})`;
+                card.setAttribute('data-index', index);
+
+                card.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-face card-front">
+                            <div class="word-main">${this.escapeHtml(wordData.word)}</div>
+                            <div class="phonetic">${this.escapeHtml(wordData.phonetic)}</div>
+                            <button class="sound-btn" data-word="${this.escapeHtml(wordData.word)}">
+                                🔊 发音
+                            </button>
+                            <div class="tap-hint">👆 点击卡片查看释义</div>
+                        </div>
+                        <div class="card-face card-back">
+                            <div class="meaning">${this.escapeHtml(wordData.meaning)}</div>
+                            <div class="example">${this.escapeHtml(wordData.example)}</div>
+                        </div>
+                    </div>
+                `;
+
+                const cardInner = card.querySelector('.card-inner');
+                const soundBtn = card.querySelector('.sound-btn');
+
+                cardInner.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'BUTTON' && !card.classList.contains('dragging')) {
+                        this.flipCard(cardInner);
+                    }
+                });
+
+                soundBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const word = e.target.getAttribute('data-word');
+                    this.app.tts.speak(word);
+                });
+
+                if (index === 0) {
+                    this.setupDragHandlers(card);
+                }
+
+                return card;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            flipCard(cardInner) {
+                cardInner.classList.toggle('flipped');
+                const isFlipped = cardInner.classList.contains('flipped');
+
+                const card = cardInner.closest('.card');
+                const rect = card.getBoundingClientRect();
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                this.app.effects.createRipple(x, y, isFlipped ? '#4facfe' : '#667eea');
+
+                this.app.vibrate([10]);
+            }
+
+            setupDragHandlers(card) {
+                const startDrag = (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+
+                    this.dragState.isDragging = true;
+                    card.classList.add('dragging');
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    this.dragState.startX = touch.clientX;
+                    this.dragState.startY = touch.clientY;
+                    this.dragState.currentX = 0;
+                    this.dragState.currentY = 0;
+
+                    document.addEventListener('mousemove', onDrag, { passive: true });
+                    document.addEventListener('touchmove', onDrag, { passive: true });
+                    document.addEventListener('mouseup', endDrag);
+                    document.addEventListener('touchend', endDrag);
+                };
+
+                const onDrag = (e) => {
+                    if (!this.dragState.isDragging) return;
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    this.dragState.currentX = touch.clientX - this.dragState.startX;
+                    this.dragState.currentY = touch.clientY - this.dragState.startY;
+
+                    if (this.dragState.rafId) {
+                        cancelAnimationFrame(this.dragState.rafId);
+                    }
+
+                    this.dragState.rafId = requestAnimationFrame(() => {
+                        const rotation = this.dragState.currentX * 0.1;
+                        const opacity = 1 - Math.abs(this.dragState.currentX) / 300;
+                        card.style.transform = `translate3d(${this.dragState.currentX}px, ${this.dragState.currentY}px, 0) rotate(${rotation}deg)`;
+                        card.style.opacity = opacity;
+                    });
+                };
+
+                const endDrag = () => {
+                    if (!this.dragState.isDragging) return;
+
+                    this.dragState.isDragging = false;
+                    card.classList.remove('dragging');
+
+                    if (this.dragState.rafId) {
+                        cancelAnimationFrame(this.dragState.rafId);
+                        this.dragState.rafId = null;
+                    }
+
+                    document.removeEventListener('mousemove', onDrag);
+                    document.removeEventListener('touchmove', onDrag);
+                    document.removeEventListener('mouseup', endDrag);
+                    document.removeEventListener('touchend', endDrag);
+
+                    const threshold = 100;
+                    if (Math.abs(this.dragState.currentX) > threshold) {
+                        const rect = card.getBoundingClientRect();
+                        const x = rect.left + rect.width / 2;
+                        const y = rect.top + rect.height / 2;
+
+                        if (this.dragState.currentX > 0) {
+                            this.app.effects.createParticleBurst(x, y, '#4facfe');
+                            this.app.handleKnow();
+                        } else {
+                            this.app.effects.createParticleBurst(x, y, '#fa709a');
+                            this.app.handleUnknown();
+                        }
+                    } else {
+                        card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                        card.style.transform = `translate3d(0, 0, 0) scale(1)`;
+                        card.style.opacity = 1;
+
+                        setTimeout(() => {
+                            card.style.transition = '';
+                        }, 300);
+                    }
+
+                    this.dragState.currentX = 0;
+                    this.dragState.currentY = 0;
+                };
+
+                card.addEventListener('mousedown', startDrag);
+                card.addEventListener('touchstart', startDrag, { passive: true });
+            }
+
+            removeCurrentCard(direction) {
+                if (this.app.state.currentIndex >= this.app.state.words.length) return;
+
+                const card = this.app.state.cards[0];
+                if (!card) return;
+
+                card.style.pointerEvents = 'none';
+
+                if (direction === 'left') {
+                    card.classList.add('swipe-left');
+                } else if (direction === 'right') {
+                    card.classList.add('swipe-right');
+                }
+
+                setTimeout(() => {
+                    this.app.state.currentIndex++;
+                    this.app.saveProgress();
+                    this.updateProgress();
+
+                    if (card.parentNode) {
+                        card.parentNode.removeChild(card);
+                    }
+                    this.app.state.cards.shift();
+
+                    this.app.state.cards.forEach((remainingCard, i) => {
+                        remainingCard.style.zIndex = 100 - i;
+                        remainingCard.style.transform = `translate3d(0, ${i * 10}px, 0) scale(${1 - i * 0.05})`;
+                        remainingCard.setAttribute('data-index', i);
+                    });
+
+                    const nextIndex = this.app.state.currentIndex + this.app.state.cards.length;
+                    if (nextIndex < this.app.state.words.length) {
+                        const newCard = this.createCard(
+                            this.app.state.words[nextIndex],
+                            this.app.state.cards.length
+                        );
+                        this.app.state.cards.push(newCard);
+                        document.getElementById('cardStack').appendChild(newCard);
+                    }
+
+                    if (this.app.state.currentIndex < this.app.state.words.length) {
+                        if (this.app.state.settings.autoPlay) {
+                            setTimeout(() => {
+                                this.app.tts.speak(this.app.state.words[this.app.state.currentIndex].word);
+                            }, 300);
+                        }
+
+                        if (this.app.state.cards[0]) {
+                            this.setupDragHandlers(this.app.state.cards[0]);
+                        }
+                    } else {
+                        setTimeout(() => {
+                            this.showCompletionScreen();
+                        }, 500);
+                    }
+                }, 500);
+            }
+
+            updateProgress() {
+                const total = this.app.state.words.length;
+                const current = this.app.state.currentIndex;
+                const progress = total > 0 ? (current / total) * 100 : 0;
+
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `${current} / ${total} 单词`;
+
+                document.getElementById('knownCount').textContent = this.app.state.knownCount;
+                document.getElementById('unknownCount').textContent = this.app.state.unknownCount;
+            }
+
+            bumpNumber(elementId) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.classList.add('bump');
+                    setTimeout(() => element.classList.remove('bump'), 300);
+                }
+            }
+
+            showEmptyState() {
+                const cardStack = document.getElementById('cardStack');
+                cardStack.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <div class="empty-state-text">暂无单词</div>
+                        <div class="empty-state-hint">请导入单词列表开始学习</div>
+                    </div>
+                `;
+            }
+
+            showCompletionScreen() {
+                this.app.effects.showCelebration('🎉');
+                this.app.effects.createFlash('rgba(255, 215, 0, 0.3)');
+
+                const message = `🎉 恭喜完成学习!\n\n✅ 已掌握: ${this.app.state.knownCount}\n📖 待学习: ${this.app.state.unknownCount}\n🔥 连续: ${document.getElementById('streakCount').textContent} 天`;
+
+                this.showToast(message, 'success');
+
+                setTimeout(() => {
+                    this.showEmptyState();
+                }, 2000);
+            }
+
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+
+                const icons = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+
+                toast.innerHTML = `
+                    <span style="font-size: 1.5em;">${icons[type] || icons.info}</span>
+                    <span style="flex: 1;">${this.escapeHtml(message).replace(/\n/g, '<br>')}</span>
+                `;
+
+                container.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.add('removing');
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // ==================== 特效管理器 ====================
+        class EffectsManager {
+            createParticles(count) {
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    const size = Math.random() * 60 + 20;
+                    particle.style.width = size + 'px';
+                    particle.style.height = size + 'px';
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.animationDelay = Math.random() * 15 + 's';
+                    particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                    document.body.appendChild(particle);
+                }
+            }
+
+            createParticleBurst(x, y, color) {
+                const particleCount = 15;
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle-burst';
+                    particle.style.left = x + 'px';
+                    particle.style.top = y + 'px';
+                    particle.style.background = color;
+
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const velocity = 80 + Math.random() * 80;
+                    const tx = Math.cos(angle) * velocity;
+                    const ty = Math.sin(angle) * velocity;
+
+                    particle.style.setProperty('--tx', tx + 'px');
+                    particle.style.setProperty('--ty', ty + 'px');
+                    particle.style.animation = 'burst 0.8s ease-out forwards';
+
+                    document.body.appendChild(particle);
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.parentNode.removeChild(particle);
+                        }
+                    }, 800);
+                }
+            }
+
+            createRipple(x, y, color) {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                ripple.style.left = (x - 150) + 'px';
+                ripple.style.top = (y - 150) + 'px';
+                ripple.style.borderColor = color;
+                document.body.appendChild(ripple);
+                setTimeout(() => {
+                    if (ripple.parentNode) {
+                        ripple.parentNode.removeChild(ripple);
+                    }
+                }, 1000);
+            }
+
+            createFlash(color) {
+                const flash = document.createElement('div');
+                flash.className = 'flash';
+                flash.style.background = color;
+                document.body.appendChild(flash);
+                setTimeout(() => {
+                    if (flash.parentNode) {
+                        flash.parentNode.removeChild(flash);
+                    }
+                }, 300);
+            }
+
+            showCelebration(emoji) {
+                const celebration = document.createElement('div');
+                celebration.className = 'celebration';
+                celebration.textContent = emoji;
+                document.body.appendChild(celebration);
+                setTimeout(() => {
+                    if (celebration.parentNode) {
+                        celebration.parentNode.removeChild(celebration);
+                    }
+                }, 1000);
+            }
+        }
+
+        // ==================== 语音服务 ====================
+        class TTSService {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.isSpeaking = false;
+            }
+
+            speak(word) {
+                if (!this.synth) return;
+
+                this.synth.cancel();
+
+                try {
+                    const utterance = new SpeechSynthesisUtterance(word);
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.8;
+                    utterance.pitch = 1.0;
+
+                    utterance.onstart = () => {
+                        this.isSpeaking = true;
+                    };
+
+                    utterance.onend = () => {
+                        this.isSpeaking = false;
+                    };
+
+                    utterance.onerror = (e) => {
+                        console.error('语音播放失败:', e);
+                        this.isSpeaking = false;
+                    };
+
+                    this.synth.speak(utterance);
+                } catch (error) {
+                    console.error('语音播放出错:', error);
+                }
+            }
+
+            cancel() {
+                if (this.synth) {
+                    this.synth.cancel();
+                    this.isSpeaking = false;
+                }
+            }
+        }
+
+        // ==================== 应用主类 ====================
+        class WordLearningApp {
+            constructor() {
+                this.state = {
+                    words: [],
+                    currentIndex: 0,
+                    knownCount: 0,
+                    unknownCount: 0,
+                    cards: [],
+                    theme: 'light',
+                    currentMode: 'card-flip',
+                    settings: {
+                        autoPlay: true,
+                        vibration: true,
+                        particleCount: 10
+                    }
+                };
+
+                this.storage = new StorageManager();
+                this.ui = new UIManager(this);
+                this.effects = new EffectsManager();
+                this.tts = new TTSService();
+                this.dbManager = null;
+                this.dashboard = null;
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // 初始化IndexedDB
+                    try {
+                        this.dbManager = new IndexedDBManager();
+                        await this.dbManager.init();
+                        console.log('IndexedDB 初始化成功');
+                    } catch (dbError) {
+                        console.warn('IndexedDB 初始化失败,使用 LocalStorage:', dbError);
+                    }
+
+                    // 加载主题
+                    const savedTheme = this.storage.get('theme') || 'light';
+                    this.setTheme(savedTheme);
+
+                    // 加载单词
+                    const savedWords = this.storage.get('currentWordbook');
+                    if (savedWords && savedWords.length > 0) {
+                        this.state.words = savedWords;
+                    } else {
+                        this.state.words = this.getDefaultWords();
+                    }
+
+                    // 加载进度
+                    const progress = this.storage.get('studyProgress');
+                    if (progress) {
+                        this.state.currentIndex = progress.currentIndex || 0;
+                        this.state.knownCount = progress.knownCount || 0;
+                        this.state.unknownCount = progress.unknownCount || 0;
+                    }
+
+                    // 更新连续天数
+                    this.updateStreak();
+
+                    // 初始化UI
+                    this.ui.init();
+                    this.setupEventListeners();
+                    this.effects.createParticles(this.state.settings.particleCount);
+
+                    // 自动播放
+                    if (this.state.settings.autoPlay && this.state.words.length > 0 && this.state.currentIndex < this.state.words.length) {
+                        setTimeout(() => {
+                            this.tts.speak(this.state.words[this.state.currentIndex].word);
+                        }, 500);
+                    }
+
+                    // 注册 Service Worker (PWA)
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.register('/service-worker.js').then(() => {
+                            console.log('Service Worker 注册成功');
+                        }).catch(err => {
+                            console.log('Service Worker 注册失败:', err);
+                        });
+                    }
+
+                } catch (error) {
+                    console.error('初始化失败:', error);
+                    this.ui.showToast('初始化失败,请刷新页面重试', 'error');
+                }
+            }
+
+            getDefaultWords() {
+                return [
+                    { word: "Serendipity", phonetic: "/ˌserənˈdɪpəti/", meaning: "意外发现美好事物的能力", example: "Finding this app was pure serendipity!" },
+                    { word: "Ephemeral", phonetic: "/ɪˈfemərəl/", meaning: "短暂的;瞬息的", example: "The beauty of cherry blossoms is ephemeral." },
+                    { word: "Resilience", phonetic: "/rɪˈzɪliəns/", meaning: "恢复力;韧性", example: "Her resilience helped her overcome difficulties." },
+                    { word: "Eloquent", phonetic: "/ˈeləkwənt/", meaning: "雄辩的;有说服力的", example: "He gave an eloquent speech." },
+                    { word: "Euphoria", phonetic: "/juːˈfɔːriə/", meaning: "狂喜;兴高采烈", example: "Winning brought feelings of euphoria." },
+                    { word: "Intricate", phonetic: "/ˈɪntrɪkət/", meaning: "错综复杂的", example: "The puzzle had an intricate design." },
+                    { word: "Luminous", phonetic: "/ˈluːmɪnəs/", meaning: "发光的;明亮的", example: "The moon cast a luminous glow." },
+                    { word: "Pristine", phonetic: "/ˈprɪstiːn/", meaning: "原始的;崭新的", example: "The beach was in pristine condition." },
+                    { word: "Zenith", phonetic: "/ˈziːnɪθ/", meaning: "顶峰;鼎盛时期", example: "She reached the zenith of her career." },
+                    { word: "Ambience", phonetic: "/ˈæmbiəns/", meaning: "氛围;环境", example: "The restaurant has a cozy ambience." }
+                ];
+            }
+
+            setupEventListeners() {
+                // 主题切换
+                document.getElementById('themeToggle').addEventListener('click', () => {
+                    this.toggleTheme();
+                });
+
+                // 下载模板
+                document.getElementById('downloadTemplate').addEventListener('click', () => {
+                    this.downloadTemplate();
+                });
+
+                // 导入单词
+                document.getElementById('importWords').addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+
+                // 文件上传
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileUpload(e);
+                });
+
+                // 词库管理
+                document.getElementById('manageWordbooks').addEventListener('click', () => {
+                    this.showWordbookModal();
+                });
+
+                // 统计
+                document.getElementById('showStatistics').addEventListener('click', () => {
+                    this.showStatistics();
+                });
+
+                // 模式切换
+                document.getElementById('switchMode').addEventListener('click', () => {
+                    this.showModeModal();
+                });
+
+                // 控制按钮
+                document.getElementById('btnKnow').addEventListener('click', () => this.handleKnow());
+                document.getElementById('btnUnknown').addEventListener('click', () => this.handleUnknown());
+                document.getElementById('btnSkip').addEventListener('click', () => this.handleSkip());
+
+                // Modal关闭
+                document.getElementById('closeStatsModal').addEventListener('click', () => {
+                    document.getElementById('statsModal').classList.remove('active');
+                });
+
+                document.getElementById('closeWordbookModal').addEventListener('click', () => {
+                    document.getElementById('wordbookModal').classList.remove('active');
+                });
+
+                document.getElementById('closeModeModal').addEventListener('click', () => {
+                    document.getElementById('modeModal').classList.remove('active');
+                });
+
+                // 模式按钮
+                document.getElementById('modeCardFlip').addEventListener('click', () => {
+                    this.state.currentMode = 'card-flip';
+                    this.ui.showToast('已切换到卡片翻转模式', 'success');
+                    document.getElementById('modeModal').classList.remove('active');
+                });
+
+                document.getElementById('modeSpelling').addEventListener('click', () => {
+                    this.ui.showToast('拼写练习模式开发中...', 'info');
+                });
+
+                document.getElementById('modeDictation').addEventListener('click', () => {
+                    this.ui.showToast('听写模式开发中...', 'info');
+                });
+
+                document.getElementById('modeQuickReview').addEventListener('click', () => {
+                    this.ui.showToast('快速复习模式开发中...', 'info');
+                });
+
+                // 键盘快捷键
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // 保存进度
+                window.addEventListener('beforeunload', () => {
+                    this.saveProgress();
+                });
+            }
+
+            handleKeyboard(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.handleSkip();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.handleKnow();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.handleUnknown();
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        if (this.ui.app.state.cards[0]) {
+                            const cardInner = this.ui.app.state.cards[0].querySelector('.card-inner');
+                            if (cardInner) {
+                                this.ui.flipCard(cardInner);
+                            }
+                        }
+                        break;
+                }
+            }
+
+            toggleTheme() {
+                const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
+                this.setTheme(newTheme);
+                this.storage.set('theme', newTheme);
+                this.ui.showToast(`已切换到${newTheme === 'dark' ? '深色' : '浅色'}模式`, 'success');
+            }
+
+            setTheme(theme) {
+                this.state.theme = theme;
+                document.documentElement.setAttribute('data-theme', theme);
+                const icon = document.getElementById('themeIcon');
+                if (icon) {
+                    icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+                }
+            }
+
+            downloadTemplate() {
+                const template = `word,phonetic,meaning,example
+Serendipity,/ˌserənˈdɪpəti/,意外发现美好事物的能力,Finding this app was pure serendipity!
+Ephemeral,/ɪˈfemərəl/,短暂的;瞬息的,The beauty of cherry blossoms is ephemeral.
+Resilience,/rɪˈzɪliəns/,恢复力;韧性,Her resilience helped her overcome difficulties.`;
+
+                const blob = new Blob(['\ufeff' + template], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+
+                link.setAttribute('href', url);
+                link.setAttribute('download', '单词模板.csv');
+                link.style.display = 'none';
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                this.ui.showToast('模板下载成功!', 'success');
+                this.effects.showCelebration('📥');
+            }
+
+            handleFileUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const text = event.target.result;
+                        let newWords = [];
+
+                        if (file.name.endsWith('.json')) {
+                            const data = JSON.parse(text);
+                            newWords = data.words || data;
+                        } else {
+                            newWords = this.parseCSV(text);
+                        }
+
+                        if (newWords.length === 0) {
+                            this.ui.showToast('文件格式错误或没有有效的单词数据!', 'error');
+                            return;
+                        }
+
+                        this.state.words = newWords;
+                        this.state.currentIndex = 0;
+                        this.state.knownCount = 0;
+                        this.state.unknownCount = 0;
+
+                        this.storage.set('currentWordbook', newWords);
+                        this.saveProgress();
+
+                        this.ui.initCards();
+                        this.ui.updateProgress();
+
+                        this.ui.showToast(`成功导入 ${newWords.length} 个单词!`, 'success');
+                        this.effects.showCelebration('✅');
+
+                        if (this.state.settings.autoPlay) {
+                            setTimeout(() => {
+                                this.tts.speak(newWords[0].word);
+                            }, 500);
+                        }
+
+                    } catch (error) {
+                        console.error('文件解析失败:', error);
+                        this.ui.showToast('文件解析失败!请检查文件格式', 'error');
+                    }
+                };
+
+                reader.readAsText(file, 'UTF-8');
+                e.target.value = '';
+            }
+
+            parseCSV(text) {
+                const lines = text.trim().split('\n');
+                const result = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const matches = line.match(/(".*?"|[^,]+)/g);
+                    if (matches && matches.length >= 4) {
+                        const word = matches[0].replace(/^"|"$/g, '').trim();
+                        const phonetic = matches[1].replace(/^"|"$/g, '').trim();
+                        const meaning = matches[2].replace(/^"|"$/g, '').trim();
+                        const example = matches[3].replace(/^"|"$/g, '').trim();
+
+                        if (word && meaning) {
+                            result.push({ word, phonetic, meaning, example });
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+            handleKnow() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.state.knownCount++;
+                this.recordStudy(true);
+                this.ui.bumpNumber('knownCount');
+                this.effects.showCelebration('✅');
+                this.effects.createFlash('rgba(79, 172, 254, 0.2)');
+                this.effects.createParticleBurst(window.innerWidth / 2, window.innerHeight / 2, '#4facfe');
+                this.ui.removeCurrentCard('right');
+                this.vibrate([10, 50, 10]);
+            }
+
+            handleUnknown() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.state.unknownCount++;
+                this.recordStudy(false);
+                this.ui.bumpNumber('unknownCount');
+                this.effects.showCelebration('📖');
+                this.effects.createFlash('rgba(250, 112, 154, 0.2)');
+                this.effects.createParticleBurst(window.innerWidth / 2, window.innerHeight / 2, '#fa709a');
+                this.ui.removeCurrentCard('left');
+                this.vibrate([10, 30, 10, 30, 10]);
+            }
+
+            handleSkip() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.effects.showCelebration('⏭️');
+                this.effects.createRipple(window.innerWidth / 2, window.innerHeight / 2, '#f093fb');
+                this.ui.removeCurrentCard('left');
+                this.vibrate([10]);
+            }
+
+            recordStudy(known) {
+                const word = this.state.words[this.state.currentIndex];
+                const record = {
+                    word: word.word,
+                    known: known,
+                    timestamp: Date.now()
+                };
+
+                let history = this.storage.get('studyHistory') || [];
+                history.push(record);
+
+                if (history.length > 1000) {
+                    history = history.slice(-1000);
+                }
+
+                this.storage.set('studyHistory', history);
+            }
+
+            saveProgress() {
+                this.storage.set('studyProgress', {
+                    currentIndex: this.state.currentIndex,
+                    knownCount: this.state.knownCount,
+                    unknownCount: this.state.unknownCount,
+                    lastStudyDate: new Date().toDateString()
+                });
+            }
+
+            updateStreak() {
+                const lastDate = this.storage.get('lastStudyDate');
+                const today = new Date().toDateString();
+                let streak = this.storage.get('studyStreak') || 0;
+
+                if (lastDate) {
+                    const last = new Date(lastDate);
+                    const current = new Date(today);
+                    const diffDays = Math.floor((current - last) / (1000 * 60 * 60 * 24));
+
+                    if (diffDays === 0) {
+                        // 今天已学习
+                    } else if (diffDays === 1) {
+                        // 连续学习
+                        streak++;
+                        this.storage.set('studyStreak', streak);
+                    } else {
+                        // 中断了
+                        streak = 1;
+                        this.storage.set('studyStreak', streak);
+                    }
+                } else {
+                    // 第一次学习
+                    streak = 1;
+                    this.storage.set('studyStreak', streak);
+                }
+
+                this.storage.set('lastStudyDate', today);
+                document.getElementById('streakCount').textContent = streak;
+            }
+
+            vibrate(pattern) {
+                if (this.state.settings.vibration && navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            }
+
+            showStatistics() {
+                const modal = document.getElementById('statsModal');
+                modal.classList.add('active');
+
+                // 初始化图表
+                if (!this.dashboard) {
+                    this.dashboard = new StatisticsDashboard('statsCanvas');
+                }
+
+                // 显示统计数据
+                const history = this.storage.get('studyHistory') || [];
+                if (history.length > 0) {
+                    this.dashboard.showLearningTrend(history);
+                } else {
+                    this.ui.showToast('暂无学习数据', 'info');
+                }
+            }
+
+            showWordbookModal() {
+                const modal = document.getElementById('wordbookModal');
+                modal.classList.add('active');
+
+                const list = document.getElementById('wordbookList');
+                list.innerHTML = `
+                    <div style="text-align: center; padding: 40px;">
+                        <h3 style="color: var(--text-primary); margin-bottom: 15px;">📚 词库功能</h3>
+                        <p style="color: var(--text-secondary);">当前版本使用 LocalStorage 存储</p>
+                        <p style="color: var(--text-secondary); margin-top: 10px;">词库管理功能正在开发中...</p>
+                    </div>
+                `;
+            }
+
+            showModeModal() {
+                const modal = document.getElementById('modeModal');
+                modal.classList.add('active');
+            }
+        }
+
+        // ==================== 初始化应用 ====================
+        let app;
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                app = new WordLearningApp();
+            });
+        } else {
+            app = new WordLearningApp();
+        }
+
+        // 错误边界
+        window.addEventListener('error', (e) => {
+            console.error('全局错误:', e.error);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('未处理的Promise拒绝:', e.reason);
+        });
+    </script>
+</body>
+</html>
