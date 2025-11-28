@@ -34,33 +34,47 @@ def filename_from_url(url: str) -> str:
 def download_with_requests(url: str, dest: Path) -> bool:
     import time
     import requests
+    import random
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    
     attempts = 3
     for attempt in range(1, attempts + 1):
         try:
-            with requests.get(url, stream=True, timeout=20) as r:
+            # Add a small random delay to be polite and avoid rate limiting
+            time.sleep(random.uniform(0.5, 1.5))
+            
+            with requests.get(url, stream=True, timeout=30, headers=headers) as r:
                 r.raise_for_status()
                 with open(dest, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
             return True
-        except Exception:
+        except Exception as e:
+            print(f"  Request error (attempt {attempt}): {e}")
             if attempt < attempts:
-                time.sleep(1 * attempt)
+                time.sleep(2 * attempt)
                 continue
             return False
 
 
 def download_with_urllib(url: str, dest: Path) -> bool:
     import time
+    import random
     from urllib import request as ureq
     from urllib.error import URLError, HTTPError
 
     attempts = 3
     for attempt in range(1, attempts + 1):
         try:
-            req = ureq.Request(url, headers={"User-Agent": "python-urllib/3"})
-            with ureq.urlopen(req, timeout=20) as resp:
+            time.sleep(random.uniform(0.5, 1.5))
+            req = ureq.Request(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            })
+            with ureq.urlopen(req, timeout=30) as resp:
                 with open(dest, "wb") as f:
                     while True:
                         chunk = resp.read(8192)
@@ -68,9 +82,10 @@ def download_with_urllib(url: str, dest: Path) -> bool:
                             break
                         f.write(chunk)
             return True
-        except (HTTPError, URLError, TimeoutError, OSError):
+        except (HTTPError, URLError, TimeoutError, OSError) as e:
+            print(f"  Urllib error (attempt {attempt}): {e}")
             if attempt < attempts:
-                time.sleep(1 * attempt)
+                time.sleep(2 * attempt)
                 continue
             return False
 
