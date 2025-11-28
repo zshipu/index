@@ -102,36 +102,46 @@ def main() -> int:
     count_skipped = 0
     count_failed = 0
 
+    import argparse
+    parser = argparse.ArgumentParser(description="Download images listed in img.txt")
+    parser.add_argument("--limit", type=int, default=0, help="仅下载前 N 个唯一 URL，用于测试")
+    args = parser.parse_args()
+    limit = args.limit or 0
+
     try:
         with IMG_TXT.open("r", encoding="utf-8") as fh:
             for raw in fh:
                 url = raw.strip()
-            if not url:
-                continue
-            if url.startswith("#"):
-                continue
-            count_total += 1
-            if url in seen_urls:
-                print(f"跳过重复 URL: {url}")
-                count_skipped += 1
-                continue
-            seen_urls.add(url)
+                if not url:
+                    continue
+                if url.startswith("#"):
+                    continue
+                count_total += 1
+                if url in seen_urls:
+                    print(f"跳过重复 URL: {url}")
+                    count_skipped += 1
+                    continue
+                seen_urls.add(url)
 
-            fname = filename_from_url(url)
-            dest = IMAGES_DIR / fname
+                fname = filename_from_url(url)
+                dest = IMAGES_DIR / fname
 
-            if dest.exists() and dest.stat().st_size > 0:
-                print(f"已存在，跳过: {dest.name}")
-                count_skipped += 1
-                continue
+                if dest.exists() and dest.stat().st_size > 0:
+                    print(f"已存在，跳过: {dest.name}")
+                    count_skipped += 1
+                    continue
 
-            print(f"下载: {url} -> {dest.name}")
-            ok = download(url, dest)
-            if ok:
-                count_downloaded += 1
-            else:
-                print(f"下载失败: {url}")
-                count_failed += 1
+                print(f"下载: {url} -> {dest.name}")
+                ok = download(url, dest)
+                if ok:
+                    count_downloaded += 1
+                else:
+                    print(f"下载失败: {url}")
+                    count_failed += 1
+
+                if limit and (count_downloaded + count_skipped) >= limit:
+                    print(f"已达到限制 {limit}，停止（用于测试）。")
+                    break
     except KeyboardInterrupt:
         print('\n已手动中断。正在退出...')
 
