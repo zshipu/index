@@ -1,0 +1,106 @@
+**结论**
+- 这个工程已经不是 README 里说的“简单骨架”，而是一个“健康业务 + Agent 运行时 + 记忆体系 + 数据工具 + 会话治理”的完整后端雏形。
+- 从代码实态看，最合适的不是传统 3 层，而是 **5 层 Agent 化架构**：**接入交互层 → 应用编排层 → Agent 认知层 → 能力集成层 → 数据基础设施层**。
+
+**5层架构**
+- **第1层：接入交互层**：H5 页面、REST、SSE 流式输出；入口在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/resources/static/app.js:57`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/resources/static/index.html:19`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/controller/ChatController.java:45`。
+- **第2层：应用编排层**：负责“会话解析 → 建档预热 → 组装上下文 → 调 Agent → 持久化 → 后处理”；核心在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/AgentConversationService.java:46`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/RuntimeBootstrapService.java:32`。
+- **第3层：Agent 认知层**：负责 `agents.md + soul.md` 的系统人格、长期记忆注入、Soul 演化、安全边界与提示词治理；核心在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/ContextAssembler.java:19`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/AgentPromptBuilder.java:9`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/hook/HealthLongTermMemoryHook.java:42`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/SoulSignalExtractionService.java:25`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/SoulEvolutionService.java:25`。
+- **第4层：能力集成层**：负责把 AgentScope、SkillBox、Toolkit、睡眠/饮食/画像工具、Session Provider 装成可运行 Agent；核心在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/AgentFactory.java:47`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/service/AgentSkillService.java:17`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/tool/SleepHealthTool.java:13`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/config/AgentScopeSessionConfig.java:33`。
+- **第5层：数据与基础设施层**：MySQL、Redis、Mem0、OpenAI 兼容模型、日志追踪；核心在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/resources/db/schema.sql:1`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/mapper/B2cHealthDataMapper.java:12`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/memory/HealthMem0LongTermMemory.java:33`、`/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/logging/RequestTraceFilter.java:21`。
+
+**核心架构判断**
+- **它是“动态人格 Agent”而不是普通问答接口**：系统提示词并非静态字符串，而是 `agent_config + soul + long-term memory` 运行时拼装。
+- **它是“会话托管型 Agent”而不是业务层自己拼 history**：真实会话状态托管给 AgentScope Session，业务层只维护“活跃会话映射”。
+- **它是“技能按需加载型 Agent”而不是固定工具箱**：Skill 从数据库发布、按 appId 装配，再在对话中延迟激活。
+
+**技术架构图**
+```mermaid
+flowchart TB
+    UI["H5 前端<br/>index.html + app.js"] --> API["Controller 接入层<br/>ChatController / AgentProfileController"]
+    API --> APP["应用编排层<br/>AgentConversationService<br/>RuntimeBootstrapService"]
+    APP --> COG["Agent 认知层<br/>ContextAssembler<br/>PromptBuilder<br/>Soul Extraction/Evolution"]
+    APP --> FACTORY["能力装配层<br/>AgentFactory"]
+    FACTORY --> AGENT["AgentScope ReActAgent"]
+    AGENT --> AUTO["AutoContextMemory + Hook"]
+    AGENT --> LTM["HealthLongTermMemoryHook"]
+    AGENT --> SKILL["SkillBox + Toolkit"]
+    SKILL --> TOOL1["SleepHealthTool"]
+    SKILL --> TOOL2["DietHealthTool"]
+    SKILL --> TOOL3["UserProfileTool"]
+    TOOL1 --> HEALTH["HealthDataQueryService"]
+    TOOL2 --> HEALTH
+    TOOL3 --> PROFILE["UserProfileQueryService"]
+    HEALTH --> MYSQL["MySQL<br/>b2c_hm503 / b2c_agent"]
+    PROFILE --> MYSQL
+    COG --> META["agent_config / agent_soul / history"]
+    META --> MYSQL
+    LTM --> MEM0["Mem0 长期记忆服务"]
+    AGENT --> MODEL["OpenAI Compatible Model<br/>vLLM / 推理网关"]
+    APP --> SESSION["AgentScope Session"]
+    SESSION --> REDIS["Redis 或 InMemory"]
+    API --> TRACE["RequestTraceFilter + Reactor Trace"]
+```
+
+**业务技术架构图**
+```mermaid
+flowchart LR
+    USER["用户"] --> Q1["健康咨询 / 图片问答 / 睡眠分析"]
+    Q1 --> ENTRY["聊天入口"]
+    ENTRY --> ID["运行时身份解析<br/>appId + userId"]
+    ID --> BOOT["首次建档判断"]
+    BOOT -->|未建档| INIT["LLM 初始化 soul.md"]
+    BOOT -->|已建档| CTX["上下文组装"]
+    INIT --> CTX
+
+    CTX --> PROMPT["system prompt = agents.md + soul.md + long-term memory"]
+    PROMPT --> ROUTE["技能路由判断"]
+    ROUTE -->|睡眠问题| SLEEP["加载 sleep skill"]
+    ROUTE -->|饮食问题| DIET["加载 diet skill"]
+    ROUTE -->|普通问题| CHAT["直接问答"]
+
+    SLEEP --> DATA["健康数据查询"]
+    DIET --> DATA
+    DATA --> TABLES["睡眠/饮水/热量/体重表"]
+
+    CHAT --> ANSWER["生成回答"]
+    SLEEP --> ANSWER
+    DIET --> ANSWER
+
+    ANSWER --> SAVE["保存 Session + 聊天日志"]
+    SAVE --> EVOLVE["异步抽取信号并演化 soul"]
+    EVOLVE --> NEXT["下轮对话个性化增强"]
+```
+
+**最佳部署架构图**
+```mermaid
+flowchart TB
+    U["Web / App / 内嵌 H5"] --> GW["Nginx / API Gateway / Ingress"]
+    GW --> LB["Spring Boot Agent Service<br/>多副本无状态部署"]
+
+    LB --> REDIS["Redis 主从或 Redis Cluster<br/>Session / 活跃会话 / 缓存"]
+    LB --> MYSQL["MySQL 主从<br/>b2c_agent + b2c_hm503"]
+    LB --> MODEL["模型网关 / vLLM 集群<br/>OpenAI Compatible"]
+    LB --> MEM0["Mem0 服务"]
+    LB --> OBS["日志 / Trace / Metrics<br/>ELK + Prometheus + Grafana"]
+    LB --> SECRET["配置中心 / Secret Manager"]
+
+    subgraph K8S["推荐生产环境：Kubernetes"]
+        LB
+    end
+```
+
+**最佳部署建议**
+- **生产必须改为 Redis Session**：当前配置默认是 `memory`，单机可用，多实例会串会话；生产应切到 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/java/com/mxyj/health/agent/config/AgentScopeSessionConfig.java:33` 的 Redis 方案。
+- **应用节点应无状态化**：Spring Boot 实例只做编排，不保存本地会话。
+- **模型层独立扩缩容**：把 LLM 网关/vLLM 从业务服务拆开，避免长推理拖垮 API。
+- **MySQL 按库职责拆分**：`b2c_agent` 放 Agent 元数据、Skill、Soul；`b2c_hm503` 放业务健康数据与聊天兼容日志。
+- **密钥必须外置**：`application.yml` 里已有模型和 Mem0 明文配置，生产必须迁到环境变量或 Secret Manager，文件在 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/src/main/resources/application.yml:1`。
+
+**一句话总评**
+- 这是一个 **“以 Agent 编排为核心、以健康数据工具为增强、以 Soul/长期记忆为差异化能力”** 的健康陪伴型 Agent 平台后端，而不是普通聊天接口。
+
+**补充**
+- 我顺手跑了 `mvn test`；失败主要是 **Java 25 与 Mockito/ByteBuddy 版本不兼容**，不是这次架构判断的问题。
+
+如果你愿意，我下一步可以直接把这份内容整理成一份正式的架构文档，落到 `/Users/zhuss/Downloads/SVN/code/mxyj-health-agent/docs/architecture.md`。

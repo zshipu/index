@@ -1,0 +1,1101 @@
+# Drill Clone — 完整项目文件
+
+## 目录结构
+```
+drill-clone/
+├── package.json
+├── next.config.mjs
+├── tailwind.config.js
+├── postcss.config.js
+├── .env.local.example
+├── firestore.rules
+├── lib/
+│   ├── firebase.js
+│   ├── firebaseAdmin.js
+│   └── utils.js
+├── hooks/
+│   └── useAuth.js
+├── components/
+│   ├── AuthProvider.jsx
+│   ├── Navbar.jsx
+│   ├── SessionCard.jsx
+│   ├── SessionTree.jsx
+│   ├── MarkdownContent.jsx
+│   └── NewSessionForm.jsx
+└── app/
+    ├── layout.jsx
+    ├── globals.css
+    ├── page.jsx
+    ├── discover/page.jsx
+    ├── sessions/
+    │   ├── new/page.jsx
+    │   └── [id]/
+    │       ├── page.jsx
+    │       └── [nodeSlug]/page.jsx
+    └── authors/
+        └── [username]/page.jsx
+```
+
+---
+
+## package.json
+```json
+{
+  "name": "drill-clone",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "firebase": "^10.12.0",
+    "firebase-admin": "^12.1.0",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "react-syntax-highlighter": "^15.5.0",
+    "nanoid": "^5.0.7",
+    "clsx": "^2.1.1",
+    "slugify": "^1.6.6"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3"
+  }
+}
+```
+
+---
+
+## next.config.mjs
+```js
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    domains: ['lh3.googleusercontent.com', 'avatars.githubusercontent.com'],
+  },
+};
+
+export default nextConfig;
+```
+
+---
+
+## tailwind.config.js
+```js
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './app/**/*.{js,jsx,ts,tsx}',
+    './components/**/*.{js,jsx,ts,tsx}',
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      colors: {
+        brand: {
+          50:  '#eff6ff',
+          100: '#dbeafe',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        },
+      },
+      typography: {
+        DEFAULT: {
+          css: {
+            maxWidth: 'none',
+            code: { backgroundColor: '#f1f5f9', borderRadius: '4px', padding: '2px 6px' },
+            'code::before': { content: 'none' },
+            'code::after':  { content: 'none' },
+          },
+        },
+      },
+    },
+  },
+  plugins: [require('@tailwindcss/typography')],
+};
+```
+
+---
+
+## postcss.config.js
+```js
+module.exports = {
+  plugins: { tailwindcss: {}, autoprefixer: {} },
+};
+```
+
+---
+
+## .env.local.example
+```
+# Firebase Client SDK (公开，可放前端)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Firebase Admin SDK (服务端，保密)
+FIREBASE_ADMIN_PROJECT_ID=
+FIREBASE_ADMIN_CLIENT_EMAIL=
+FIREBASE_ADMIN_PRIVATE_KEY=
+```
+
+---
+
+## firestore.rules
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if isSignedIn() && isOwner(uid);
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if resource.data.isPublic == true || (isSignedIn() && isOwner(resource.data.authorId));
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
+
+      match /nodes/{nodeId} {
+        allow read: if get(/databases/$(database)/documents/sessions/$(sessionId)).data.isPublic == true
+                    || (isSignedIn() && isOwner(get(/databases/$(database)/documents/sessions/$(sessionId)).data.authorId));
+        allow write: if isSignedIn() && isOwner(get(/databases/$(database)/documents/sessions/$(sessionId)).data.authorId);
+      }
+    }
+  }
+}
+```
+
+---
+
+## lib/firebase.js
+```js
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+const firebaseConfig = {
+  apiKey:            process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain:        process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId:         process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
+```
+
+---
+
+## lib/firebaseAdmin.js
+```js
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+const adminConfig = {
+  credential: cert({
+    projectId:   process.env.FIREBASE_ADMIN_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
+    privateKey:  process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  }),
+};
+
+const adminApp = getApps().length === 0 ? initializeApp(adminConfig, 'admin') : getApps().find(a => a.name === 'admin');
+
+export const adminDb = getFirestore(adminApp);
+```
+
+---
+
+## lib/utils.js
+```js
+import slugify from 'slugify';
+
+export function makeSlug(title) {
+  return slugify(title, { lower: true, strict: false, locale: 'zh' })
+    .replace(/[^\w-]/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 60);
+}
+
+export function makeNodeSlug(title, id) {
+  return `${makeSlug(title)}-${id.slice(0, 8)}`;
+}
+
+export function parseNodeSlug(nodeSlug) {
+  // last segment after final dash (8 chars) is the ID prefix
+  const parts = nodeSlug.split('-');
+  return parts[parts.length - 1]; // ID prefix
+}
+
+export function formatDate(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+export function buildTree(nodes) {
+  const map = {};
+  const roots = [];
+  nodes.forEach(n => { map[n.id] = { ...n, children: [] }; });
+  nodes.forEach(n => {
+    if (n.parentId && map[n.parentId]) map[n.parentId].children.push(map[n.id]);
+    else roots.push(map[n.id]);
+  });
+  const sort = arr => { arr.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); arr.forEach(n => sort(n.children)); };
+  sort(roots);
+  return roots;
+}
+```
+
+---
+
+## hooks/useAuth.js
+```js
+'use client';
+import { useContext } from 'react';
+import { AuthContext } from '@/components/AuthProvider';
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
+```
+
+---
+
+## components/AuthProvider.jsx
+```jsx
+'use client';
+import { createContext, useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+
+export const AuthContext = createContext({ user: null, loading: true });
+
+export default function AuthProvider({ children }) {
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, async fbUser => {
+      if (fbUser) {
+        const ref = doc(db, 'users', fbUser.uid);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          const username = fbUser.email.split('@')[0].replace(/[^a-z0-9]/gi, '') + '-' + fbUser.uid.slice(0, 6);
+          await setDoc(ref, {
+            uid: fbUser.uid, name: fbUser.displayName || fbUser.email,
+            email: fbUser.email, avatar: fbUser.photoURL || '',
+            username, createdAt: serverTimestamp(),
+          });
+        }
+        const profile = (await getDoc(ref)).data();
+        setUser({ ...fbUser, ...profile });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+}
+```
+
+---
+
+## components/Navbar.jsx
+```jsx
+'use client';
+import Link from 'next/link';
+import { useState } from 'react';
+import { signInWithPopup, signOut } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
+import { useAuth } from '@/hooks/useAuth';
+
+export default function Navbar() {
+  const { user, loading } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const login  = () => signInWithPopup(auth, googleProvider);
+  const logout = () => signOut(auth);
+
+  return (
+    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100">
+      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <Link href="/" className="font-bold text-gray-900 text-lg tracking-tight">Drill</Link>
+          <Link href="/discover" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">Discover</Link>
+          {user && (
+            <Link href="/sessions/new" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">New Session</Link>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3">
+          {loading ? null : user ? (
+            <div className="relative">
+              <button onClick={() => setMenuOpen(o => !o)} className="flex items-center gap-2">
+                {user.avatar
+                  ? <img src={user.avatar} className="w-8 h-8 rounded-full" alt={user.name} />
+                  : <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">{user.name?.[0]}</div>
+                }
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-10 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 text-sm z-50">
+                  <Link href={`/authors/${user.username}`} className="block px-4 py-2 hover:bg-gray-50" onClick={() => setMenuOpen(false)}>My Sessions</Link>
+                  <button onClick={() => { logout(); setMenuOpen(false); }} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-red-500">Sign out</button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button onClick={login} className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              Sign in with Google
+            </button>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+}
+```
+
+---
+
+## components/SessionCard.jsx
+```jsx
+import Link from 'next/link';
+import { makeNodeSlug, formatDate } from '@/lib/utils';
+
+export default function SessionCard({ session }) {
+  const href = `/sessions/${session.id}`;
+  const typeLabel = session.type === 'project' ? 'Project' : 'Session';
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 hover:shadow-sm transition-all bg-white group">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">{typeLabel}</span>
+        <Link
+          href={href}
+          className="text-xs px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600 transition-colors"
+        >
+          Open →
+        </Link>
+      </div>
+
+      <Link href={href}>
+        <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-2 line-clamp-2">
+          {session.title}
+        </h3>
+      </Link>
+
+      {session.description && (
+        <p className="text-sm text-gray-500 line-clamp-3 mb-4 leading-relaxed">{session.description}</p>
+      )}
+
+      <div className="flex items-center justify-between text-xs text-gray-400">
+        <Link href={`/authors/${session.authorUsername}`} className="font-medium text-gray-600 hover:text-blue-600 transition-colors">
+          {session.authorName}
+        </Link>
+        <div className="flex items-center gap-3">
+          <span>👁 {session.views ?? 0}</span>
+          <span>⎘ {session.clones ?? 0}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## components/SessionTree.jsx
+```jsx
+'use client';
+import { useState } from 'react';
+import Link from 'next/link';
+import { makeNodeSlug } from '@/lib/utils';
+import clsx from 'clsx';
+
+function TreeNode({ node, sessionId, activeNodeId, depth = 0 }) {
+  const [open, setOpen] = useState(true);
+  const isActive = node.id === activeNodeId;
+  const hasChildren = node.children?.length > 0;
+  const slug = makeNodeSlug(node.title, node.id);
+
+  return (
+    <li>
+      <div className={clsx(
+        'flex items-start gap-1 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors group',
+        isActive ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-gray-100',
+      )} style={{ paddingLeft: `${8 + depth * 16}px` }}>
+        {hasChildren && (
+          <button onClick={() => setOpen(o => !o)} className="mt-0.5 text-gray-400 shrink-0 w-4 text-center">
+            {open ? '▾' : '▸'}
+          </button>
+        )}
+        {!hasChildren && <span className="w-4 shrink-0" />}
+        <Link href={`/sessions/${sessionId}/${slug}`} className="flex-1 leading-snug line-clamp-2">
+          {node.title}
+        </Link>
+      </div>
+      {hasChildren && open && (
+        <ul>
+          {node.children.map(child => (
+            <TreeNode key={child.id} node={child} sessionId={sessionId} activeNodeId={activeNodeId} depth={depth + 1} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+export default function SessionTree({ tree, sessionId, activeNodeId, sessionTitle }) {
+  return (
+    <aside className="w-64 shrink-0 border-r border-gray-100 h-[calc(100vh-56px)] sticky top-14 overflow-y-auto py-4 bg-white">
+      <div className="px-4 mb-3">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Session Tree</p>
+      </div>
+      <ul className="space-y-0.5 px-1">
+        {tree.map(node => (
+          <TreeNode key={node.id} node={node} sessionId={sessionId} activeNodeId={activeNodeId} />
+        ))}
+      </ul>
+    </aside>
+  );
+}
+```
+
+---
+
+## components/MarkdownContent.jsx
+```jsx
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+export default function MarkdownContent({ content }) {
+  return (
+    <div className="prose prose-gray max-w-none text-[15px]">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ node, inline, className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || '');
+            return !inline && match ? (
+              <SyntaxHighlighter style={oneLight} language={match[1]} PreTag="div" {...props}>
+                {String(children).replace(/\n$/, '')}
+              </SyntaxHighlighter>
+            ) : (
+              <code className="bg-gray-100 rounded px-1.5 py-0.5 text-sm font-mono" {...props}>
+                {children}
+              </code>
+            );
+          },
+          table({ children }) {
+            return <div className="overflow-x-auto my-4"><table className="min-w-full">{children}</table></div>;
+          },
+          a({ href, children }) {
+            return <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{children}</a>;
+          },
+        }}
+      >
+        {content || ''}
+      </ReactMarkdown>
+    </div>
+  );
+}
+```
+
+---
+
+## components/NewSessionForm.jsx
+```jsx
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/hooks/useAuth';
+import { nanoid } from 'nanoid';
+
+function NodeEditor({ node, onChange, onAddChild, onDelete, depth = 0 }) {
+  return (
+    <div className="border-l-2 border-gray-200 pl-4 my-2" style={{ marginLeft: `${depth * 16}px` }}>
+      <div className="flex gap-2 mb-1">
+        <input
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-300"
+          placeholder="Node title"
+          value={node.title}
+          onChange={e => onChange({ ...node, title: e.target.value })}
+        />
+        <button onClick={() => onAddChild(node.id)} className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600">+ Child</button>
+        {depth > 0 && <button onClick={() => onDelete(node.id)} className="text-xs px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-500">✕</button>}
+      </div>
+      <textarea
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-300 resize-none"
+        placeholder="Content (Markdown)"
+        rows={4}
+        value={node.content}
+        onChange={e => onChange({ ...node, content: e.target.value })}
+      />
+      {node.children?.map((child, i) => (
+        <NodeEditor key={child.id} node={child} depth={depth + 1}
+          onChange={updated => onChange({ ...node, children: node.children.map(c => c.id === updated.id ? updated : c) })}
+          onAddChild={onAddChild}
+          onDelete={id => onChange({ ...node, children: node.children.filter(c => c.id !== id) })}
+        />
+      ))}
+    </div>
+  );
+}
+
+function makeNode(parentId = null) {
+  return { id: nanoid(8), title: '', content: '', parentId, children: [] };
+}
+
+export default function NewSessionForm() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [title, setTitle]       = useState('');
+  const [desc, setDesc]         = useState('');
+  const [isPublic, setIsPublic] = useState(true);
+  const [rootNode, setRootNode] = useState(makeNode());
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState('');
+
+  function addChildTo(parentId, current = rootNode) {
+    if (current.id === parentId) {
+      return { ...current, children: [...current.children, makeNode(parentId)] };
+    }
+    return { ...current, children: current.children.map(c => addChildTo(parentId, c)) };
+  }
+
+  async function flattenAndSave(sessionRef, node, order = 0) {
+    const nodesCol = collection(sessionRef, 'nodes');
+    const ref = await addDoc(nodesCol, {
+      title: node.title, content: node.content,
+      parentId: node.parentId, order, createdAt: serverTimestamp(),
+    });
+    for (let i = 0; i < node.children.length; i++) {
+      await flattenAndSave({ ...sessionRef, id: sessionRef.id, path: `sessions/${sessionRef.id}` },
+        { ...node.children[i], parentId: ref.id }, i);
+    }
+  }
+
+  async function handleSubmit() {
+    if (!title.trim()) return setError('Please enter a session title.');
+    if (!user)          return setError('Please sign in first.');
+    setSaving(true);
+    try {
+      const sessionsCol = collection(db, 'sessions');
+      const sRef = await addDoc(sessionsCol, {
+        title: title.trim(), description: desc.trim(), isPublic,
+        authorId: user.uid, authorName: user.name, authorUsername: user.username,
+        views: 0, clones: 0, type: 'session', createdAt: serverTimestamp(),
+      });
+      // flatten tree into nodes subcollection
+      async function saveNode(node, parentId, order) {
+        const nodesCol = collection(db, 'sessions', sRef.id, 'nodes');
+        const nRef = await addDoc(nodesCol, {
+          title: node.title || 'Untitled', content: node.content || '',
+          parentId: parentId || null, order, createdAt: serverTimestamp(),
+        });
+        for (let i = 0; i < node.children.length; i++) {
+          await saveNode(node.children[i], nRef.id, i);
+        }
+      }
+      await saveNode(rootNode, null, 0);
+      router.push(`/sessions/${sRef.id}`);
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-10">
+      <h1 className="text-2xl font-bold text-gray-900 mb-8">New Session</h1>
+
+      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-600 text-sm">{error}</div>}
+
+      <div className="space-y-4 mb-8">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+          <input className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-300" placeholder="Session title" value={title} onChange={e => setTitle(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-300 resize-none" rows={3} placeholder="Brief description of this session" value={desc} onChange={e => setDesc(e.target.value)} />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="rounded" />
+          Make this session public (discoverable)
+        </label>
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-700">Content Nodes</h2>
+          <button onClick={() => setRootNode(n => ({ ...n, children: [...n.children, makeNode()] }))} className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600">+ Add Root Node</button>
+        </div>
+        <NodeEditor
+          node={rootNode}
+          onChange={setRootNode}
+          onAddChild={id => setRootNode(n => addChildTo(id, n))}
+          onDelete={() => {}}
+          depth={0}
+        />
+      </div>
+
+      <button
+        onClick={handleSubmit}
+        disabled={saving}
+        className="px-6 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+      >
+        {saving ? 'Saving…' : 'Publish Session'}
+      </button>
+    </div>
+  );
+}
+```
+
+---
+
+## app/globals.css
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+/* Prose table overrides */
+.prose table { font-size: 0.875rem; }
+.prose thead th { background: #f9fafb; }
+.prose tr { border-bottom: 1px solid #f3f4f6; }
+```
+
+---
+
+## app/layout.jsx
+```jsx
+import './globals.css';
+import { Inter } from 'next/font/google';
+import AuthProvider from '@/components/AuthProvider';
+import Navbar from '@/components/Navbar';
+
+export const metadata = {
+  title: 'Drill — Drill into anything you read',
+  description: 'Browse and share knowledge sessions with tree-structured Q&A.',
+};
+
+const inter = Inter({ subsets: ['latin'] });
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" className={inter.className}>
+      <body className="bg-white text-gray-900 min-h-screen">
+        <AuthProvider>
+          <Navbar />
+          <main>{children}</main>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+---
+
+## app/page.jsx (Landing)
+```jsx
+import Link from 'next/link';
+
+export default function Home() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-56px)] text-center px-4">
+      <div className="max-w-2xl">
+        <h1 className="text-5xl font-bold text-gray-900 mb-4 leading-tight">
+          Drill into anything<br />you read
+        </h1>
+        <p className="text-xl text-gray-500 mb-10 leading-relaxed">
+          Create tree-structured knowledge sessions, share insights with the community, and explore what others are learning.
+        </p>
+        <div className="flex items-center justify-center gap-4">
+          <Link href="/discover" className="px-6 py-3 rounded-xl bg-gray-900 text-white font-medium hover:bg-gray-700 transition-colors">
+            Explore Sessions
+          </Link>
+          <Link href="/sessions/new" className="px-6 py-3 rounded-xl border border-gray-200 text-gray-700 font-medium hover:border-gray-400 transition-colors">
+            Create Session
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## app/discover/page.jsx
+```jsx
+import { adminDb } from '@/lib/firebaseAdmin';
+import SessionCard from '@/components/SessionCard';
+import Link from 'next/link';
+
+export const revalidate = 60; // ISR: 60s
+
+async function getSessions(sort = 'latest') {
+  let q = adminDb.collection('sessions')
+    .where('isPublic', '==', true)
+    .orderBy(sort === 'popular' ? 'views' : 'createdAt', 'desc')
+    .limit(30);
+  const snap = await q.get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data(), createdAt: d.data().createdAt?.toMillis() ?? null }));
+}
+
+export default async function DiscoverPage({ searchParams }) {
+  const sort = searchParams?.sort === 'popular' ? 'popular' : 'latest';
+  const sessions = await getSessions(sort);
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-10">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Discover</h1>
+        <p className="text-gray-500">Browse public sessions shared by the community.</p>
+      </div>
+
+      <div className="flex gap-2 mb-6">
+        <Link href="/discover" className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${sort === 'latest' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Latest</Link>
+        <Link href="/discover?sort=popular" className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${sort === 'popular' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Popular</Link>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">
+          <p className="text-lg mb-2">No sessions yet.</p>
+          <Link href="/sessions/new" className="text-blue-600 hover:underline text-sm">Create the first one →</Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sessions.map(s => <SessionCard key={s.id} session={s} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## app/sessions/new/page.jsx
+```jsx
+import NewSessionForm from '@/components/NewSessionForm';
+
+export const metadata = { title: 'New Session — Drill' };
+
+export default function NewSessionPage() {
+  return <NewSessionForm />;
+}
+```
+
+---
+
+## app/sessions/[id]/page.jsx
+```jsx
+import { adminDb } from '@/lib/firebaseAdmin';
+import { redirect } from 'next/navigation';
+import { buildTree, makeNodeSlug } from '@/lib/utils';
+
+// Redirect to first node
+export default async function SessionRootPage({ params }) {
+  const { id } = params;
+
+  const nodesSnap = await adminDb
+    .collection('sessions').doc(id)
+    .collection('nodes')
+    .orderBy('order')
+    .get();
+
+  const nodes = nodesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const tree = buildTree(nodes);
+
+  // find first root node
+  const firstNode = tree[0];
+  if (firstNode) {
+    redirect(`/sessions/${id}/${makeNodeSlug(firstNode.title, firstNode.id)}`);
+  }
+
+  return (
+    <div className="flex items-center justify-center h-64 text-gray-400">
+      This session has no content yet.
+    </div>
+  );
+}
+```
+
+---
+
+## app/sessions/[id]/[nodeSlug]/page.jsx
+```jsx
+import { adminDb } from '@/lib/firebaseAdmin';
+import { notFound } from 'next/navigation';
+import { buildTree, makeNodeSlug } from '@/lib/utils';
+import SessionTree from '@/components/SessionTree';
+import MarkdownContent from '@/components/MarkdownContent';
+import Link from 'next/link';
+import { increment, doc, updateDoc } from 'firebase/firestore';
+
+export const revalidate = 30;
+
+async function getSessionData(id) {
+  const sessSnap = await adminDb.collection('sessions').doc(id).get();
+  if (!sessSnap.exists) return null;
+
+  const nodesSnap = await adminDb
+    .collection('sessions').doc(id)
+    .collection('nodes')
+    .get();
+
+  const nodes = nodesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const tree = buildTree(nodes);
+  return { session: { id, ...sessSnap.data() }, nodes, tree };
+}
+
+function findNodeBySlug(nodes, nodeSlug) {
+  const idPrefix = nodeSlug.split('-').pop();
+  return nodes.find(n => n.id.startsWith(idPrefix) || makeNodeSlug(n.title, n.id) === nodeSlug);
+}
+
+export async function generateMetadata({ params }) {
+  const data = await getSessionData(params.id);
+  if (!data) return {};
+  const node = findNodeBySlug(data.nodes, params.nodeSlug);
+  return {
+    title: `${node?.title ?? data.session.title} — Drill`,
+    description: data.session.description,
+  };
+}
+
+export default async function NodePage({ params }) {
+  const { id, nodeSlug } = params;
+  const data = await getSessionData(id);
+  if (!data) notFound();
+
+  const { session, nodes, tree } = data;
+  const activeNode = findNodeBySlug(nodes, nodeSlug);
+  if (!activeNode) notFound();
+
+  // Build breadcrumb path
+  function getAncestors(nodeId, all) {
+    const node = all.find(n => n.id === nodeId);
+    if (!node || !node.parentId) return node ? [node] : [];
+    return [...getAncestors(node.parentId, all), node];
+  }
+  const breadcrumb = getAncestors(activeNode.id, nodes);
+
+  return (
+    <div className="flex">
+      <SessionTree tree={tree} sessionId={id} activeNodeId={activeNode.id} sessionTitle={session.title} />
+
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="max-w-3xl mx-auto px-8 py-8">
+          {/* Back link */}
+          <Link href="/discover" className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors">
+            ← Discover
+          </Link>
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-6 flex-wrap">
+            {breadcrumb.map((n, i) => (
+              <span key={n.id} className="flex items-center gap-1.5">
+                {i > 0 && <span>/</span>}
+                <Link href={`/sessions/${id}/${makeNodeSlug(n.title, n.id)}`} className={`hover:text-gray-600 transition-colors ${n.id === activeNode.id ? 'text-gray-700 font-medium' : ''}`}>
+                  {n.title}
+                </Link>
+              </span>
+            ))}
+          </div>
+
+          {/* Session title */}
+          <p className="text-sm text-gray-400 mb-1 font-medium">{session.title}</p>
+
+          {/* Node title */}
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">{activeNode.title}</h1>
+
+          {/* Author */}
+          <div className="flex items-center gap-2 mb-8">
+            <Link href={`/authors/${session.authorUsername}`} className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">
+              {session.authorName}
+            </Link>
+            <span className="text-gray-300">·</span>
+            <span className="text-xs text-gray-400">{session.views ?? 0} views</span>
+          </div>
+
+          <hr className="border-gray-100 mb-8" />
+
+          {/* Content */}
+          {activeNode.content ? (
+            <MarkdownContent content={activeNode.content} />
+          ) : (
+            <p className="text-gray-400 italic">No content for this node.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## app/authors/[username]/page.jsx
+```jsx
+import { adminDb } from '@/lib/firebaseAdmin';
+import { notFound } from 'next/navigation';
+import SessionCard from '@/components/SessionCard';
+import Link from 'next/link';
+
+export const revalidate = 60;
+
+async function getAuthorData(username) {
+  const usersSnap = await adminDb.collection('users').where('username', '==', username).limit(1).get();
+  if (usersSnap.empty) return null;
+
+  const user = { id: usersSnap.docs[0].id, ...usersSnap.docs[0].data() };
+  const sessionsSnap = await adminDb.collection('sessions')
+    .where('authorId', '==', user.id)
+    .where('isPublic', '==', true)
+    .orderBy('createdAt', 'desc')
+    .limit(20)
+    .get();
+
+  const sessions = sessionsSnap.docs.map(d => ({
+    id: d.id, ...d.data(), createdAt: d.data().createdAt?.toMillis() ?? null,
+  }));
+
+  return { user, sessions };
+}
+
+export default async function AuthorPage({ params }) {
+  const data = await getAuthorData(params.username);
+  if (!data) notFound();
+  const { user, sessions } = data;
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-10">
+      <Link href="/discover" className="text-sm text-gray-400 hover:text-gray-600 mb-8 inline-block">← Discover</Link>
+
+      <div className="flex items-center gap-4 mb-10">
+        {user.avatar
+          ? <img src={user.avatar} className="w-14 h-14 rounded-full" alt={user.name} />
+          : <div className="w-14 h-14 rounded-full bg-blue-600 text-white text-xl flex items-center justify-center font-bold">{user.name?.[0]}</div>
+        }
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">{user.name}</h1>
+          <p className="text-sm text-gray-400">@{user.username}</p>
+        </div>
+      </div>
+
+      <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-4">Public Sessions</h2>
+
+      {sessions.length === 0 ? (
+        <p className="text-gray-400">No public sessions yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {sessions.map(s => <SessionCard key={s.id} session={s} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+---
+
+## 📦 依赖安装
+
+```bash
+# 克隆项目后
+npm install
+
+# 需要额外安装的 tailwind 插件
+npm install @tailwindcss/typography
+```
+
+---
+
+## 🔥 Firebase 配置步骤
+
+1. 前往 [Firebase Console](https://console.firebase.google.com/) 创建项目
+2. 启用 **Firestore Database**（生产模式，之后用 rules 文件覆盖）
+3. 启用 **Authentication → Google**
+4. 在项目设置中获取 Web App 配置，填入 `.env.local`
+5. 在服务账户中生成 Admin SDK 密钥，填入 `.env.local`
+6. 部署 Firestore 规则：
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase init firestore
+firebase deploy --only firestore:rules
+```
+
+---
+
+## 🚀 Vercel 部署
+
+1. 推送代码到 GitHub
+2. 在 [vercel.com](https://vercel.com) 导入仓库
+3. 在 Vercel 项目设置 → Environment Variables 中添加所有 `.env.local` 中的变量
+4. **注意**：`FIREBASE_ADMIN_PRIVATE_KEY` 在 Vercel 中填写时，保留换行符（可直接粘贴原始值，Vercel 会正确处理）
+5. 部署 ✓
+
+---
+
+## 📋 Firestore 索引
+
+在 Firestore Console 中创建以下复合索引：
+
+| Collection | Fields | Order |
+|---|---|---|
+| `sessions` | `isPublic` ASC, `createdAt` DESC | — |
+| `sessions` | `isPublic` ASC, `views` DESC | — |
+| `sessions` | `authorId` ASC, `isPublic` ASC, `createdAt` DESC | — |
+
+或者直接运行应用，Firestore 会在报错信息里提供创建索引的直达链接。
