@@ -1,0 +1,331 @@
+{
+  "name": "公众号自动发布文章",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=信息如下：\n{{ $json.data.map(e => JSON.stringify(e)).join('\\n\\n') }}",
+        "options": {
+          "systemMessage": "=整合以下内容，生成一篇公众号日报：\n\n- 只输出正文内容（不含提示语、注释、标题等）\n- 使用合适的 Markdown 格式组织内容，结构清晰、利于 SEO\n- 每条信息添加来源链接，支持跳转\n- 返回纯文本信息，不包含图片\n- 删除不友好、低质量或无价值内容\n- 按照以下顺序排序：权威信息 > 高质量内容 > 其他动态\n- 输出前加上 `---` 的 YAML 头部信息，格式如下：\n\n---\ntitle: [自动生成一个新闻型标题，提炼核心事件，控制在20字左右]\ndescription: [自动总结今日内容看点，60-100字，简洁有力]\n---\n\n{正文 Markdown 内容}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        1100,
+        220
+      ],
+      "id": "1bf6c5dd-0a91-4249-b13d-7de7ad180b32",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash-thinking-exp-1219",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        380
+      ],
+      "id": "53dd1e1f-20dd-4fd1-97d5-433ec33cbc2e",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "S0kDJrqZDAsEdLRW",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "markdownToHtml",
+        "markdown": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.markdown",
+      "typeVersion": 1,
+      "position": [
+        1476,
+        220
+      ],
+      "id": "87f93d32-0c02-4dae-b248-b9e14cd04724",
+      "name": "Markdown"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 22,
+              "triggerAtMinute": 20
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        220
+      ],
+      "id": "d2c96d78-cccd-4db2-8003-3fe2045f099f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const formDate = $input.first().json.Date\n  const time = {\n    tirggerAt: $input.first().json.timestamp,\n    submittedAt: formDate,\n    date: new Date(),\n  }\n\n  time.date = new Date(time.tirggerAt || time.submittedAt)\n  const dateTime = DateTime.fromJSDate(time.date)\n  \n  item.json = {\n    createdAt: dateTime.toFormat('yyyy-MM-dd hh:mm:ss'),\n    slug:  dateTime.toFormat('yyyy-MM-dd'),\n    time\n  }\n}\n\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        220
+      ],
+      "id": "e6178787-d9e3-4f9e-b256-a2e2cd9ac742",
+      "name": "获取当前时间&日期",
+      "notesInFlow": true,
+      "notes": "Date Normalize"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        880,
+        220
+      ],
+      "id": "87f43849-edea-44ae-8e2c-92d481c8d886",
+      "name": "数据合并"
+    },
+    {
+      "parameters": {
+        "url": "=https://rsshub.app/36kr/hot-list",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        220
+      ],
+      "id": "9a5b845e-4e54-4835-9d76-b470d93c22eb",
+      "name": "获取资讯热榜",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "notesInFlow": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const articles = items.map(item => {\n  const content = item.json.output;\n\n  const titleMatch = content.match(/title:\\s*(.*?)\\\\n/i);\n  const descMatch = content.match(/description:\\s*(.*?)\\\\n/i);\n\n  const title = titleMatch ? titleMatch[1].trim() : '今日资讯速览';\n  const digest = descMatch ? descMatch[1].trim() : '';\n\n  // 提取第一张图片\n  const imgRegex = /<img[^>]+src=\"(.*?)\"[^>]*>/g;\n  let match;\n  let firstValidImg = '';\n  while ((match = imgRegex.exec(content)) !== null) {\n    const url = match[1];\n    if (!url.includes('cdn-telegram')) {\n      firstValidImg = match[0];\n      break;\n    }\n  }\n\n  let cleanedContent = content.replace(imgRegex, '');\n  if (firstValidImg) {\n    cleanedContent = firstValidImg + '\\n' + cleanedContent;\n  }\n\n  return {\n    title,\n    author: 'AI日报',\n    digest,\n    show_cover_pic: 1,\n    content: cleanedContent,\n    content_source_url: 'https://example.com',\n    thumb_media_id: 'xxx', // 注意：要动态填入上传图片返回的 media_id\n  };\n});\n\nreturn [{ json: { articles } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        220
+      ],
+      "id": "78a52194-d8ee-4fce-a2ea-9c4b6c234358",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "draft:add",
+        "articles": "={{ JSON.stringify($json.articles) }}"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        220
+      ],
+      "id": "cc43d060-e00d-4ded-9753-1857449a4c58",
+      "name": "保存为草稿",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "U84zeIsGXPjPXhhe",
+          "name": "王小荐"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "publish",
+        "operation": "publish:submit",
+        "media_id": "={{ $json.media_id }}"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        220
+      ],
+      "id": "15175e15-ad31-482a-b937-0bc9c8366c4d",
+      "name": "发布文章",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "U84zeIsGXPjPXhhe",
+          "name": "王小荐"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "获取当前时间&日期": [
+      {
+        "json": {
+          "createdAt": "2025-06-06 10:20:52",
+          "slug": "2025-06-06",
+          "time": {
+            "tirggerAt": "2025-06-06T10:20:52.371-04:00",
+            "date": "2025-06-06T14:20:52.371Z"
+          }
+        }
+      }
+    ],
+    "AI Agent": [
+      {
+        "json": {
+          "output": "---\ntitle: 车市新规：8家车企承诺60天账期；新能源销量洗牌；苹果技术动态\ndescription: 今日聚焦汽车行业：八家主流车企响应国家号召，宣布将供应商账期统一至60天以内，旨在推动产业链健康发展；最新新能源汽车周销量榜出炉，鸿蒙智行重回榜首，方程豹异军突起超越小米小鹏，市场竞争格局加剧。此外，苹果发布iOS 26新设计“液态玻璃”，揭秘其背后理念，并有0公里二手车等热点话题值得关注。\n---\n\n## 权威信息\n\n### 8家车厂承诺缩短供应商账期至60天，中钢协发声\n\n6月10日晚间至11日凌晨，包括广汽集团、中国一汽、东风汽车、长安汽车、赛力斯集团、吉利汽车集团、比亚迪、奇瑞在内的八家主要汽车制造商，先后通过官方渠道发布承诺，将支付供应商的货款账期统一至不超过60天。此举被视为积极响应国家号召和国务院今年3月颁布、6月1日起实施的《保障中小企业款项支付条例》中关于付款期限最长不得超过60日的规定，旨在保障供应链资金高效周转，共同促进行业高质量发展。\n\n<p class=\"image-wrapper\"><img src=\"https://img.36krcdn.com/hsossms/20250611/v2_75665cd413ce40149c9d9829939a94c3@000000_oswg190153oswg869oswg1454_img_000?x-oss-process=image/format,jpg/interlace,1\" alt=\"8家车厂宣布缩短账期至60天，评论区却吵疯了\"></p>\n\n在中国汽车工业近年来快速发展的同时，行业内的“内卷”竞争，特别是价格战，给产业链带来了巨大压力。中国钢铁工业协会同日发布声明，指出部分汽车企业要求钢铁厂汽车板供货降价幅度超10%，并利用自身供应链金融平台延迟支付货款，甚至通过企业汇票支付，将融资压力和成本转嫁给上游供应商，导致钢厂基本没有毛利，严重冲击了企业的稳健经营和持续创新。\n\n工信部近日组织相关车企负责人进行了约谈，提出要综合整治新能源汽车行业“内卷”问题。同时，工信部还将对已获批生产的汽车开展一致性监督检查，重点核查舆论关注度高、存在较大质量安全隐患的车型，对于发现的问题产品将公开通报惩治。这些措施体现了监管层推动汽车产业回归有序竞争、保障产业链健康的决心。\n\n业内人士认为，60天账期新政的实施，将倒逼整车厂优化资金管理、提升供应链效率，同时缓解供应商资金链断裂风险，释放资金流动性，对产业链韧性增强有极大利好，但其落地执行效果仍需持续关注。\n\n来源：[36氪](https://www.36kr.com/p/3331242862504198)；[36氪](https://www.36kr.com/p/3331390908541191)\n\n## 高质量内容\n\n### 新能源周销格局大洗牌：鸿蒙智行居首，方程豹超小米小鹏\n\n最新出炉的2025年6月2日至8日周销数据显示，新能源汽车市场格局出现新变化。鸿蒙智行（包括问界、享界、智界）综合销量接近1.1万辆，成为新势力集团第一。其中，问界M8以4300辆领跑，享界S9单周交付量也突破千辆。理想汽车以0.83万辆位居第三，但相比前一周销量有所下滑。\n\n<p class=\"image-wrapper\"><img data-img-size-val=\"908,1324\" src=\"https://img.36krcdn.com/hsossms/20250611/v2_e641500d5b7d4ee6ba9c66d55fc198e5@1743780481_oswg173480oswg908oswg1324_img_000?x-oss-process=image/format,jpg/interlace,1\" referrerpolicy=\"no-referrer\" alt=\"新能源周销榜\"></p>\n\n本周最大“黑马”当属方程豹品牌，其硬派越野车型方程豹豹5单周交付4487辆，销量强劲起量，一举超越小米汽车（0.44万辆）和小鹏汽车（0.42万辆），位列新势力第四位，小米汽车位居第五，小鹏汽车位居第六。蔚来汽车（含乐道、萤火虫）总销量为0.43万辆。在传统车企新能源销量榜上，比亚迪以5.49万辆继续稳居榜首，五菱超越吉利位居第二。当前新能源车市场头部效应明显，第二梯队竞争激烈，各车企正积极冲刺上半年销量目标。\n\n来源：[36氪](https://www.36kr.com/p/3331527032662534)\n\n### 揭秘“0公里二手车”灰色产业链：新车为何当二手车卖？\n\n中国汽车市场“价格战”进入白热化阶段，除了公开竞争，还隐藏着一个“0公里二手车”市场。这类车通常是表显里程极少（低于100公里），却以二手车名义出售，价格往往比新车指导价便宜15%到30%。记者调查发现，其背后存在灰色产业链。\n\n<p class=\"image-wrapper\"><img data-img-size-val=\"1080,920\" src=\"https://img.36krcdn.com/hsossms/20250611/v2_4bd5e8c329014ac387a06403a158b3a8@1743780481_oswg128044oswg1080oswg920_img_000?x-oss-process=image/format,jpg/interlace,1\" referrerpolicy=\"no-referrer\" alt=\"0公里二手车\"></p>\n\n车源主要有三类：一是厂家为处理库存或老款车型，通过大客户渠道批量低价销售的“资源车”；二是4S店为完成销售任务或清库存采取的“冲量车”或“包牌包税车”，即自行上牌后再以二手车名义出售；三是直营品牌如特斯拉、蔚来等的“退定车”或内部员工购车后“返租”转售的试驾车。\n\n这种现象反映了新车市场供需失衡和部分车企、经销商为达成目标采取的非正常手段。虽然看似能实现主机厂去库存、经销商增业绩、二手车商降低经营风险的“多赢”，但也扰乱了市场秩序，可能影响消费者权益（如首任车主质保）。此外，“0公里二手车”还通过二手车出口渠道销往海外，利用跨国政策差异套利，对中国汽车品牌在海外的“正规军”造成冲击。法律界人士指出，单纯的“0公里二手车”交易不违法，但涉及虚假宣传、套取补贴等行为则可能触碰法律红线。\n\n来源：[36氪](https://www.36kr.com/p/3331534628858112)\n\n### 对话苹果设计缔造者：揭秘iOS 26“液态玻璃”理念\n\n在WWDC 2025大会发布全新iOS 26后，苹果软件工程高级副总裁Craig Federighi和人机交互设计副总裁Alan Dye接受采访，深入阐释了新系统“液态玻璃”（Liquid Glass）视觉设计背后的动因和理念。他们表示，这次视觉变革的目标是在保留用户熟悉感的同时带来全新体验，并为未来的体验奠定基础。\n\n<p class=\"image-wrapper\"><img data-img-size-val=\"\" src=\"https://img.36krcdn.com/hsossms/20250610/v2_d42eabc02f9f439680f2050492befab8@000000_oswg721918oswg1080oswg704_img_000?x-oss-process=image/format,jpg/interlace,1\" alt=\"液态玻璃\"></p>\n\n“液态玻璃”的设计灵感部分来源于Vision Pro和灵动岛，苹果团队花费大量时间研究数字玻璃的物理特性，甚至制作了实体玻璃样品。最让他们兴奋的是，在数字世界里可以“弯曲物理定律”，打造出一种能实时变化、适应不同情境的“自适应”材质。这种材质的实现得益于硬件平台的进步，如更强大的计算能力、圆润的设备形态和OLED屏幕的HDR能力，使得高亮点和光斑能营造更真实的深度和光感。他们也透露，这种设计是在为未来的硬件形态做准备，但未具体说明。\n\n来源：[36氪](https://www.36kr.com/p/3330521001323010)\n\n### CarPlay走出“投屏”：功能增强，但座舱“终局”难定\n\n苹果在WWDC 2025上发布了新一代CarPlay，带来了更现代的视觉设计、小组件（Widgets）功能支持以及实时活动（Live Activities）的无缝延伸，进一步提升了手机投射的用户体验。\n\n<p class=\"image-wrapper\"><img data-img-size-val=\"\" src=\"https://img.36krcdn.com/hsossms/20250610/v2_5a1022a3c3c44b2b9715dae968699476@000000_oswg67173oswg1080oswg607_img_000?x-oss-process=image/format,jpg/interlace,1\" alt=\"CarPlay新界面\"></p>\n\n更具野心的是CarPlay Ultra，它不再满足于简单的投屏，而是试图深度整合车辆信息和功能，接管仪表盘和副驾屏，并支持调节空调、驾驶模式等车辆底层控制。阿斯顿·马丁DBX707已成为首款搭载CarPlay Ultra的量产车型。\n\n然而，在智能座舱快速发展的今天，CarPlay面临挑战。其年度更新节奏相对缓慢，难以快速适配车企层出不穷的新功能。同时，车企视车机系统为核心竞争力、用户数据入口和未来营收金矿，不愿将底层控制权完全让渡。加之苹果汽车项目搁置，CarPlay更像一个软件供应商，说服主流车企开放底层权限难度较大。CarPlay未来仍是优秀的投射方案，但CarPlay Ultra可能仅限于少数合作紧密的豪华品牌，在更广阔的主流市场，车企自研座舱系统仍将是主流。\n\n来源：[36氪](https://www.36kr.com/p/3330620862359813)\n\n## 其他动态\n\n### 行业要闻扫描\n\n*   **泡泡玛特Labubu商标与监管：** 泡泡玛特已注册数十枚“labubu”相关商标。针对市场上的高仿/盗版Labubu，义乌市监局表示将严厉打击，并欢迎提供线索。部分义乌商户已因此下架高仿产品。\n*   **小米可穿戴产品线重整信号：** 小米可穿戴产品部门负责人张雷开通官方微博，开始直接收集用户反馈，引发米粉关注。此举被视为小米下决心解决可穿戴产品线，特别是高端型号用户体验问题的信号，希望通过听取用户建议和生态优势来提升竞争力。\n*   **苹果iOS 26引争议：** 苹果发布的iOS 26新设计“液态玻璃”引发部分网友“吐槽丑”，苹果客服回应称目前为测试版本，正式版或有改善。同时，iPhone XS/XS Max/XR三款机型将无缘升级iOS 26。\n*   **小米汽车辟谣：** 针对网传小米汽车高阶驾驶培训出现致命车祸的谣言，小米汽车副总裁李肖爽和小米集团公关部总经理王化公开辟谣，并表示已启动法律程序追究造谣者责任。\n*   **理想汽车新布局：** 理想汽车近期内部公告显示，公司新设了“空间机器人”和“穿戴机器人”两个二级部门，隶属于产品部，可能与公司“智能空间”战略及未来产品形态有关。\n*   **川美毕业作品售出：** 社交平台爆红的四川美术学院毕业生作品《祷》已售出，该作品以逼真的手法描绘了包裹在气泡膜下的手部，被评价为“消费主义时代的时代肖像”。\n*   **格力电器暂无“铝代铜”计划：** 格力电器表示，尽管铝材成本较低，但在性能、质量和可靠性方面与铜存在差距，公司暂时没有在空调核心原材料方面进行“铝代铜”的计划。\n*   **神农架招聘“野人”NPC：** 湖北神农架景区招聘日薪500元的“野人”NPC互动演员，吸引大量报名者，招聘群快速满员。\n*   **市场与投融资动态：** 美股三大指数集体收涨，英特尔大涨。马斯克预计SpaceX今年收入达155亿美元。英伟达计划在英国设AI实验室。泰国榴莲因丰产价格多年来最低。国内投融资方面，光子跃迁、龙兴航电、中万实业、制势能量等多家公司近期完成融资。\n\n来源：[36氪](https://www.36kr.com/p/3331323886725638)\n\n## 大公司财报速览\n\n*   **51Talk一季度营收增长93.1%：** 51Talk发布2025年第一季度未经审计业绩，净营收1820万美元，同比增长93.1%；净亏损150万美元，同比收窄。\n*   **越南VinFast交付量大增但亏损：** 越南电动车商VinFast一季度交付电动汽车36330辆，同比增长296%；总营收约6.57亿美元，同比增长149.9%；季度净亏损约7.12亿美元。\n\n来源：[36氪](https://www.36kr.com/p/3331323886725638)"
+        }
+      }
+    ],
+    "Code": [
+      {
+        "json": {
+          "articles": [
+            {
+              "title": "今日资讯速览",
+              "author": "AI日报",
+              "digest": "",
+              "show_cover_pic": 1,
+              "content": "<img src=\"https://img.36krcdn.com/hsossms/20250611/v2_75665cd413ce40149c9d9829939a94c3@000000_oswg190153oswg869oswg1454_img_000?x-oss-process=image/format,jpg/interlace,1\" alt=\"8家车厂宣布缩短账期至60天，评论区却吵疯了\">\n---\ntitle: 车市新规：8家车企承诺60天账期；新能源销量洗牌；苹果技术动态\ndescription: 今日聚焦汽车行业：八家主流车企响应国家号召，宣布将供应商账期统一至60天以内，旨在推动产业链健康发展；最新新能源汽车周销量榜出炉，鸿蒙智行重回榜首，方程豹异军突起超越小米小鹏，市场竞争格局加剧。此外，苹果发布iOS 26新设计“液态玻璃”，揭秘其背后理念，并有0公里二手车等热点话题值得关注。\n---\n\n## 权威信息\n\n### 8家车厂承诺缩短供应商账期至60天，中钢协发声\n\n6月10日晚间至11日凌晨，包括广汽集团、中国一汽、东风汽车、长安汽车、赛力斯集团、吉利汽车集团、比亚迪、奇瑞在内的八家主要汽车制造商，先后通过官方渠道发布承诺，将支付供应商的货款账期统一至不超过60天。此举被视为积极响应国家号召和国务院今年3月颁布、6月1日起实施的《保障中小企业款项支付条例》中关于付款期限最长不得超过60日的规定，旨在保障供应链资金高效周转，共同促进行业高质量发展。\n\n<p class=\"image-wrapper\"></p>\n\n在中国汽车工业近年来快速发展的同时，行业内的“内卷”竞争，特别是价格战，给产业链带来了巨大压力。中国钢铁工业协会同日发布声明，指出部分汽车企业要求钢铁厂汽车板供货降价幅度超10%，并利用自身供应链金融平台延迟支付货款，甚至通过企业汇票支付，将融资压力和成本转嫁给上游供应商，导致钢厂基本没有毛利，严重冲击了企业的稳健经营和持续创新。\n\n工信部近日组织相关车企负责人进行了约谈，提出要综合整治新能源汽车行业“内卷”问题。同时，工信部还将对已获批生产的汽车开展一致性监督检查，重点核查舆论关注度高、存在较大质量安全隐患的车型，对于发现的问题产品将公开通报惩治。这些措施体现了监管层推动汽车产业回归有序竞争、保障产业链健康的决心。\n\n业内人士认为，60天账期新政的实施，将倒逼整车厂优化资金管理、提升供应链效率，同时缓解供应商资金链断裂风险，释放资金流动性，对产业链韧性增强有极大利好，但其落地执行效果仍需持续关注。\n\n来源：[36氪](https://www.36kr.com/p/3331242862504198)；[36氪](https://www.36kr.com/p/3331390908541191)\n\n## 高质量内容\n\n### 新能源周销格局大洗牌：鸿蒙智行居首，方程豹超小米小鹏\n\n最新出炉的2025年6月2日至8日周销数据显示，新能源汽车市场格局出现新变化。鸿蒙智行（包括问界、享界、智界）综合销量接近1.1万辆，成为新势力集团第一。其中，问界M8以4300辆领跑，享界S9单周交付量也突破千辆。理想汽车以0.83万辆位居第三，但相比前一周销量有所下滑。\n\n<p class=\"image-wrapper\"></p>\n\n本周最大“黑马”当属方程豹品牌，其硬派越野车型方程豹豹5单周交付4487辆，销量强劲起量，一举超越小米汽车（0.44万辆）和小鹏汽车（0.42万辆），位列新势力第四位，小米汽车位居第五，小鹏汽车位居第六。蔚来汽车（含乐道、萤火虫）总销量为0.43万辆。在传统车企新能源销量榜上，比亚迪以5.49万辆继续稳居榜首，五菱超越吉利位居第二。当前新能源车市场头部效应明显，第二梯队竞争激烈，各车企正积极冲刺上半年销量目标。\n\n来源：[36氪](https://www.36kr.com/p/3331527032662534)\n\n### 揭秘“0公里二手车”灰色产业链：新车为何当二手车卖？\n\n中国汽车市场“价格战”进入白热化阶段，除了公开竞争，还隐藏着一个“0公里二手车”市场。这类车通常是表显里程极少（低于100公里），却以二手车名义出售，价格往往比新车指导价便宜15%到30%。记者调查发现，其背后存在灰色产业链。\n\n<p class=\"image-wrapper\"></p>\n\n车源主要有三类：一是厂家为处理库存或老款车型，通过大客户渠道批量低价销售的“资源车”；二是4S店为完成销售任务或清库存采取的“冲量车”或“包牌包税车”，即自行上牌后再以二手车名义出售；三是直营品牌如特斯拉、蔚来等的“退定车”或内部员工购车后“返租”转售的试驾车。\n\n这种现象反映了新车市场供需失衡和部分车企、经销商为达成目标采取的非正常手段。虽然看似能实现主机厂去库存、经销商增业绩、二手车商降低经营风险的“多赢”，但也扰乱了市场秩序，可能影响消费者权益（如首任车主质保）。此外，“0公里二手车”还通过二手车出口渠道销往海外，利用跨国政策差异套利，对中国汽车品牌在海外的“正规军”造成冲击。法律界人士指出，单纯的“0公里二手车”交易不违法，但涉及虚假宣传、套取补贴等行为则可能触碰法律红线。\n\n来源：[36氪](https://www.36kr.com/p/3331534628858112)\n\n### 对话苹果设计缔造者：揭秘iOS 26“液态玻璃”理念\n\n在WWDC 2025大会发布全新iOS 26后，苹果软件工程高级副总裁Craig Federighi和人机交互设计副总裁Alan Dye接受采访，深入阐释了新系统“液态玻璃”（Liquid Glass）视觉设计背后的动因和理念。他们表示，这次视觉变革的目标是在保留用户熟悉感的同时带来全新体验，并为未来的体验奠定基础。\n\n<p class=\"image-wrapper\"></p>\n\n“液态玻璃”的设计灵感部分来源于Vision Pro和灵动岛，苹果团队花费大量时间研究数字玻璃的物理特性，甚至制作了实体玻璃样品。最让他们兴奋的是，在数字世界里可以“弯曲物理定律”，打造出一种能实时变化、适应不同情境的“自适应”材质。这种材质的实现得益于硬件平台的进步，如更强大的计算能力、圆润的设备形态和OLED屏幕的HDR能力，使得高亮点和光斑能营造更真实的深度和光感。他们也透露，这种设计是在为未来的硬件形态做准备，但未具体说明。\n\n来源：[36氪](https://www.36kr.com/p/3330521001323010)\n\n### CarPlay走出“投屏”：功能增强，但座舱“终局”难定\n\n苹果在WWDC 2025上发布了新一代CarPlay，带来了更现代的视觉设计、小组件（Widgets）功能支持以及实时活动（Live Activities）的无缝延伸，进一步提升了手机投射的用户体验。\n\n<p class=\"image-wrapper\"></p>\n\n更具野心的是CarPlay Ultra，它不再满足于简单的投屏，而是试图深度整合车辆信息和功能，接管仪表盘和副驾屏，并支持调节空调、驾驶模式等车辆底层控制。阿斯顿·马丁DBX707已成为首款搭载CarPlay Ultra的量产车型。\n\n然而，在智能座舱快速发展的今天，CarPlay面临挑战。其年度更新节奏相对缓慢，难以快速适配车企层出不穷的新功能。同时，车企视车机系统为核心竞争力、用户数据入口和未来营收金矿，不愿将底层控制权完全让渡。加之苹果汽车项目搁置，CarPlay更像一个软件供应商，说服主流车企开放底层权限难度较大。CarPlay未来仍是优秀的投射方案，但CarPlay Ultra可能仅限于少数合作紧密的豪华品牌，在更广阔的主流市场，车企自研座舱系统仍将是主流。\n\n来源：[36氪](https://www.36kr.com/p/3330620862359813)\n\n## 其他动态\n\n### 行业要闻扫描\n\n*   **泡泡玛特Labubu商标与监管：** 泡泡玛特已注册数十枚“labubu”相关商标。针对市场上的高仿/盗版Labubu，义乌市监局表示将严厉打击，并欢迎提供线索。部分义乌商户已因此下架高仿产品。\n*   **小米可穿戴产品线重整信号：** 小米可穿戴产品部门负责人张雷开通官方微博，开始直接收集用户反馈，引发米粉关注。此举被视为小米下决心解决可穿戴产品线，特别是高端型号用户体验问题的信号，希望通过听取用户建议和生态优势来提升竞争力。\n*   **苹果iOS 26引争议：** 苹果发布的iOS 26新设计“液态玻璃”引发部分网友“吐槽丑”，苹果客服回应称目前为测试版本，正式版或有改善。同时，iPhone XS/XS Max/XR三款机型将无缘升级iOS 26。\n*   **小米汽车辟谣：** 针对网传小米汽车高阶驾驶培训出现致命车祸的谣言，小米汽车副总裁李肖爽和小米集团公关部总经理王化公开辟谣，并表示已启动法律程序追究造谣者责任。\n*   **理想汽车新布局：** 理想汽车近期内部公告显示，公司新设了“空间机器人”和“穿戴机器人”两个二级部门，隶属于产品部，可能与公司“智能空间”战略及未来产品形态有关。\n*   **川美毕业作品售出：** 社交平台爆红的四川美术学院毕业生作品《祷》已售出，该作品以逼真的手法描绘了包裹在气泡膜下的手部，被评价为“消费主义时代的时代肖像”。\n*   **格力电器暂无“铝代铜”计划：** 格力电器表示，尽管铝材成本较低，但在性能、质量和可靠性方面与铜存在差距，公司暂时没有在空调核心原材料方面进行“铝代铜”的计划。\n*   **神农架招聘“野人”NPC：** 湖北神农架景区招聘日薪500元的“野人”NPC互动演员，吸引大量报名者，招聘群快速满员。\n*   **市场与投融资动态：** 美股三大指数集体收涨，英特尔大涨。马斯克预计SpaceX今年收入达155亿美元。英伟达计划在英国设AI实验室。泰国榴莲因丰产价格多年来最低。国内投融资方面，光子跃迁、龙兴航电、中万实业、制势能量等多家公司近期完成融资。\n\n来源：[36氪](https://www.36kr.com/p/3331323886725638)\n\n## 大公司财报速览\n\n*   **51Talk一季度营收增长93.1%：** 51Talk发布2025年第一季度未经审计业绩，净营收1820万美元，同比增长93.1%；净亏损150万美元，同比收窄。\n*   **越南VinFast交付量大增但亏损：** 越南电动车商VinFast一季度交付电动汽车36330辆，同比增长296%；总营收约6.57亿美元，同比增长149.9%；季度净亏损约7.12亿美元。\n\n来源：[36氪](https://www.36kr.com/p/3331323886725638)",
+              "content_source_url": "https://example.com",
+              "thumb_media_id": "mx0bCcN9orESk7JyFnFmCxRNKGoiIaEzu_BqJIH02p1RJ9x2aLH7TxWKuT0jzKbW"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Markdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Markdown": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "获取当前时间&日期",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取当前时间&日期": {
+      "main": [
+        [
+          {
+            "node": "获取资讯热榜",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "数据合并": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "获取资讯热榜": {
+      "main": [
+        [
+          {
+            "node": "数据合并",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "保存为草稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存为草稿": {
+      "main": [
+        [
+          {
+            "node": "发布文章",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "86f2890b-bc5c-40b8-a0bf-896d5a7dbf51",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e64c1a046b0bc6389d6efa4d53fc6bc886f913794e47d51a96484f816af95d4d"
+  },
+  "id": "a7O8d7AtByuTr725",
+  "tags": []
+}
