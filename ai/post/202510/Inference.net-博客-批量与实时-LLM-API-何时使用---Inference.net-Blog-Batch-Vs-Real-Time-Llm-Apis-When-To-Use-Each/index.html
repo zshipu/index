@@ -218,14 +218,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="post-content">
             <p>并非每个 LLM 请求都需要立即响应。聊天界面需要实时响应。但数据提取、丰富化和后台工作可以等待数小时。这种时间灵活性可以解锁巨大的成本节省，尽管简单的实现会创造可靠性噩梦。</p>
 <p>这种模式非常常见。一个团队需要处理数十万份文档，所以他们编写了一个循环，等待每个响应。然后脚本在请求 1000 次时失败，他们意识到需要检查点、重试和速率限制。不久，他们只为调用 API 就构建了一个分布式任务队列。</p>
-<p>我最近发现了一个 551 行的 Python 文件，它最初是一个“简单”的批量处理器。它有自定义的速率限制、指数退避、分布式锁、检查点文件和用于恢复逻辑的状态机。 <a href="https://github.com/xingjian-zhang/openai-batch-api/blob/main/api.py">以下是实际代码</a> 。这类一次性脚本非常常见，似乎是在你尝试让同步 API 执行批量工作时产生的。</p>
+<p>我最近发现了一个 551 行的 Python 文件，它最初是一个“简单”的批量处理器。它有自定义的速率限制、指数退避、分布式锁、检查点文件和用于恢复逻辑的状态机。 <a href="https://zshipu.com/t/?url=https://github.com/xingjian-zhang/openai-batch-api/blob/main/api.py">以下是实际代码</a> 。这类一次性脚本非常常见，似乎是在你尝试让同步 API 执行批量工作时产生的。</p>
 <p>这里的悲剧不在于复杂性。而是在所有这些工程之后，他们仍然没有利用批量折扣！</p>
 <p>这并不是说这种策略是错误的——对于 10k 次请求以下的情况，它可能非常合理，因为你可以快速响应，并且可能愿意为了快速完成而牺牲成本。但到了一定规模，这种脚本就会崩溃，变得难以维护。</p>
-<p>这就是为什么在 Inference.net 我们构建了<a href="https://docs.inference.net/features/batch-api">最可扩展的批量 LLM 推理服务</a> 。</p>
+<p>这就是为什么在 Inference.net 我们构建了<a href="https://zshipu.com/t/?url=https://docs.inference.net/features/batch-api">最可扩展的批量 LLM 推理服务</a> 。</p>
 <h2 id="批量与实时测试的简单方法">批量与实时测试的简单方法</h2>
 <p>这里是我的决策方法：如果结果要进入数据库而不是用户界面，就使用批量处理。如果有人正在等待响应，就使用实时处理。</p>
 <p>这涵盖了90%的使用场景。数据丰富化、分类、提取、摘要、嵌入生成、合成数据创建——所有这些都是批量处理。聊天界面、搜索建议、内容推荐——所有都是实时处理。</p>
-<p>中间地带也在出现。不需要立即响应的单个请求，但又不适合整齐地放入批量处理。这就是异步推理大放异彩的地方，但这将是另一篇<a href="https://inference.net/blog/asynchronous-requests-the-missing-mode-that-slashes-llm-costs">博客文章</a>的主题。</p>
+<p>中间地带也在出现。不需要立即响应的单个请求，但又不适合整齐地放入批量处理。这就是异步推理大放异彩的地方，但这将是另一篇<a href="https://zshipu.com/t/?url=https://inference.net/blog/asynchronous-requests-the-missing-mode-that-slashes-llm-costs">博客文章</a>的主题。</p>
 <h2 id="等待的经济学">等待的经济学</h2>
 <p>当你发起实时 API 调用时，你并不是在为计算付费。你是在为保证可用性付费。</p>
 <p>你的提供商承诺立即响应。为了实现这一点，他们让 GPU 在远低于满负荷的状态下闲置，随时准备立即响应你的请求。你实际上是在为机器等待付费。</p>
@@ -268,15 +268,15 @@ batch = client.batches.create(
 <p>示例批量工作流程</p>
 <h2 id="当批量处理还不够时">当批量处理还不够时</h2>
 <p>在真正的互联网规模下，即使是批量定价也会累积起来。当你每月处理数千万到数十亿个请求时，是时候考虑高级优化了。</p>
-<p>模型蒸馏是最强大的方法。在 Inference.net，我们提供端到端任务特定的<a href="https://inference.net/explore/model-training">模型训练</a> ，我们使用一个大模型为你特定的任务生成高质量的标签，然后训练一个成本只有一小部分的小模型。这种方法与批量处理特别有效，因为蒸馏模型通常具有相似的需求模式。</p>
+<p>模型蒸馏是最强大的方法。在 Inference.net，我们提供端到端任务特定的<a href="https://zshipu.com/t/?url=https://inference.net/explore/model-training">模型训练</a> ，我们使用一个大模型为你特定的任务生成高质量的标签，然后训练一个成本只有一小部分的小模型。这种方法与批量处理特别有效，因为蒸馏模型通常具有相似的需求模式。</p>
 <p>因为 Inference.net 通过租赁未使用的计算资源已经提供了极具竞争力的价格，我们的批量处理费用很难被超越。但对于具有重复结构的真正大规模工作负载，我们也提供具有 KV 缓存优化的专用实例。当数百万个请求共享公共前缀（如分类提示或提取指令）时，预先填充 KV 缓存可以进一步降低成本。模型蒸馏、批量处理和前缀缓存的组合可以实现与同步 API 相比高达 95%以上的成本降低。</p>
 <p>如果您在 LLM 推理上的月支出超过 10k，请联系我们！这些优化可以改变您的经济状况。</p>
 <h2 id="转换过程">转换过程</h2>
 <p>如果您仍然通过同步 API 运行批量工作负载，转换过程很简单。将您的数据导出为 JSONL 格式，其中每行都是一个完整请求。上传文件，开始批量处理，完成后检索结果。</p>
 <p>在 Inference.net，我们的基础设施非常适合批量工作负载。而其他人将批量工作视为次要任务，我们将数据中心中闲置的 GPU 容量进行聚合，以实现低成本的无服务器推理，但更低的批量处理成本。我们可以在已经很低的价格上提供 10%的折扣，对于大量订单还有更大的折扣。</p>
 <p>那么，那些介于实时和批量之间的请求怎么办？那些不需要即时响应，但也不适合批量处理的请求？</p>
-<p>这就是我们的<a href="https://docs.inference.net/features/asynchronous-inference/overview">异步 API</a> 和<a href="https://docs.inference.net/features/asynchronous-inference/group">分组 API</a> 发挥作用的地方。异步 API 允许您发送单个请求并在准备好时获取结果，而分组 API 可以将多达 50 个相关请求作为一个单元处理——非常适合处理用户上传的文档或一起分析消息线程。</p>
-<p>对于某些工作流程，异步 API 可以比大型批量处理提供重大优势，同时提供相同的折扣。我们下一篇文章，《 <a href="https://inference.net/blog/async-inference">最便宜的 LLM 调用是你不需要等待的那个</a> 》，探讨了异步请求如何改善开发人员对后台任务的体验。</p>
+<p>这就是我们的<a href="https://zshipu.com/t/?url=https://docs.inference.net/features/asynchronous-inference/overview">异步 API</a> 和<a href="https://zshipu.com/t/?url=https://docs.inference.net/features/asynchronous-inference/group">分组 API</a> 发挥作用的地方。异步 API 允许您发送单个请求并在准备好时获取结果，而分组 API 可以将多达 50 个相关请求作为一个单元处理——非常适合处理用户上传的文档或一起分析消息线程。</p>
+<p>对于某些工作流程，异步 API 可以比大型批量处理提供重大优势，同时提供相同的折扣。我们下一篇文章，《 <a href="https://zshipu.com/t/?url=https://inference.net/blog/async-inference">最便宜的 LLM 调用是你不需要等待的那个</a> 》，探讨了异步请求如何改善开发人员对后台任务的体验。</p>
 
         </div>
 

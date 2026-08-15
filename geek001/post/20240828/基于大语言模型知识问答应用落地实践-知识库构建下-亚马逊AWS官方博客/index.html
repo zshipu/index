@@ -253,12 +253,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 在小批量实验中尝试索引了 300 篇文档，通过切分共产生出了约 203k 条记录，4.5GB 存储量。 那么按比例换算如果需要索引 1 万篇文档，那么会产生约 700w 记录，150GB 存储。如下图所示：</p>
 <table><tbody><tr><td>原始文档数</td><td>写入容量</td><td>chunk 数</td></tr><tr><td>300</td><td>4.5GB</td><td>203186</td></tr></tbody></table>
 <p>从知识问答 Chatbot 场景出发，属于搜索的工作负载，Shard 的大小应在 10-30GB 范围内以增加搜索性能。shard 数量一般遵循节点数的倍数的原则，假设是 2 节点集群那么可以是[2, 4, 8, 16 …]。以 150GB 存储总量进行计算，shard 可以为 8, 10, 12, 14, 16，当 shard 数为 8 时，每个 shard 存储量为 18.75GB，符合要求。<br>
-向量检索方面为了同时保证 recall 和 latency，采用了 HNSW 算法。另外参考 <a href="https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/"><Choose the k-NN algorithm for your billion-scale use case with OpenSearch></a> 中的 benchmark 结论，HNSW 算法中 m 值可以设定为 16。那么内存规划方面，依照上表公式进行内存占用的推算：</p>
-<p><a href="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-21final.jpg">
+向量检索方面为了同时保证 recall 和 latency，采用了 HNSW 算法。另外参考 <a href="https://zshipu.com/t/?url=https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/"><Choose the k-NN algorithm for your billion-scale use case with OpenSearch></a> 中的 benchmark 结论，HNSW 算法中 m 值可以设定为 16。那么内存规划方面，依照上表公式进行内存占用的推算：</p>
+<p><a href="https://zshipu.com/t/?url=https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-21final.jpg">
         <img class="mx-auto" alt="" src="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-21final.png" />   
     </a></p>
 <p>一般每个节点的堆外内存占比 50%，根据 <em>knn.memory.circuit_breaker.limit=70%</em> 的最佳实践设定，那么 35% 的节点内存被 KNN 占用，那么推算出整个节点的内存应为 22.9GB / 35% = 65GB。<br>
-vCPU 的规划方面，假设 shard 数为 8，乘以 1.5vCPU/Shard 的系数，vCPU 个数至少需要为 12 以上。结合如下 C 系和 R 系的实例配置信息和<a href="https://www.amazonaws.cn/en/opensearch-service/pricing/">价格信息</a>，综合考虑内存和 vCPU 的要求，选择 C 系的 2 节点 c6g.4xlarge 或者 R 系的 2 节点 r6g.2xlarge。</p>
+vCPU 的规划方面，假设 shard 数为 8，乘以 1.5vCPU/Shard 的系数，vCPU 个数至少需要为 12 以上。结合如下 C 系和 R 系的实例配置信息和<a href="https://zshipu.com/t/?url=https://www.amazonaws.cn/en/opensearch-service/pricing/">价格信息</a>，综合考虑内存和 vCPU 的要求，选择 C 系的 2 节点 c6g.4xlarge 或者 R 系的 2 节点 r6g.2xlarge。</p>
 <table><tbody><tr><td>Instance Type</td><td>vCPU</td><td>ECU</td><td>Memory</td><td>Storage</td></tr><tr><td>c6g.large</td><td>2</td><td>N/A</td><td>4</td><td>EBS only</td></tr><tr><td>c6g.xlarge</td><td>4</td><td>N/A</td><td>8</td><td>EBS only</td></tr><tr><td>c6g.2xlarge</td><td>8</td><td>N/A</td><td>16</td><td>EBS only</td></tr><tr><td>c6g.4xlarge</td><td>16</td><td>N/A</td><td>32</td><td>EBS only</td></tr><tr><td>c6g.8xlarge</td><td>32</td><td>N/A</td><td>64</td><td>EBS only</td></tr></tbody></table>
 <table><tbody><tr><td>Instance Type</td><td>vCPU</td><td>ECU</td><td>Memory</td><td>Storage</td></tr><tr><td>r6g.large</td><td>2</td><td>N/A</td><td>16</td><td>EBS only</td></tr><tr><td>r6g.xlarge</td><td>4</td><td>N/A</td><td>32</td><td>EBS only</td></tr><tr><td>r6g.2xlarge</td><td>8</td><td>N/A</td><td>64</td><td>EBS only</td></tr><tr><td>r6g.4xlarge</td><td>16</td><td>N/A</td><td>128</td><td>EBS only</td></tr><tr><td>r6g.8xlarge</td><td>32</td><td>N/A</td><td>256</td><td>EBS only</td></tr></tbody></table>
 <h2 id="2-索引构建实验">2. 索引构建实验</h2>
@@ -271,9 +271,9 @@ vCPU 的规划方面，假设 shard 数为 8，乘以 1.5vCPU/Shard 的系数，
 <p>整个摄入过程，从过程上基本可以划分为三个阶段，文本切分，文本向量化以及摄入 Amazon OpenSearch。其中文本切分和文本向量化的处理是临时性的工作负载，原则上可以提升 glue job 的并发数和 SageMaker Endpoint 背后的节点数来线性提高对这块工作负载的处理速度，但 OpenSearch 属于一个预分配的资源（注：今年即将发布的 OpenSearch Severless k-NN 向量数据库会改变这一点）。后两个部分，即向量化和 OpenSearch 摄入可能会是整个流程的瓶颈，完整流程测试不容易进行拆解分析性能瓶颈，所以本试验会分别对这两部分进行测试。</p>
 <h3 id="实验-1--embedding-model-吞吐测试">实验 1 – Embedding Model 吞吐测试</h3>
 <ol>
-<li>使用 <a href="https://github.com/aws-samples/private-llm-qa-bot/blob/main/notebooks/embedding/paraphrase-multilingual-deploy.ipynb">paraphrase-multilingual-deploy.ipynb</a> 进行部署，部署 10 台 g4dn.xlarge 机型</li>
-<li>注释掉下游写入 OpenSearch 造成的影响，暂时注释掉<a href="https://github.com/aws-samples/private-llm-qa-bot/blob/main/code/aos_write_job.py">相关代码</a></li>
-<li>利用 <a href="https://github.com/aws-samples/private-llm-qa-bot/blob/main/code/batch_upload_docs.py">batch_upload_docs.py</a> 启动多 glue job 进行并发运行</li>
+<li>使用 <a href="https://zshipu.com/t/?url=https://github.com/aws-samples/private-llm-qa-bot/blob/main/notebooks/embedding/paraphrase-multilingual-deploy.ipynb">paraphrase-multilingual-deploy.ipynb</a> 进行部署，部署 10 台 g4dn.xlarge 机型</li>
+<li>注释掉下游写入 OpenSearch 造成的影响，暂时注释掉<a href="https://zshipu.com/t/?url=https://github.com/aws-samples/private-llm-qa-bot/blob/main/code/aos_write_job.py">相关代码</a></li>
+<li>利用 <a href="https://zshipu.com/t/?url=https://github.com/aws-samples/private-llm-qa-bot/blob/main/code/batch_upload_docs.py">batch_upload_docs.py</a> 启动多 glue job 进行并发运行</li>
 </ol>
 <p>这部分处理流程中，通过调整 glue job 的并行度与 client-side batch size 可以调整向量化这一步骤的吞吐能力。当 GPU 利用率不足时，提高 client-side batch size 能够提高 GPU 的利用率。经过简单测试发现，确实能证明这个假设，具体数据可以参考如下实验结果：</p>
 <table><tbody><tr><td>GPU 资源</td><td>glue job 并行度</td><td>Embedding model<br>client-side batch size</td><td>Embedding endpoint<br>GPUUtilization 波峰</td><td>Embedding endpoint<br>CPUUtilization 波峰</td></tr><tr><td>10 台 g4dn.xlarge</td><td>10</td><td>5</td><td>30%</td><td>45%</td></tr><tr><td>10 台 g4dn.xlarge</td><td>20</td><td>5</td><td>55%</td><td>77%</td></tr><tr><td>10 台 g4dn.xlarge</td><td>200</td><td>5</td><td>60%</td><td>98%</td></tr><tr><td>10 台 g4dn.xlarge</td><td>200</td><td>40</td><td>83%</td><td>97%</td></tr></tbody></table>
@@ -286,7 +286,7 @@ vCPU 的规划方面，假设 shard 数为 8，乘以 1.5vCPU/Shard 的系数，
 <p>构建 OpenSearch 集群以及索引，并优化设置</p>
 <ul>
 <li>a.构建对应的索引<br>
-向量字段涉及到的两个参数 ef_construction 和 m。ef_construction 指定构建 k-NN 图的时候的动态列表大小，值越大其向量数据的图更精确，但索引的速度也响应更慢。m 指定 k-NN 中每个向量双向链表的数量，越大检索越准确，但相应内存占用会显著增大。参考博客<a href="https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/"><choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch></a>中的 benchmark 结论，对于当前的数据规模，参数 ef_construction:128 和 m:16 已经足以保证召回率，另外在构建索引时可以关注以下几点:
+向量字段涉及到的两个参数 ef_construction 和 m。ef_construction 指定构建 k-NN 图的时候的动态列表大小，值越大其向量数据的图更精确，但索引的速度也响应更慢。m 指定 k-NN 中每个向量双向链表的数量，越大检索越准确，但相应内存占用会显著增大。参考博客<a href="https://zshipu.com/t/?url=https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/"><choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch></a>中的 benchmark 结论，对于当前的数据规模，参数 ef_construction:128 和 m:16 已经足以保证召回率，另外在构建索引时可以关注以下几点:
 <ol>
 <li>添加一个 publish_date 字段方便后续根据时间来删除/更新知识</li>
 <li>添加 idx 整型字段用于记录对应片段在全文中的顺序，在召回时可以基于 range_search 召回相邻上下文片段</li>
@@ -325,7 +325,7 @@ vCPU 的规划方面，假设 shard 数为 8，乘以 1.5vCPU/Shard 的系数，
 </li>
 <li>
 <p>c. 指数退避重试机制能保证摄入的完整性以及因集群瞬时不可用导致的大面积写入失败，opensearch-py包中有如下摄入函数, 如果并发客户端过多，可能会导致CPU利用率一直位于100%，在max_retries的重试次数内，每次会等待 initial_backoff * (attampt_idx ** 2)的时间，通过设定一个较大的initial_backoff等待时间，能避免在客户端并发数偏大的情况下出现大面积429错误。另外客户端数也不能过大，否则也会更容易出现大量的503相关错误。对于偶发的503报错，可以利用glue的retry机制处理，保证写入的完整性。</p>
-<p><strong>注意：在大规模数据摄入的生产场景中，不建议使用****Langchain提供的向量数据库接口，查看其</strong><a href="https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/vectorstores/opensearch_vector_search.py#L95"><strong>源码</strong></a>**可知，**<strong>LangChain的默认实现是单客户端，且其内部实现没有使用指数退避Retry机制，无法保证摄入速度和完整性。</strong></p>
+<p><strong>注意：在大规模数据摄入的生产场景中，不建议使用****Langchain提供的向量数据库接口，查看其</strong><a href="https://zshipu.com/t/?url=https://github.com/langchain-ai/langchain/blob/master/libs/langchain/langchain/vectorstores/opensearch_vector_search.py#L95"><strong>源码</strong></a>**可知，**<strong>LangChain的默认实现是单客户端，且其内部实现没有使用指数退避Retry机制，无法保证摄入速度和完整性。</strong></p>
 </li>
 <li>
 <p>d. 写入完成后，建议查询文档的去重数量，确保写入的完整性。可以在 OpenSearch Dashboard 的 Dev tools 中使用如下的 DSL 语句查询文档总数。注意 cardinality 方式的统计不是精准统计值，可以提高 precision_threshold 参数值来提高其准确性。</p>
@@ -346,7 +346,7 @@ Segment 是 OpenSearch 中的最小搜索单元。如果每个 shard 只有 1 �
 </li>
 <li>
 <p>以下表格是合并 segments 后的情况，合并完成后每个 shard 下仅有一个 segment，数据也均匀分布，标记删除的数据也被清理掉了。</p>
-<p><a href="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-22final.jpg">
+<p><a href="https://zshipu.com/t/?url=https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-22final.jpg">
         <img class="mx-auto" alt="" src="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-22final.png" />   
     </a></p>
 </li>
@@ -356,7 +356,7 @@ Segment 是 OpenSearch 中的最小搜索单元。如果每个 shard 只有 1 �
 </li>
 <li>
 <p>预热执行很快，预热完毕以后，性能会有明显改善。可以到 CloudWatch 中去查看 OpenSearch Domain 中的 KNNGraphMemoryUsagePercentage 指标进行确认是否执行完毕，如图所示：</p>
-<p><a href="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-23final.jpg">
+<p><a href="https://zshipu.com/t/?url=https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-23final.jpg">
         <img class="mx-auto" alt="" src="https://s3.cn-north-1.amazonaws.com.cn/awschinablog/practice-of-knowledge-question-answering-application-based-on-llm-knowledge-base-construction-part-23final.png" />   
     </a></p>
 </li>
@@ -367,12 +367,12 @@ Segment 是 OpenSearch 中的最小搜索单元。如果每个 shard 只有 1 �
 《Amazon OpenSearch 向量数据库的性能评估与选型分析》，会针对 Amazon OpenSearch 作为向量数据库，讨论其优势及定位，在索引和查询等方面给出更加详细的 benchmark，给用户更加丰富的参考信息。<br>
 《基于大语言模型知识问答应用落地实践 – 知识召回调优》，会在知识库构建的前提和背景下，讨论如何更好的召回对应的知识，包括各种适用的召回手段和实践技巧。另外，本文提到的代码细节可以参考配套资料：</p>
 <ol>
-<li>代码库 <a href="https://github.com/aws-samples/private-llm-qa-bot">aws-samples/private-llm-qa-bot</a></li>
-<li>workshop <a href="https://github.com/aws-samples/private-llm-qa-bot">&lt;基于 Amazon OpenSearch+大语言模型的智能问答系统&gt;</a>（中英文版本）</li>
+<li>代码库 <a href="https://zshipu.com/t/?url=https://github.com/aws-samples/private-llm-qa-bot">aws-samples/private-llm-qa-bot</a></li>
+<li>workshop <a href="https://zshipu.com/t/?url=https://github.com/aws-samples/private-llm-qa-bot">&lt;基于 Amazon OpenSearch+大语言模型的智能问答系统&gt;</a>（中英文版本）</li>
 </ol>
 <p>参考文献：</p>
 <ol>
-<li><a href="https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/">Choose the k-NN algorithm for your billion-scale use case with OpenSearch</a></li>
+<li><a href="https://zshipu.com/t/?url=https://aws.amazon.com/cn/blogs/big-data/choose-the-k-nn-algorithm-for-your-billion-scale-use-case-with-opensearch/">Choose the k-NN algorithm for your billion-scale use case with OpenSearch</a></li>
 </ol>
 <h2 id="本篇作者">本篇作者</h2>
 

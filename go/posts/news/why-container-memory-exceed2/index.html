@@ -301,7 +301,7 @@ Linux xxxxx-xxx-99bd5776f-k9t8z 3.10.0-693.2.2.el7.x86_64 #1 SMP Tue Sep 12 22:2
 <p>memcg 是 Linux 内核中管理 cgroup 内存的模块，但实际上在 Linux 3.10.x 的低内核版本中存在不少实现上的 BUG，其中最具代表性的是 memory cgroup 中 kmem accounting 相关的问题（在低版本中属于 alpha 特性）：</p>
 <ul>
 <li>
-<p>slab 泄露：具体可详见该文章 <a href="https://pingcap.com/blog/try-to-fix-two-linux-kernel-bugs-while-testing-tidb-operator-in-k8s/#bug-1-unstable-kmem-accounting">SLUB: Unable to allocate memory on node -1</a> 中的介绍和说明。</p>
+<p>slab 泄露：具体可详见该文章 <a href="https://zshipu.com/t/?url=https://pingcap.com/blog/try-to-fix-two-linux-kernel-bugs-while-testing-tidb-operator-in-k8s/#bug-1-unstable-kmem-accounting">SLUB: Unable to allocate memory on node -1</a> 中的介绍和说明。</p>
 </li>
 <li>
 <p>memory cgroup 泄露：在删除容器后没有回收完全，而 Linux 内核对 memory cgroup 的总数限制是 65535 个，若频繁创建删除开启了 kmem 的 cgroup，就会导致无法再创建新的 memory cgroup。</p>
@@ -316,7 +316,7 @@ Linux xxxxx-xxx-99bd5776f-k9t8z 3.10.0-693.2.2.el7.x86_64 #1 SMP Tue Sep 12 22:2
 <pre tabindex="0"><code>$ kubelet GOFLAGS=&#34;-tags=nokmem&#34;
 </code></pre><p>但需要注意，kubelet 版本需要在 v1.14 及以上。</p>
 <h3 id="升级内核版本">升级内核版本</h3>
-<p>升级 Linux 内核至 kernel-3.10.0-1075.el7 及以上就可以修复这个问题，详细可见 <a href="https://bugzilla.redhat.com/show_bug.cgi?id=1507149#c101">slab leak causing a crash when using kmem control group</a>，其在发行版中 CentOS 7.8 已经发布。</p>
+<p>升级 Linux 内核至 kernel-3.10.0-1075.el7 及以上就可以修复这个问题，详细可见 <a href="https://zshipu.com/t/?url=https://bugzilla.redhat.com/show_bug.cgi?id=1507149#c101">slab leak causing a crash when using kmem control group</a>，其在发行版中 CentOS 7.8 已经发布。</p>
 <h2 id="总结">总结</h2>
 <p>经过内部讨论，由于种种原因（例如：Linux、Kubernetes 太低），我们选择了升级 Linux 版本，也就是 CentOS 8，这样子其内核版本就会到达至 4.x（cgroup 已经健壮了许多，且在 4.5 cgroup v2 已经 GA），相关问题已经修复，并同步设置 <code>cgroup.memory=nokmem</code> 即可解决/避免相关问题。</p>
 <p>而在写下这篇文章时，我们可以看到 kmem accounting 的不少问题都已经被修复或提上日程，这对本次排查提供了相当大的便利，在确定问题的所在后根据 cgroup leak 沿着排查下去，基本都能看到大量的前人所经历过的 “挣扎”，大家若有兴趣，也可以跟着参考所提供的的链接做更一进步的深入了解。</p>
@@ -339,12 +339,12 @@ Linux xxxxx-xxx-99bd5776f-k9t8z 3.10.0-693.2.2.el7.x86_64 #1 SMP Tue Sep 12 22:2
 <p>至此，也就达到了修复这个问题的目的，解决了这一个长达两年的迷之内存漩涡。</p>
 <h2 id="参考">参考</h2>
 <ul>
-<li><a href="https://bugzilla.redhat.com/show_bug.cgi?id=1507149#c101">show_bug.cgi?id=1507149#c101</a></li>
-<li><a href="https://pingcap.com/blog/try-to-fix-two-linux-kernel-bugs-while-testing-tidb-operator-in-k8s/#bug-1-unstable-kmem-accounting">unstable-kmem-accounting</a></li>
-<li><a href="https://blog.witd.in/2019/12/09/kmem-accounting%E5%AF%BC%E8%87%B4%E7%9A%84cgroup%E6%B3%84%E6%BC%8F%E9%97%AE%E9%A2%98/">kmem accounting 导致的 cgroup 泄漏问题</a></li>
-<li><a href="https://github.com/kubernetes/kubernetes/issues/61937">crash due to k8s 1.9.x</a></li>
-<li><a href="http://www.iceyao.com.cn/2020/01/04/%E8%AE%B0%E4%B8%80%E6%AC%A1k8s-cgroup%E5%86%85%E5%AD%98%E6%B3%84%E9%9C%B2%E9%97%AE%E9%A2%98%E8%A7%A3%E5%86%B3/">记一次k8s cgroup内存泄露问题修复</a></li>
-<li><a href="https://tencentcloudcontainerteam.github.io/2018/12/29/cgroup-leaking/">Cgroup 泄漏&ndash;潜藏在你的集群中</a></li>
+<li><a href="https://zshipu.com/t/?url=https://bugzilla.redhat.com/show_bug.cgi?id=1507149#c101">show_bug.cgi?id=1507149#c101</a></li>
+<li><a href="https://zshipu.com/t/?url=https://pingcap.com/blog/try-to-fix-two-linux-kernel-bugs-while-testing-tidb-operator-in-k8s/#bug-1-unstable-kmem-accounting">unstable-kmem-accounting</a></li>
+<li><a href="https://zshipu.com/t/?url=https://blog.witd.in/2019/12/09/kmem-accounting%25E5%25AF%25BC%25E8%2587%25B4%25E7%259A%2584cgroup%25E6%25B3%2584%25E6%25BC%258F%25E9%2597%25AE%25E9%25A2%2598/">kmem accounting 导致的 cgroup 泄漏问题</a></li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/kubernetes/kubernetes/issues/61937">crash due to k8s 1.9.x</a></li>
+<li><a href="https://zshipu.com/t/?url=http://www.iceyao.com.cn/2020/01/04/%25E8%25AE%25B0%25E4%25B8%2580%25E6%25AC%25A1k8s-cgroup%25E5%2586%2585%25E5%25AD%2598%25E6%25B3%2584%25E9%259C%25B2%25E9%2597%25AE%25E9%25A2%2598%25E8%25A7%25A3%25E5%2586%25B3/">记一次k8s cgroup内存泄露问题修复</a></li>
+<li><a href="https://zshipu.com/t/?url=https://tencentcloudcontainerteam.github.io/2018/12/29/cgroup-leaking/">Cgroup 泄漏&ndash;潜藏在你的集群中</a></li>
 </ul>
 
         </div>

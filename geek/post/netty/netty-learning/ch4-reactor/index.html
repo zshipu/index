@@ -233,7 +233,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <img class="mx-auto" alt="image-20220501195915050" src="https://cdn.jsdelivr.net/gh/zshipu/images/202205011959407.png" />   
     </p>
 <h2 id="一nettynio多线程">一：Netty、NIO、多线程？</h2>
-<p>时隔很久终于又更新了！之前一直迟迟未动也是因为积累不够，后面比较难下手。过年期间<a href="http://weibo.com/lilinfeng">@李林锋hw</a>发布了一个Netty5.0架构剖析和源码解读 <a href="http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855">http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855</a>，看完也是收获不少。前面的文章我们分析了Netty的结构，这次咱们来分析最错综复杂的一部分-Netty中的多线程以及NIO的应用。</p>
+<p>时隔很久终于又更新了！之前一直迟迟未动也是因为积累不够，后面比较难下手。过年期间<a href="https://zshipu.com/t/?url=http://weibo.com/lilinfeng">@李林锋hw</a>发布了一个Netty5.0架构剖析和源码解读 <a href="https://zshipu.com/t/?url=http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855">http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855</a>，看完也是收获不少。前面的文章我们分析了Netty的结构，这次咱们来分析最错综复杂的一部分-Netty中的多线程以及NIO的应用。</p>
 <p>理清NIO与Netty的关系之前，我们必须先要来看看Reactor模式。Netty是一个典型的多线程的Reactor模式的使用，理解了这部分，在宏观上理解Netty的NIO及多线程部分就不会有什么困难了。</p>
 <p>本篇文章依然针对Netty 3.7，不过因为也看过一点Netty 5的源码，所以会有一点介绍。</p>
 <h2 id="二reactor反应堆还是核电站">二：Reactor，反应堆还是核电站？</h2>
@@ -243,7 +243,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>这时先驱们找到了事件驱动，或者叫回调的方式，来完成这件事情。这种方式就是，应用业务向一个中间人注册一个回调（event handler），当IO就绪后，就这个中间人产生一个事件，并通知此handler进行处理。<em>这种回调的方式，也体现了“好莱坞原则”（Hollywood principle）-“Don&rsquo;t call us, we&rsquo;ll call you”，在我们熟悉的IoC中也有用到。看来软件开发真是互通的！</em></p>
 <p>好了，我们现在来看Reactor模式。在前面事件驱动的例子里有个问题：我们如何知道IO就绪这个事件，谁来充当这个中间人？Reactor模式的答案是：由一个不断等待和循环的单独进程（线程）来做这件事，它接受所有handler的注册，并负责先操作系统查询IO是否就绪，在就绪后就调用指定handler进行处理，这个角色的名字就叫做Reactor。</p>
 <h3 id="2reactor与nio">2、Reactor与NIO</h3>
-<p>Java中的NIO可以很好的和Reactor模式结合。关于NIO中的Reactor模式，我想没有什么资料能比Doug Lea大神（不知道Doug Lea？看看JDK集合包和并发包的作者吧）在<a href="http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf">《Scalable IO in Java》</a>解释的更简洁和全面了。NIO中Reactor的核心是<code>Selector</code>，我写了一个简单的Reactor示例，这里我贴一个核心的Reactor的循环（这种循环结构又叫做<code>EventLoop</code>），剩余代码在<a href="learning-src/src/main/java/us/codecraft/netty/reactor">learning-src</a>目录下。</p>
+<p>Java中的NIO可以很好的和Reactor模式结合。关于NIO中的Reactor模式，我想没有什么资料能比Doug Lea大神（不知道Doug Lea？看看JDK集合包和并发包的作者吧）在<a href="https://zshipu.com/t/?url=http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf">《Scalable IO in Java》</a>解释的更简洁和全面了。NIO中Reactor的核心是<code>Selector</code>，我写了一个简单的Reactor示例，这里我贴一个核心的Reactor的循环（这种循环结构又叫做<code>EventLoop</code>），剩余代码在<a href="learning-src/src/main/java/us/codecraft/netty/reactor">learning-src</a>目录下。</p>
 <div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
 <table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
 <pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
@@ -278,7 +278,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 </div><h3 id="3与reactor相关的其他概念">3、与Reactor相关的其他概念</h3>
 <p>前面提到了Proactor模式，这又是什么呢？简单来说，Reactor模式里，操作系统只负责通知IO就绪，具体的IO操作（例如读写）仍然是要在业务进程里阻塞的去做的，而Proactor模式则更进一步，由操作系统将IO操作执行好（例如读取，会将数据直接读到内存buffer中），而handler只负责处理自己的逻辑，真正做到了IO与程序处理异步执行。所以我们一般又说Reactor是同步IO，Proactor是异步IO。</p>
-<p>关于阻塞和非阻塞、异步和非异步，以及UNIX底层的机制，大家可以看看这篇文章<a href="http://blog.csdn.net/historyasamirror/article/details/5778378">IO - 同步，异步，阻塞，非阻塞 （亡羊补牢篇）</a>，以及陶辉（《深入理解nginx》的作者）<a href="http://blog.csdn.net/russell_tao/article/details/17452997">《高性能网络编程》</a>的系列。</p>
+<p>关于阻塞和非阻塞、异步和非异步，以及UNIX底层的机制，大家可以看看这篇文章<a href="https://zshipu.com/t/?url=http://blog.csdn.net/historyasamirror/article/details/5778378">IO - 同步，异步，阻塞，非阻塞 （亡羊补牢篇）</a>，以及陶辉（《深入理解nginx》的作者）<a href="https://zshipu.com/t/?url=http://blog.csdn.net/russell_tao/article/details/17452997">《高性能网络编程》</a>的系列。</p>
 <h2 id="三由reactor出发来理解netty">三：由Reactor出发来理解Netty</h2>
 <h3 id="1多线程下的reactor">1、多线程下的Reactor</h3>
 <p>讲了一堆Reactor，我们回到Netty。在《Scalable IO in Java》中讲到了一种多线程下的Reactor模式。在这个模式里，mainReactor只有一个，负责响应client的连接请求，并建立连接，它使用一个NIO Selector；subReactor可以有一个或者多个，每个subReactor都会在一个独立线程中执行，并且维护一个独立的NIO Selector。</p>
@@ -488,14 +488,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div><p>可以看到，对于处理事件较长的业务，并不太适合直接放到ChannelHandler中执行。那么怎么处理呢？我们在Handler部分会进行介绍。</p>
 <p>参考资料：</p>
 <ul>
-<li>Scalable IO in Java <a href="http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf">http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf</a></li>
-<li>Netty5.0架构剖析和源码解读 <a href="http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855">http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855</a></li>
-<li>Reactor pattern <a href="http://en.wikipedia.org/wiki/Reactor_pattern">http://en.wikipedia.org/wiki/Reactor_pattern</a></li>
-<li>Reactor - An Object Behavioral Pattern for Demultiplexing and Dispatching Handles for Synchronous Events <a href="http://www.cs.wustl.edu/~schmidt/PDF/reactor-siemens.pdf">http://www.cs.wustl.edu/~schmidt/PDF/reactor-siemens.pdf</a></li>
-<li>高性能网络编程6&ndash;reactor反应堆与定时器管理 <a href="http://blog.csdn.net/russell_tao/article/details/17452997">http://blog.csdn.net/russell_tao/article/details/17452997</a></li>
-<li>IO - 同步，异步，阻塞，非阻塞 （亡羊补牢篇）<a href="http://blog.csdn.net/historyasamirror/article/details/5778378">http://blog.csdn.net/historyasamirror/article/details/5778378</a></li>
+<li>Scalable IO in Java <a href="https://zshipu.com/t/?url=http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf">http://gee.cs.oswego.edu/dl/cpjslides/nio.pdf</a></li>
+<li>Netty5.0架构剖析和源码解读 <a href="https://zshipu.com/t/?url=http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855">http://vdisk.weibo.com/s/C9LV9iVqH13rW/1391437855</a></li>
+<li>Reactor pattern <a href="https://zshipu.com/t/?url=http://en.wikipedia.org/wiki/Reactor_pattern">http://en.wikipedia.org/wiki/Reactor_pattern</a></li>
+<li>Reactor - An Object Behavioral Pattern for Demultiplexing and Dispatching Handles for Synchronous Events <a href="https://zshipu.com/t/?url=http://www.cs.wustl.edu/~schmidt/PDF/reactor-siemens.pdf">http://www.cs.wustl.edu/~schmidt/PDF/reactor-siemens.pdf</a></li>
+<li>高性能网络编程6&ndash;reactor反应堆与定时器管理 <a href="https://zshipu.com/t/?url=http://blog.csdn.net/russell_tao/article/details/17452997">http://blog.csdn.net/russell_tao/article/details/17452997</a></li>
+<li>IO - 同步，异步，阻塞，非阻塞 （亡羊补牢篇）<a href="https://zshipu.com/t/?url=http://blog.csdn.net/historyasamirror/article/details/5778378">http://blog.csdn.net/historyasamirror/article/details/5778378</a></li>
 </ul>
-<p>题图来自：<a href="http://www.worldindustrialreporter.com/france-gives-green-light-to-tokamak-fusion-reactor/">http://www.worldindustrialreporter.com/france-gives-green-light-to-tokamak-fusion-reactor/</a></p>
+<p>题图来自：<a href="https://zshipu.com/t/?url=http://www.worldindustrialreporter.com/france-gives-green-light-to-tokamak-fusion-reactor/">http://www.worldindustrialreporter.com/france-gives-green-light-to-tokamak-fusion-reactor/</a></p>
 
         </div>
 

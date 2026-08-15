@@ -245,12 +245,12 @@ public interface BaseRepository&lt;Aggregate extends BaseAggregateRoot&lt;ID&gt;
 }
 </code></pre><p>这就是检索和保存聚合所需的全部内容。现在让我们看看如何实现查询。</p>
 <h1 id="查询方式及规格">查询方式及规格</h1>
-<p>在 Spring Data 中创建查询最直接的方法是定义仔细命名的<code>findBy</code>-methods（如果您不熟悉，请查看<a href="https://docs.spring.io/spring-data/jpa/docs/2.5.0/reference/html/#reference">Spring Data 参考文档</a>）。</p>
+<p>在 Spring Data 中创建查询最直接的方法是定义仔细命名的<code>findBy</code>-methods（如果您不熟悉，请查看<a href="https://zshipu.com/t/?url=https://docs.spring.io/spring-data/jpa/docs/2.5.0/reference/html/#reference">Spring Data 参考文档</a>）。</p>
 <p>我发现这些对于仅基于一个或两个键查找聚合的简单查询很有用；例如，在 a 中<code>PersonRepository</code>可以调用一个方法<code>findBySocialSecurityNumber</code>，在 a 中<code>CustomerRepository</code>可以调用一个方法<code>findByCustomerNumber</code>。但是，对于更高级或更复杂的查询，我尽量避免使用<code>findBy</code>-methods。</p>
 <p>我这样做主要有两个原因：首先，方法名称往往会变得很长，并且无论在哪里使用都会污染代码。</p>
 <p>其次，来自应用程序服务的非常具体的需求可能会潜入存储库，一段时间后，您的存储库会充满查询方法，这些方法几乎可以完成相同的工作，但变化很小。我想保持我的域模型尽可能干净。相反，我喜欢使用<em>规范</em>来构建我的查询。</p>
 <p>当您按规范查询时，您首先要构建一个规范对象，该对象描述您想要从查询中得到的结果。规范对象也可以使用逻辑运算符<em>and</em>和<em>or</em>进行组合。为了获得最大的灵活性，我尽量保持我的规格尽可能小。如果需要，我会为常用的规格组合创建复合规格。</p>
-<p>Spring Data 内置了对规范的支持。要创建规范，您必须实现<code>Specification</code>接口。这个接口依赖于 JPA Criteria API，所以如果你以前没有使用过它，你需要熟悉它（<a href="https://docs.jboss.org/hibernate/orm/5.4/userguide/html_single/Hibernate_User_Guide.html#criteria">这里</a>是 Hibernate 的关于它的文档）。</p>
+<p>Spring Data 内置了对规范的支持。要创建规范，您必须实现<code>Specification</code>接口。这个接口依赖于 JPA Criteria API，所以如果你以前没有使用过它，你需要熟悉它（<a href="https://zshipu.com/t/?url=https://docs.jboss.org/hibernate/orm/5.4/userguide/html_single/Hibernate_User_Guide.html#criteria">这里</a>是 Hibernate 的关于它的文档）。</p>
 <p>该<code>Specification</code>接口包含一个您必须实现的方法。它生成一个 JPA Criteria 谓词，并将创建所述谓词所需的所有必要对象作为输入。</p>
 <p>创建规范的最简单方法是创建规范工厂。最好用一个例子来说明这一点：</p>
 <pre tabindex="0"><code>public class CustomerSpecifications {
@@ -276,7 +276,7 @@ public interface BaseRepository&lt;Aggregate extends BaseAggregateRoot&lt;ID&gt;
 }
 </code></pre><ol>
 <li>这里我只是做一个简单的<code>like</code>查询，但在现实世界的规范中，您可能希望更彻底，注意通配符、大小写匹配等。</li>
-<li><code>Customer_</code>是由 JPA 实现（例如<a href="https://hibernate.org/orm/tooling/">Hibernate</a>）生成的元模型类。</li>
+<li><code>Customer_</code>是由 JPA 实现（例如<a href="https://zshipu.com/t/?url=https://hibernate.org/orm/tooling/">Hibernate</a>）生成的元模型类。</li>
 </ol>
 <p>然后，您将按以下方式使用规范：</p>
 <pre tabindex="0"><code>public class CustomerService {
@@ -301,7 +301,7 @@ public interface BaseRepository&lt;Aggregate extends BaseAggregateRoot&lt;ID&gt;
 <li>这里使用运算符将两个规范组合在一起<code>and</code>。</li>
 </ol>
 <h2 id="关于存储库和-querydsl-的说明">关于存储库和 QueryDSL 的说明</h2>
-<p>Spring Data 还支持<a href="http://www.querydsl.com/">QueryDSL</a>。在这种情况下，您不是使用规范，而是直接使用 QueryDSL 谓词。设计原则几乎相同，因此如果您觉得 QueryDSL 比 JPA Criteria API 更舒服，那么您没有理由改变。</p>
+<p>Spring Data 还支持<a href="https://zshipu.com/t/?url=http://www.querydsl.com/">QueryDSL</a>。在这种情况下，您不是使用规范，而是直接使用 QueryDSL 谓词。设计原则几乎相同，因此如果您觉得 QueryDSL 比 JPA Criteria API 更舒服，那么您没有理由改变。</p>
 <h1 id="规格和测试">规格和测试</h1>
 <p>使用规范来支持查询方法有一个明显的缺点，这与单元测试有关。<code>Criteria</code>由于规范在后台使用了 JPA Criteria API，因此在不构造和分析其 JPA 谓词的情况下，没有简单的方法对给定对象的内容进行断言 - 这是一个重要的过程。</p>
 <p>但是，有一些方法可以解决这个问题。最明显的方法是在单元测试中模拟存储库时忽略对传入规范的检查，并使用单独的集成测试来测试你的规范，例如使用内存中的 H2 数据库。在许多情况下，这可能已经足够好了。</p>

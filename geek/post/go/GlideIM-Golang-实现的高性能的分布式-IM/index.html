@@ -258,9 +258,9 @@ date: 2022-04-24 13:08:57+08:00</p>
 <p>这个项目自 2020 年中旬开始, 三端均开发由我一个人独自不间断开发直到现在, 也是我第一个耗费最多精力去开发及学习的项目. 由于我工作较多空闲时间, 基本上都在开发本项目, 边学习边开发, 查阅了大量资料, 经过大量的思考, 目标就是一个高性能分布式 IM. 第一版微服务架构在开发三个月的时候基本已经完成了, 后面则是做了微服务架构调整, 和进一步优化 IM 服务细节, 截至目前(2022年3月3日), 距离我预期的第二版, 只剩下一些收尾工作.</p>
 <p><strong>本项目将持续更新迭代.</strong></p>
 <ul>
-<li>服务端源码: <a href="https://github.com/Glide-IM/Glide-IM">GlideIM - GitHub</a></li>
-<li>Android App下载: <a href="https://github.com/Glide-IM/Glide-IM-Android/releases">Android - GitHub</a></li>
-<li>Web 端: <a href="http://web.t.glide-im.pro/">GlideIM</a></li>
+<li>服务端源码: <a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM">GlideIM - GitHub</a></li>
+<li>Android App下载: <a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM-Android/releases">Android - GitHub</a></li>
+<li>Web 端: <a href="https://zshipu.com/t/?url=http://web.t.glide-im.pro/">GlideIM</a></li>
 </ul>
 <h2 id="一-功能">一. 功能</h2>
 <h3 id="11-用户侧功能">1.1 用户侧功能</h3>
@@ -290,7 +290,7 @@ date: 2022-04-24 13:08:57+08:00</p>
 <p>
         <img class="mx-auto" alt="image-20220424145232930" src="https://cdn.jsdelivr.net/gh/zshipu/images/image-20220424145232930.png" />   
     </p>
-<p><a href="https://github.com/Glide-IM/Glide-IM/blob/master/_art/system_arch.png?raw=true">
+<p><a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM/blob/master/_art/system_arch.png?raw=true">
         <img class="mx-auto" alt="i" src="https://github.com/Glide-IM/Glide-IM/raw/master/_art/system_arch.png?raw=true" />   
     </a></p>
 <h3 id="21-聊天服务划分">2.1 聊天服务划分</h3>
@@ -312,7 +312,7 @@ date: 2022-04-24 13:08:57+08:00</p>
 <h4 id="broker">Broker</h4>
 <p>群聊与用户网关一样是属于带状态服务, 消息需要准确快速路由到群所在路径, Broker 和 Dispatch 功能大致相似.</p>
 <h4 id="nsq">NSQ</h4>
-<p><a href="https://nsq.io/">NSQ</a> 是 Golang 实现的消息队列, 所有消息都通过 NSQ 路由. 相比其他 MQ 选择 NSQ 的理由: 去中心分布式(生产消费直连), 低延迟, 不需要顺序, 高性能, 简单二进制协议.</p>
+<p><a href="https://zshipu.com/t/?url=https://nsq.io/">NSQ</a> 是 Golang 实现的消息队列, 所有消息都通过 NSQ 路由. 相比其他 MQ 选择 NSQ 的理由: 去中心分布式(生产消费直连), 低延迟, 不需要顺序, 高性能, 简单二进制协议.</p>
 <p>在每一台生产者上都部署一个 nsqd.</p>
 <h3 id="22-http-api-服务划分">2.2 HTTP API 服务划分</h3>
 <ul>
@@ -327,7 +327,7 @@ date: 2022-04-24 13:08:57+08:00</p>
 <h4 id="网关消息路由">网关消息路由</h4>
 <p>在分布式部署环境下, 网关可能部署任意个实例, 用户可能连接到其中任意一个实例中, 当需要给某一个用户发送消息, 或者断开某个用户的连接时, 我们需要找到这个用户所在的网关, 这就需要记录所有在线用户所在网关. 可能快想到的是使用 Redis, 或者 Redis 加二级缓存, 但 IM 系统消息吞吐量非常大, 而且存在扩散等其他原因, Redis 很容易成为性能瓶颈.</p>
 <p>GlideIM 使用一致性哈希算法, 将每个用户连接的网关信息按照 UID 分布在不同的 Dispatch 服务上, 从而达到分散缓存, 负载均衡, 及提高可用性的目的.</p>
-<p><a href="https://github.com/Glide-IM/Glide-IM/blob/master/_art/msg_routing.png?raw=true">
+<p><a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM/blob/master/_art/msg_routing.png?raw=true">
         <img class="mx-auto" alt="i" src="https://github.com/Glide-IM/Glide-IM/raw/master/_art/msg_routing.png?raw=true" />   
     </a></p>
 <p>如上图所示, Dispatch 在整个环节中承当了消息分发的角色. 当某一个 Dispatch 服务宕机后, 该服务中所有缓存的网关信息都将丢失, 根据一致性哈希算法, 原来的请求都转向了下一个 Dispatch, 显然这个服务上是没有已宕机的那个服务缓存的信息的, 我们可以在用户登录后将登录信息缓存在 Redis 中 (查询登录设备列表等其他场景共用), Dispatch 内存中没查到再去 Redis 查找, 查找一次后缓存在内存中即可.新上线的用户则不影响, 只影响在线期间网关信息保存的 Dispatch 服务宕机的用户.</p>
@@ -354,7 +354,7 @@ type Interface interface {
 type MessageHandleFunc func(from int64, device int64, message *message.Message) 
 </code></pre><p>其他模块只需要知道 Gateway 模块提供客户端的登录登出和将消息加入到指定 ID 的客户端的队列即可, 其他模块不必知道 Gateway 的具体实现, 我们可以轻而易举的将这个模块替换为一个微服务服务.</p>
 <h3 id="25-微服务">2.5 微服务</h3>
-<p>GlideIM 使用 <a href="https://rpcx.io/">RPCX</a> 作为微服务的基础, 开箱即用的微服务方案让我选择了它, RPCX 功能丰富, 性能优越, 集成了服务发现, 多种路由方案, 以及失败模式, 服务发现使用 <a href="http://www.etcd.cn/">ETCD</a>.</p>
+<p>GlideIM 使用 <a href="https://zshipu.com/t/?url=https://rpcx.io/">RPCX</a> 作为微服务的基础, 开箱即用的微服务方案让我选择了它, RPCX 功能丰富, 性能优越, 集成了服务发现, 多种路由方案, 以及失败模式, 服务发现使用 <a href="https://zshipu.com/t/?url=http://www.etcd.cn/">ETCD</a>.</p>
 <p>服务间通讯均使用 Protobuff + RPC 方式, 在性能上这是最好的选择组合.</p>
 <h3 id="26-项目介绍">2.6 项目介绍</h3>
 <h4 id="项目目录">项目目录</h4>
@@ -422,15 +422,15 @@ type MessageHandleFunc func(from int64, device int64, message *message.Message)
 <p>但是上面所说的便利仅仅是因为我当时对微服务不太熟悉, 项目开发过程改动较大, 分开改动的时候稍微方便一些. 这样做代价就是, 两者分开不利于代码查看, 这其实是一种分层, <code>im</code> 下定义接口及默认实现, 上层<code>service</code>定义接口的实现, 但这些接口之间的依赖关系, 还是要去 <code>im</code> 中寻找, 后面可能会考虑将这两个包合并在一起.</p>
 <h4 id="项目主要依赖">项目主要依赖</h4>
 <ul>
-<li><a href="https://github.com/BurntSushi/toml">BurntSushi/toml</a>: 这是一款优秀的配置文件格式, 个人比较喜欢</li>
-<li><a href="https://github.com/gin-gonic/gin">gin</a>: 优秀的 HTTP Web 框架</li>
-<li><a href="https://github.com/gogo/protobuf">protobuff</a>: Google 出品二进制数据传输协议</li>
-<li><a href="https://github.com/gorilla/websocket">gorilla/websocket</a>: Golang 中最多 star 的 WebSocket 库</li>
-<li><a href="https://github.com/nsqio/go-nsq">nsq</a>: 简单, 高性能, 分布式 MQ</li>
-<li><a href="https://github.com/smallnest/rpcx">rpcx</a>: 高性能, 功能丰富的微服务框架</li>
-<li><a href="https://github.com/Glide-IM/GlideIM/blob/master/doc/gorm.io/gorm">gorm</a>: ORM</li>
-<li><a href="https://github.com/go-redis/redis">go-redis/redis</a>: Redis 客户端</li>
-<li><a href="https://github.com/Glide-IM/GlideIM/blob/master/doc/github.com/panjf2000/ants/v2">ants</a>: 协程池</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/BurntSushi/toml">BurntSushi/toml</a>: 这是一款优秀的配置文件格式, 个人比较喜欢</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/gin-gonic/gin">gin</a>: 优秀的 HTTP Web 框架</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/gogo/protobuf">protobuff</a>: Google 出品二进制数据传输协议</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/gorilla/websocket">gorilla/websocket</a>: Golang 中最多 star 的 WebSocket 库</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/nsqio/go-nsq">nsq</a>: 简单, 高性能, 分布式 MQ</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/smallnest/rpcx">rpcx</a>: 高性能, 功能丰富的微服务框架</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/GlideIM/blob/master/doc/gorm.io/gorm">gorm</a>: ORM</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/go-redis/redis">go-redis/redis</a>: Redis 客户端</li>
+<li><a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/GlideIM/blob/master/doc/github.com/panjf2000/ants/v2">ants</a>: 协程池</li>
 </ul>
 <h4 id="构建和运行">构建和运行</h4>
 <p>根目录下 <code>cmd/run</code> 下的包为程序入口, 包名表示其服务/模式, 例如 <code>api_http</code> 包为以 HTTP 服务启动 API 的接口(提供给客户端HTTP方式调用), <code>api_rpc</code> 为启动 API RPC 服务(提供给其他服务调用), 为了快速调试, 这里还有一个单实例模式 <code>singleton</code>, 这个入口会同时启动 IM长连接服务和 HTTP API 服务, 方便调试 <code>im</code> 核心逻辑, 或者调试客户端用.</p>
@@ -455,7 +455,7 @@ type MessageHandleFunc func(from int64, device int64, message *message.Message)
 <li>单实例模式在 <code>singleton</code> 包中 <code>config.toml</code> 修改相关配置</li>
 <li>微服务模式需要将 <code>service/example_config.toml</code> 文件复制到对于服务入口下, 并根据环境修改相关配置</li>
 </ul>
-<p>如果依赖或者其他原因无法在 IDE 中运行代码, 可以在 <a href="https://github.com/Glide-IM/GlideIM/releases">
+<p>如果依赖或者其他原因无法在 IDE 中运行代码, 可以在 <a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/GlideIM/releases">
         <img class="mx-auto" alt="这里" src="../../../../images/releases-165078299070623" />   
     </a> 下载已经编译好的 <code>singleton</code> 模式的可执行文件.</p>
 <h3 id="27-现存问题">2.7 现存问题</h3>
@@ -531,7 +531,7 @@ type MessageHandleFunc func(from int64, device int64, message *message.Message)
 <p>A 发送一条消息给 B, 如果 B 在线, 服务端则回复 A 一条服务端确认收到消息告诉 A 服务端已收到, 已经入库保存了, 然后服务端发送给 B, B 收到则发送一条确认收到消息给服务端, 服务端收到后再发送一条确认送达消息给 A, 若 B 不在线则直接发送给 A 确认送达, A 此时就知道这条消息一定被 B 收到了, 在此过程中 A 如果没有收到 B 确认收到则多次重试.</p>
 <p>在客户端做重发避免了服务端逻辑复杂化, 而客户端做则大大简化了逻辑. 有了这个送达机制, 不管是消息丢了还是网络环境不好的时候, 都能提高送达率和消息及时率, 再者若我们使用 UDP, 有了这个机制也可以确保消息的送达率.</p>
 <p>GlideIM 消息 ACK 机制几种消息丢失情况下的时序图如下:</p>
-<p><a href="https://github.com/Glide-IM/Glide-IM/blob/master/doc/img/message_ack.png?raw=true">
+<p><a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM/blob/master/doc/img/message_ack.png?raw=true">
         <img class="mx-auto" alt="Message ACK" src="https://github.com/Glide-IM/Glide-IM/raw/master/doc/img/message_ack.png?raw=true" />   
     </a></p>
 <p>以上只是 GlideIM 保障送达的一部分, 实际上还有接收端根据 Seq 判断是否消息缺失等其他措施.</p>
@@ -551,7 +551,7 @@ type MessageHandleFunc func(from int64, device int64, message *message.Message)
 <p>在一对一单聊的情况, GlideIM 只保障发送方有序, 而一个会话内的所有消息是不必保障顺序的, 相对其付出的代价和带来的收益. 而群聊则是保障所有消息有序的, 群消息下发会附带当前群的连续递增 Seq, 收到群消息根据 Seq 排序, 若发现不连续则拉取不连续部分的消息.</p>
 <h2 id="四-性能测试">四. 性能测试</h2>
 <p>GlideIM 消息面对高并发吞吐量压力测试:</p>
-<p><a href="https://raw.githubusercontent.com/Glide-IM/Glide-IM/master/_art/msg_io_no_db.png">
+<p><a href="https://zshipu.com/t/?url=https://raw.githubusercontent.com/Glide-IM/Glide-IM/master/_art/msg_io_no_db.png">
         <img class="mx-auto" alt="P" src="https://raw.githubusercontent.com/Glide-IM/Glide-IM/master/_art/msg_io_no_db.png" />   
     </a></p>
 <h3 id="41-测试结果">4.1 测试结果</h3>
@@ -576,7 +576,7 @@ AMD R5 3600 6核12线程
 <p>这个案例只为了测试程序在高并发情况下的运行情况, 参考价值也仅限于程序本身的短板和代码逻辑极限, 在实际情况中我们无法忽略网络速率等因素的影响.</p>
 <p>由于需要去除网卡速率限制, 服务和模拟客户端都在同一台设备上运行则不受网络因素影响, 模拟10000个链接, 每个连接 50ms-100ms 发送一条消息, 总共发送 800 条.</p>
 <p>此案例消息吞吐量极限为 28w, 此时已达到 cpu 性能极限, 占用率约98%, 客户端模拟 cpu 占用率高于服务端, 但无关紧要.</p>
-<p>测试案例 pprof CPU使用情况分析数据: <a href="https://github.com/Glide-IM/Glide-IM/raw/master/_art/cpu_pprof_msg_io_no_db.out">cpu.out</a></p>
+<p>测试案例 pprof CPU使用情况分析数据: <a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM/raw/master/_art/cpu_pprof_msg_io_no_db.out">cpu.out</a></p>
 <p>测试情况:</p>
 <pre tabindex="0"><code>CPU 98 %
 内存约 3 GB
@@ -589,7 +589,7 @@ AMD R5 3600 6核12线程
 <p>百兆网卡上限速率只有 12.5MB/s, 一条消息包含 20 个汉字则至少需要 40B, 再加上报头其他占用, 假设 100B, 则实际百兆网卡最大的消息并发是 12.5 x 1024 x 1024 / 100 = 13w 条, 而去除 ACK, 再上下行消息数量对半, 实际可能就 6w/s 消息就是 GlideIM 在 100Mbps 环境下的理论极限.</p>
 <h4 id="测试代码">测试代码</h4>
 <p>单机性能测试</p>
-<p>测试代码路径: <a href="https://github.com/Glide-IM/Glide-IM/tree/master/cmd/performance_test">/cmd/performance_test/</a></p>
+<p>测试代码路径: <a href="https://zshipu.com/t/?url=https://github.com/Glide-IM/Glide-IM/tree/master/cmd/performance_test">/cmd/performance_test/</a></p>
 <p>1.启动服务器</p>
 <pre tabindex="0"><code>go test -v -run=TestServerPerf
 </code></pre><p>2.开始用户模拟</p>

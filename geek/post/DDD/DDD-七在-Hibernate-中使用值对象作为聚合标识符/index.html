@@ -374,14 +374,14 @@ import foo.bar.domain.model.hibernate.CustomerIdType;
 <li>这个 Hibernate 注释告诉 Hibernate<code>CustomerIdType</code>在遇到<code>CustomerId</code>.</li>
 <li>请注意，导入是在文件中的注释之后进行的，<code>package-info.java</code>而不是在类文件中之前。</li>
 </ol>
-<p>呸！现在我们可以使用<code>CustomerId</code>两者来识别<code>Customer</code>聚合并从其他聚合中引用它们。但是请记住，如果您让 Hibernate 为您生成 SQL 模式并且您使用 ID 来引用聚合而不是<code>@ManyToOne</code>关联，那么 Hibernate 将不会创建外键约束。您必须自己执行此操作，例如使用<a href="https://flywaydb.org/">Flyway</a>。</p>
+<p>呸！现在我们可以使用<code>CustomerId</code>两者来识别<code>Customer</code>聚合并从其他聚合中引用它们。但是请记住，如果您让 Hibernate 为您生成 SQL 模式并且您使用 ID 来引用聚合而不是<code>@ManyToOne</code>关联，那么 Hibernate 将不会创建外键约束。您必须自己执行此操作，例如使用<a href="https://zshipu.com/t/?url=https://flywaydb.org/">Flyway</a>。</p>
 <p>如果您有许多不同的 ID 值对象类型，您将需要为您的类型描述符和自定义类型创建抽象基类，以避免重复自己。我将把这个作为练习留给读者。</p>
 <p>但是等等，我们是不是忘记了什么？<code>CustomerID</code>当我们持久化新创建的<code>Customer</code>聚合根时，我们实际上将如何生成新实例？让我们来了解一下。</p>
 <h1 id="生成值对象-id">生成值对象 ID</h1>
 <p>准备好 ID 值对象和自定义类型后，您需要一种生成新 ID 的方法。您可以在持久化实体之前创建您的 ID 并手动分配它们（如果您使用 UUID，这真的很容易），或者您可以将 Hibernate 配置为在需要时自动为您生成 ID。后一种方法设置起来更困难，但一旦完成就更容易使用，所以让我们来看看。</p>
 <h2 id="重构你的基类">重构你的基类</h2>
 <p>JPA 支持不同的 ID 生成器。如果查看<code>@GeneratedValue</code>注释，则可以指定<code>generator</code>要使用的名称。在这里，我们遇到了第一个警告。如果您在映射的超类（例如<code>AbstractPersistable</code>）中声明您的 ID 字段，则您无法覆盖该<code>@GeneratedValue</code>字段的注释。换句话说，对于扩展此基类的所有聚合根和实体，您都无法使用相同的 ID 生成器。如果您发现自己处于这种情况，您必须从基类中删除您的 ID 字段，并让每个聚合根和实体声明其自己的 ID 字段。</p>
-<p>因此，<code>BaseEntity</code>类（我们最初<a href="https://dev.to/peholmst/building-aggregates-with-spring-data-2iig">在这里</a>定义了这个类）变成了这样的：</p>
+<p>因此，<code>BaseEntity</code>类（我们最初<a href="https://zshipu.com/t/?url=https://dev.to/peholmst/building-aggregates-with-spring-data-2iig">在这里</a>定义了这个类）变成了这样的：</p>
 <pre tabindex="0"><code>@MappedSuperclass
 public abstract class BaseEntity&lt;Id extends Serializable&gt; implements Persistable&lt;Id&gt; { // &lt;1&gt;
 
@@ -465,7 +465,7 @@ public class Customer extends BaseAggregateRoot&lt;CustomerId&gt; { // &lt;1&gt;
 <li>我们从 中实现抽象<code>getId()</code>方法<code>Persistable</code>。</li>
 </ol>
 <h2 id="实现-id-生成器">实现 ID 生成器</h2>
-<p>接下来，我们必须实现我们的自定义 ID 生成器。由于我们使用的是 UUID，这几乎是微不足道的。对于其他 ID 生成策略，我建议您选择现有的 Hibernate 生成器并在此基础上进行构建（开始查看<a href="https://github.com/hibernate/hibernate-orm/tree/main/hibernate-core/src/main/java/org/hibernate/id">此处</a>）。ID 生成器将如下所示：</p>
+<p>接下来，我们必须实现我们的自定义 ID 生成器。由于我们使用的是 UUID，这几乎是微不足道的。对于其他 ID 生成策略，我建议您选择现有的 Hibernate 生成器并在此基础上进行构建（开始查看<a href="https://zshipu.com/t/?url=https://github.com/hibernate/hibernate-orm/tree/main/hibernate-core/src/main/java/org/hibernate/id">此处</a>）。ID 生成器将如下所示：</p>
 <pre tabindex="0"><code>package foo.bar.domain.model.hibernate;
 
 public class CustomerIdGenerator implements IdentifierGenerator { // &lt;1&gt;
