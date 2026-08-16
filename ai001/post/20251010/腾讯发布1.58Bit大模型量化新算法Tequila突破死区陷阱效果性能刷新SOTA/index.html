@@ -226,37 +226,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>github地址：<a href="https://zshipu.com/t/?url=https://github.com/Tencent/AngelSlim">https://github.com/Tencent/AngelSlim</a></p>
 <p>论文地址：<a href="https://zshipu.com/t/?url=https://arxiv.org/abs/2509.23809">https://arxiv.org/abs/2509.23809</a></p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/9210720251010174000HuMvP8m1.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/9210720251010174000HuMvP8m1.png" />   
     </p>
 <h3 id="1三值量化介绍">1、三值量化介绍</h3>
 <p>三值量化是部署大语言模型到端侧和CPU设备的一种高效方法。其核心是将权重约束为【-1, 0, +1】三个值，从而将矩阵乘法简化为加法操作。这种转换显著降低了计算复杂度。由于加法被硬件原生支持，因此三值量化在推动边缘计算和低功耗AI应用方面潜力巨大。</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/2370420251010174001i7DZV3ck.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/2370420251010174001i7DZV3ck.png" />   
     </p>
 <h3 id="2三值量化的缺陷与挑">2、三值量化的缺陷与挑</h3>
 <p>然而，这种激进的压缩方式会带来显著的信息损失，即便在大规模数据集上进行了量化感知训练（QAT），也常常会导致严重的精度下降。例如，BitNet 在 QAT 过程中消耗了 4T 个token，但仍无法达到全精度模型的性能。因此，精度下降和高昂的训练开销这两个问题是开发有效三值 LLM 落地的主要障碍。</p>
 <p>我们发现这些挑战的关键根源在于“<strong>死区陷阱</strong>”。“死区”即数值为0的区域，在三值量化中出现大量的0，并且训练时，在直通估计器（STE）由于缺乏一致的梯度优化信号，这些权重无法稳定地逃离死区，而是在死区边界累积，如下图（上部）所示。这导致了无效的振荡循环，使这些权重永久处于不活跃状态，严重阻碍了模型收敛。</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/22338202510101740011sIOrPrT.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/22338202510101740011sIOrPrT.png" />   
     </p>
 <p>为解决死区陷阱问题，我们提出了<strong>Tequila</strong>三值量化方法。我们的核心思想是通过将“死区”权重重新用作动态偏置bias来重新激活它们。这为输出提供了连续信号，显著增强了模型的容量。更重要的是，这些权重通过bias项直接获得有意义的梯度，从而能够稳定地摆脱死区，如上图（底部）所示。同时，这些bias可以离线计算，几乎不会增加推理开销。</p>
 <h3 id="3tequila三值量化创新">3、Tequila三值量化创新</h3>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/92734202510101740012pJV4ron.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/92734202510101740012pJV4ron.png" />   
     </p>
 <p>**（1）极小值再激活算法，<strong>用来缓解死区陷阱</strong>。**我们发现，三值量化中的“死区”现象源于零点权重在前向传播中无法提供有效信号，导致这些权重陷入无法更新，难以学习的恶性循环，严重阻碍模型收敛。为解决该问题，我们提出通过为这些无效权重注入少量信息值，重新激活其作用。该方法并非依赖梯度强行将其移出“死区”，而是赋予权重新的功能：既为增强模型容量，也为梯度提供清晰的传播路径，从而持续接收有效梯度，打破僵局。</p>
 <p>因此我们提出了极小值再激活（Minima Reactivation）方法，保留了零权重的符号信息，将其重新激活为不同的值： -0 和 +0，分别代表负极小值和正极小值，如上图（b）所示。这创建了一个有效的四元权重表示 {-1, -0, +0, +1}，同时保持了三值运算的计算优势，因为输入 x 与这些极小值的乘法简化为具有适当符号的常量绝对值，计算公式如下：</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/6537620251010174001p1lvV1g8.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/6537620251010174001p1lvV1g8.png" />   
     </p>
 <p>形式上，令 W̃ = (w̃₁, &hellip;, w̃ₙ) 表示四元权重向量，并将死区内的索引集定义为</p>
 <p> D = {i | -Δ &lt; wᵢ &lt; Δ}。前向传播过程可相应转换为：</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/7396520251010174001Wg0Hr8lu.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/7396520251010174001Wg0Hr8lu.png" />   
     </p>
 <p>该公式表明，先前处于死区的权重现在通过偏置项bias对输出产生有意义的影响。因此，这些权重w从反向传播中获得信息梯度，表示为</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/7756720251010174001K0eifToO.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/7756720251010174001K0eifToO.png" />   
     </p>
 <p>与基于STE的传统三值量化相比，本方法使原本的“失效”权重能够输出非零的有效信号，并获得更明确、稳定的梯度，从而高效实现权重恢复，显著加快收敛。尽管极小值再激活算法验证了重新激活策略的可行性，但我们发现其存在两个局限：</p>
 <p>a）重新激活权重的梯度更新仍依赖STE，会引入较大噪声，对精度提升有限；</p>
@@ -267,11 +267,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>c) 保留输入信息：重新激活的权重不仅作为离线偏置，还会参与三值矩阵乘法计算，既保留了关键的输入信息，又获取丰富的梯度信号，从而推动更有效的训练。</p>
 <p>通过这三个关键设计，Tequila前向传递将高效的三值量化运算与自适应偏置相结合，如下公式所示：</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/9156920251010174001q6ltUUhg.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/9156920251010174001q6ltUUhg.png" />   
     </p>
 <p>其中偏置项C(W)作为死区权重的残差连接，该处理直接为这些”死“权重提供了更优的梯度，如下反向传播公式所示，为“死”权重提供直接、信息丰富的梯度信号，加速模型收敛。</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/6697020251010174001PW5n1ee4.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/6697020251010174001PW5n1ee4.png" />   
     </p>
 <p>与现有三值量化方法相比，Tequila具有五大核心优势：</p>
 <p>● 增强模型容量：通过重新激活失效权重，在不增加推理计算复杂度的前提下，有效扩展了模型参数空间。</p>
@@ -282,11 +282,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <h3 id="4实验效果">4、实验效果</h3>
 <p>Tequila对比常用QAT、三值量化方法，效果指标提升明显，在10B的Token数据量上达到了sota的水平，多个Benchmark中提升3%左右，如下图所示：</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/8154720251010174001CemJ9jh3.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/8154720251010174001CemJ9jh3.png" />   
     </p>
 <p>同时可以观察loss下降速度，可以发现我们的方法的下降速度明显优于其他方法，这也证明了重新激活死区权重对模型收敛有着巨大帮助。</p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/4858020251010174001QoE9Pjpn.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/4858020251010174001QoE9Pjpn.png" />   
     </p>
 <p>最后，性能测试中，三值量化推理性能在CPU上tokens/提升2~3倍，对比BitNet三值量化的耗时发现，我们的方法对于推理时延的负担几乎为零。</p>
 <h3 id="5总结">5、总结</h3>
@@ -294,10 +294,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>github地址：<a href="https://zshipu.com/t/?url=https://github.com/Tencent/AngelSlim">https://github.com/Tencent/AngelSlim</a></p>
 <p>论文地址：<a href="https://zshipu.com/t/?url=https://arxiv.org/abs/2509.23809">https://arxiv.org/abs/2509.23809</a></p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/1644820251010174002R9ueRzjt.gif" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/1644820251010174002R9ueRzjt.gif" />   
     </p>
 <p>
-        <img class="mx-auto" alt="图片" src="https://api.995120.cn/ecgdata/other/2025-10-10/8035120251010174002aKHL5dlZ.png" />   
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv4/2025-10-10/8035120251010174002aKHL5dlZ.png" />   
     </p>
 
         </div>
