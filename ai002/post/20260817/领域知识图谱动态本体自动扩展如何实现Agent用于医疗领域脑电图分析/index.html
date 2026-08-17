@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>领域知识图谱动态本体自动扩展如何实现？Agent用于医疗领域脑电图分析 | 知识铺的博客</title>
+    <meta property="og:title" content="领域知识图谱动态本体自动扩展如何实现？Agent用于医疗领域脑电图分析 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="领域知识图谱动态本体自动扩展如何实现？Agent用于医疗领域脑电图分析">
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260817/%E9%A2%86%E5%9F%9F%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%8A%A8%E6%80%81%E6%9C%AC%E4%BD%93%E8%87%AA%E5%8A%A8%E6%89%A9%E5%B1%95%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0Agent%E7%94%A8%E4%BA%8E%E5%8C%BB%E7%96%97%E9%A2%86%E5%9F%9F%E8%84%91%E7%94%B5%E5%9B%BE%E5%88%86%E6%9E%90/">
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一agent用于医疗领域脑电图分析">一、Agent用于医疗领域脑电图分析</a></li>
+    <li><a href="#二知识图谱动态本体扩展思路">二、知识图谱动态本体扩展思路</a></li>
+    <li><a href="#参考文献">参考文献</a></li>
+    <li><a href="#关于我们">关于我们</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">领域知识图谱动态本体自动扩展如何实现？Agent用于医疗领域脑电图分析</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月17日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h2 id="一agent用于医疗领域脑电图分析">一、Agent用于医疗领域脑电图分析</h2>
+<p>来看一个故事，讲的是脑电波信号非平稳、个体差异大、人工分析耗时主观，所以搞个“AI脑电波分析师”，专门帮医生或研究人员解读脑电图（EEG），使用Agent来做。</p>
+<p>《<strong>EEGAgent: A Unified Framework for Automated EEG Analysis Using Large Language Models</strong>》，<a href="https://zshipu.com/t/?url=https://arxiv.org/pdf/2511.09947">https://arxiv.org/pdf/2511.09947</a>，开源地址在：<a href="https://zshipu.com/t/?url=https://github.com/rebootingLine/EEGAgent">https://github.com/rebootingLine/EEGAgent</a>。</p>
+<p>核心思路是<strong>核心控制器Qwen3-235B（负责任务规划、工具选择、结果推理）、语义嵌入Qwen3-Embedding-8B（将任务描述转为高维向量，从EEG知识库检索相关信息）、9个核心工具以及4个功能</strong>。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/53ab398474ed2463.webp" />   
+    </p>
+<p>细分来看。</p>
+<p><strong>1、9个核心工具</strong></p>
+<p>包括：<strong>normalAbnormal</strong>进行全局EEG正常/异常二分类、<strong>seizNormal</strong>进行单通道1s癫痫波检测、<strong>slowSeizBckg</strong>进行10s窗口背景/慢波/癫痫波三分类、<strong>eyemMuscle</strong>进行单通道1s眼动/肌电伪影分类、<strong>seizArtiBckg</strong>进行背景/伪影/癫痫波三分类；</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/3be93fc279c76497.webp" />   
+    </p>
+<p><strong>baseInfo</strong>工具获取结构化元数据（患者信息、电极配置等）、<strong>compute_amplitude</strong>工具计算（均值绝对值、均方根、最大/最小值）、<strong>compute_psd</strong>计算功率谱密度，得到各频段功率、<strong>compute_symmetry</strong>计算左右对称电极对的皮尔逊相关系数，衡量信号对称性；</p>
+<p><strong>2）脑电基础信息感知功能Perception</strong></p>
+<p>解析EEG元数据、构建分析上下文。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/29831480dfeb51b6.webp" />   
+    </p>
+<p>步骤为：</p>
+<p><strong>step1.加载EEG数据时自动触发baseInfo工具，提取元数据和电极配置</strong>；</p>
+<p><strong>-&gt;step2.结合知识库生成年龄适配的EEG预期特征（如55岁患者预期枕叶α波低振幅）</strong>【编码层用Qwen3-Embedding-8B模型，将知识条目与用户任务描述（如“分析55岁患者5-6分钟EEG”）均编码为8192维向量，检索Top-5最相关知识条目】；</p>
+<p><strong>-&gt;step3.输出初始感知结果，包含患者信息、记录参数、脑区-电极映射、年龄相关参考标准</strong>【如{年龄区间：20-60岁，α波特征：枕叶8-13Hz，低振幅；θ波：不明显}、电极映射知识：{FP1-F3：左前额叶；F4-C4：右额中央区}】；</p>
+<p><strong>3、多视角EEG片段分析能力Exploration</strong></p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/db86095d3f46f348.webp" />   
+    <strong>输入</strong>用户指定时间区间<code>[T_start,T_end]</code>（如300-360s，即5-6分钟）如【分析<code>[300-360s]</code>；患者年龄：55岁；已知信息：无异常史】，LLM结合年龄特征（老年患者慢波增多），<strong>输出结论</strong>“弥漫性慢波活动（GRDA模式）；</p>
+<p><strong>4、脑电事件检测功能Find out Event</strong></p>
+<p>定位癫痫波等事件的时间区间+脑区。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/71f7a8865c6c90e4.webp" />   
+    </p>
+<p>步骤为：<strong>step1.粗粒度筛选（10s窗口）【调用slowSeizBckg工具扫描目标区间（如0-60s）</strong>，输出每个10s窗口的癫痫波概率，若某窗口seiz_prob&gt;0.4，标记为可疑区间】；</p>
+<p><strong>-&gt;step2.细粒度定位（1s窗口）【对可疑区间按1s分割</strong>，调用seizNormal工具（单通道）分析每个1s子段；</p>
+<p><strong>-&gt;step3.提取seiz_prob最高的通道（如F4-C4通道0-1sseiz_prob=0.68）</strong>，对应脑区（右额中央区）】；</p>
+<p><strong>-&gt;step4.计算与临床标注的IoU</strong>（IntersectionoverUnion），取IoU&gt;0.7的检测结果；</p>
+<p><strong>5、报告生成功能EEG Report</strong></p>
+<p>与用户交互以及脑电报告生成。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/ab6eed227c015ed1.webp" />   
+    </p>
+<p>整体思路如下：</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/360283ae80060331.webp" />   
+    </p>
+<p><strong>step1.【初始化ACNS标准模版</strong>】包含患者信息、背景活动、异常发现、结论4个模块；</p>
+<p><strong>-&gt;step2.【全EEG患者信息粗分析】</strong> 将EEG按10s分段，调用normalAbnormal（全局异常检测）和slowSeizBckg（慢波/癫痫波筛查），对每个分段，决策是否需要细分析（如粗分析发现slow_prob&gt;0.8，触发1s细分析）；</p>
+<p><strong>-&gt;step3.【信息填充】</strong> 从compute_psd提取频段特征（如“枕叶α波10Hz，低振幅”）获得背景活动；从检测结果提取事件（时间+脑区+概率，如“500s左额中央区癫痫波，概率72%”，作为异常发现）；</p>
+<p><strong>-&gt;step4.【文本生成】</strong> 调用Qwen3-235B，输入模板+填充信息，生成结论（如提示词为“基于以下EEG分析结果，生成符合ACNS标准的临床报告，语言简洁、专业”）。</p>
+<h2 id="二知识图谱动态本体扩展思路">二、知识图谱动态本体扩展思路</h2>
+<p>来看一个知识图谱本体动态变化的故事，很有趣。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/88303576260c41c6.webp" />   
+    </p>
+<p>是<strong>构建动态知识图谱的问题</strong>，核心是突破预定义出来的本体，自动做扩展，如扩展本体以覆盖初始未定义的领域知识（如通信技术中的“OptiTran光传输协议”关系），<strong>并且实时纳入新出现的知识（如产品新功能、技术新标准），避免本体过时</strong>。</p>
+<p>因此，看一个工作《<strong>Agentic-KGR: Co-evolutionary Knowledge Graph Construction through Multi-Agent Reinforcement Learning</strong>》，<a href="https://zshipu.com/t/?url=https://arxiv.org/pdf/2510.09156">https://arxiv.org/pdf/2510.09156</a>，我们重点看其中重点看动态本体扩展的实现，核心思路是多轮RL交互实现本体的渐进式扩展。</p>
+<p>但是，<strong>这种本体扩展（Ontology Expansion）</strong>，Agentic-KGR中每轮迭代的“提取→暂存→更新→奖励计算→晋升”流程，本质是<strong>动态schema构建与验证的闭环</strong>，各环节通过结构化操作实现“<strong>潜在本体候选发现-暂存验证-协同优化-质量评估-正式入库</strong>”的本体进化。</p>
+<p>其核心依赖两个能力项：</p>
+<p><strong>一个是LLM的知识提取能力</strong>【通过LLM的NER/RE能力发现未预定义的实体/关系，为本体扩展提供“原材料”（如Agentic-KGR用Qwen2.5系列模型提取通信领域新关系）】；</p>
+<p><strong>一个是反馈闭环机制</strong>【通过RL奖励、多智能体交互、时序约束（时态KG）确保扩展后的本体“有效且一致”，避免无意义的结构膨胀】；</p>
+<p>来看下<strong>具体实现细节，很值得看看</strong></p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/3d06ed6128519e7b.webp" />   
+    </p>
+<p><strong>1、step1-提取阶段</strong></p>
+<p>从“固定本体”到“发现潜在新类型”，找本体扩展的“候选素材”，进行<strong>多源数据实体与关系抽取</strong>。</p>
+<p>输入包含三部分：①非结构化/结构化数据（如领域文档、标准规范）；②历史本体schema（含已扩展类型及约束）；③领域知识图谱（KG）快照（含实体/关系分布特征）。</p>
+<p>也就是说，<strong>给LLM的不只是预定义的本体结构，还包括历史本体扩展记录（比如之前加过“快充功率”）、文本里的领域术语（如“IP68”“毫米波”），让模型知道“可以往哪些方向找新类型”</strong>。</p>
+<p>处理上由<strong>LLMAgent执行实体识别（NER）和关系抽取（RE）</strong>；</p>
+<p>其中，<strong>有个点叫可学习多尺度提示压缩机制</strong>（LearnableMulti-ScalePromptCompression），对输入数据进行语义蒸馏：</p>
+<p>一个是<strong>通过交叉注意力</strong>（Cross-Attention）聚焦“本体相关语义单元”（如领域术语、实体-关系表述），过滤冗余文本；</p>
+<p>一个是<strong>利用LLMAgent的类型预测能力</strong>，对未匹配预定义本体的语义单元（如“5GRAN频段”“IP68防护等级”），预测其潜在类型（如<code>EntityType:Band</code>、<code>RelationType:Supports</code>）</p>
+<p>最后，输出<strong>候选实体-关系三元组</strong>，附带置信度评分（0-1区间）和数据来源标注（如文档ID）</p>
+<p><strong>2、step2.暂存阶段</strong></p>
+<p>避免未验证类型直接写入正式本体导致schema污染，同时通过多轮迭代积累候选的验证证据。</p>
+<p>新建三元组不直接写入正式知识图谱，而是在Neo4j数据库中<strong>创建独立的暂存层</strong>（<code>PENDING_REL</code>标签），为每个本体候选绑定结构化元数据，包含核心字段源<strong>实体ID/名称、目标实体ID/名称、关系类型、初始置信度、投票数（初始为1）、来源列表（记录文档ID）</strong>。</p>
+<p>具体的：</p>
+<p><strong>候选实体I</strong>D<code>src_id</code>/<code>dst_id</code>，如<code>Device_001</code>/<code>Band_N41</code>；</p>
+<p><strong>潜在关系类型</strong><code>rel_type</code>如<code>Supports</code>；</p>
+<p><strong>候选置信度</strong><code>confidence</code>，如<code>0.78</code>；</p>
+<p><strong>候选被重复挖掘的次数</strong><code>votes</code>，如<code>2</code>（两轮迭代均挖掘到该候选）；</p>
+<p><strong>候选数据来源（文档ID列表）</strong><code>sources</code>，如<code>[Standard_3GPP,Doc_Wireless]</code> ； <strong>所属迭代轮次标识</strong><code>episode_tag</code>，如<code>Ep_137</code></p>
+<p>基于这个，做更新。</p>
+<p>如果<strong>后续迭代抽取到相同三元组</strong>，若后续迭代挖掘到相同类型的候选（通过<code>src_id</code>/<code>dst_id</code>/<code>rel_type</code>匹配），触发暂存层更新。</p>
+<p>更新操作有：如<strong>置信度更新</strong>，取当前候选与历史候选的置信度最大值；</p>
+<p><strong>证据补充</strong>：投票数+1，并追加数据来源，做多源证据积累”，也就是将更新置信度（取最大值）、累计投票数并追加来源，避免重复存储。</p>
+<p><strong>3、step3.更新阶段</strong></p>
+<p>基于暂存候选的证据状态，同步优化两部分：</p>
+<p><strong>一个是本体结构（为潜在类型预留扩展接口，调整现有类型约束）</strong></p>
+<p>图谱更新上，<strong>基于KG更新算子，对正式本体schema进行“软调整”</strong>：</p>
+<p>对暂存中投票数≥2的潜在类型（如<code>Band</code>），在本体中新增“待验证类型节点”（如<code>PendingEntityType:Band</code>），并定义其与现有类型的临时关联（如<code>Device</code>→<code>PendingHasAttribute</code>→<code>Band</code>），避免破坏现有本体一致性；</p>
+<p>对冲突候选（如同一实体被预测为两种类型），基于图距离计算类型相似度，保留与现有本体兼容性更高的候选。</p>
+<p><strong>一个是LLMAgent参数（提升后续本体候选挖掘的准确性），形成“本体指导模型-模型优化本体”闭环。</strong></p>
+<p>具体的，基于策略梯度算法优化LLMAgent参数，利用<strong>GraphRAG的检索结果计算优势函数</strong>，让模型学习更有效的抽取模式。</p>
+<p>以“本体候选挖掘质量”为目标，通过多轮强化学习（RL）更新LLMAgent参数：</p>
+<p><strong>优势函数融合GraphRAG检索结果</strong>（如候选与现有本体的匹配度）；若模型挖掘的候选在暂存层获得高投票数，<strong>给予正向梯度更新</strong>，强化其对该类类型的挖掘能力；反之，若候选被判定为无效（如语义模糊），则通过负向梯度抑制同类预测。</p>
+<p>此外，<strong>还需要做关系老化处理</strong>：本体冗余控制，对正式本体中长时间未关联新候选的类型**（如超过几天无更新），通过老化函数**降低其权重，为新类型扩展释放空间，避免本体结构僵化。</p>
+<p><strong>4、step4.奖励计算阶段</strong></p>
+<p>通过<strong>双维度奖励机制</strong>，量化评估“本体扩展的有效性”，为候选晋升提供决策依据，同时引导模型与本体向“<strong>高覆盖、低冗余</strong>”方向进化。</p>
+<p>双维度反馈引导，这个主要是靠强化，要更新模型自身的能力，因此，**要设计奖励函数，奖励由环境奖励（R_env）和任务奖励（R_task）**加权组成。</p>
+<p>其中：</p>
+<p><strong>环境奖励，评估本体结构优化，聚焦本体扩展的“结构价值”</strong>，包含两项核心指标：</p>
+<p><strong>一个是覆盖增益</strong>：通过子模函数计算新增候选对本体覆盖范围的提升（如<code>Band</code>类型覆盖的5G设备占比）；</p>
+<p><strong>一个是冯·诺依曼熵增益</strong>：衡量本体结构多样性（如新增<code>Supports</code>关系后，实体关联的关系类型分布熵变化），同时，通过约束惩罚项<strong>抑制无效扩展（如重复类型、语义冲突类型）</strong>。</p>
+<p><strong>任务奖励进行本体候选实用性评估，聚焦本体候选的“任务适配性”</strong>，包含几个。</p>
+<p><strong>一个是工具调用奖励</strong>：若候选能成功支撑下游工具（如KG检索、QA推理），给予+0.05奖励；失败则-0.1；</p>
+<p><strong>一个是格式合规奖励</strong>：候选类型定义符合本体约束（如属性类型匹配），给予+1.0奖励；</p>
+<p><strong>一个是准确性奖励</strong>：候选三元组与人工标注/权威数据匹配，完全匹配+1.5，部分匹配按F1score计算。</p>
+<p>当然，这两个是双刃剑，需要调和，所以，<strong>进行动态权重调整</strong>。</p>
+<p>调整通过镜像下降（MirrorDescent）动态调整加权权重。</p>
+<p>例如：<strong>若当前本体覆盖不足，提升alpha以优先优化覆盖增益；若本体冗余过高，降低alpha以强化任务实用性约束</strong>。</p>
+<p><strong>5、step5.晋升阶段</strong></p>
+<p>这是最后一步，<strong>本体候选的正式入库，将经多轮验证的高置信度候选，正式写入本体schema，完成一次本体扩展，同时清理暂存层无效候选，保障本体整洁性</strong>。</p>
+<p>也就是，对暂存层的三元组进行筛选，且的候选关系，<strong>晋升为正式关系（:REL）</strong>。</p>
+<p>具体的，几个核心点：</p>
+<p><strong>一个是晋升阈值判定</strong>，对暂存层候选，满足以下条件则触发晋升：</p>
+<p><strong>置信度阈值：置信度≥阈值（如0.72）；证据阈值：投票数≥阈值（如3）；奖励阈值：该候选关联的环境奖励+任务奖励之和≥1.2；</strong></p>
+<p>然后，达到要求后，进行正式本体更新，通过Neo4j事务执行本体写入：</p>
+<p><strong>1）类型定义</strong>：将<code>PendingEntityType:Band</code>升级为正式<code>EntityType:Band</code>，写入本体schema，并补充约束（如<code>Band</code>的属性<code>Frequency:Float</code>）；</p>
+<p><strong>2）三元组迁移</strong>：将暂存层关联三元组（如<code>(Device_001)-[Supports]-&gt;(Band_N41)</code>）从<code>PENDING_REL</code>迁移至正式<code>REL</code>标签，同时保留证据（<code>sources</code>字段）；</p>
+<p><strong>3）索引同步</strong>：为新类型创建索引（如<code>CREATEINDEXentity_type_bandIFNOTEXISTSFOR(n:Band)ON(n.name)</code>），保障后续检索效率。</p>
+<p><strong>一个是暂存层进行清理</strong>，对未满足晋升条件的候选，执行两类操作：</p>
+<p>对于<strong>低置信候选</strong>，即置信度&lt;0.3，直接删除，释放存储资源；</p>
+<p>对于<strong>中等置信候选</strong>，置信度&gt;0.3但小于阈值的，保留但降低权重，如乘以0.8，若下一轮仍未达标则删除，避免暂存层堆积。</p>
+<p>最后，<strong>进行本体快照与版本控制</strong>，晋升完成后，生成新的本体schema快照（<code>GraphSnapshot</code>），记录：本次扩展的类型列表；晋升阈值与证据；本体结构变化（如类型数、关系数），为后续迭代的本体追溯与回滚提供支持。</p>
+<p>然后<strong>重复如上5个步骤，迭代到下一轮</strong>，总共10轮。</p>
+<p>其实，本质就是：抽取、打分、更新、逐步拟合。</p>
+<h2 id="参考文献">参考文献</h2>
+<p>1、<a href="https://zshipu.com/t/?url=https://arxiv.org/pdf/2511.09947">https://arxiv.org/pdf/2511.09947</a></p>
+<p>2、<a href="https://zshipu.com/t/?url=https://arxiv.org/pdf/2510.09156">https://arxiv.org/pdf/2510.09156</a></p>
+<h2 id="关于我们">关于我们</h2>
+<p>老刘，NLP开源爱好者与践行者，主页：<a href="https://zshipu.com/t/?url=https://liuhuanyong.github.io">https://liuhuanyong.github.io</a>。</p>
+<p><strong>对大模型&amp;知识图谱&amp;RAG&amp;文档理解感兴趣，并对每日早报、老刘说NLP历史线上分享、心得交流等感兴趣的，欢迎加入社区，社区持续纳新。</strong></p>
+<p>加入社区方式：关注公众号，在后台菜单栏中点击会员社区加入。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260817/%E9%A2%86%E5%9F%9F%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%8A%A8%E6%80%81%E6%9C%AC%E4%BD%93%E8%87%AA%E5%8A%A8%E6%89%A9%E5%B1%95%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0Agent%E7%94%A8%E4%BA%8E%E5%8C%BB%E7%96%97%E9%A2%86%E5%9F%9F%E8%84%91%E7%94%B5%E5%9B%BE%E5%88%86%E6%9E%90/">https://index.zshipu.com/ai002/post/20260817/%E9%A2%86%E5%9F%9F%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%8A%A8%E6%80%81%E6%9C%AC%E4%BD%93%E8%87%AA%E5%8A%A8%E6%89%A9%E5%B1%95%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0Agent%E7%94%A8%E4%BA%8E%E5%8C%BB%E7%96%97%E9%A2%86%E5%9F%9F%E8%84%91%E7%94%B5%E5%9B%BE%E5%88%86%E6%9E%90/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260817/%E4%B8%80%E6%96%87%E7%9C%8B%E6%87%82%E7%88%86%E7%81%AB%E7%9A%84-Graph-Engineering%E4%BB%A5%E5%8F%8A%E5%AE%83%E5%92%8C-Loop-EngineeringAgent-%E5%BE%AA%E7%8E%AF%E5%88%B0%E5%BA%95%E5%95%A5%E5%85%B3%E7%B3%BB/">一文看懂爆火的 Graph Engineering，以及它和 Loop Engineering、Agent 循环到底啥关系</a></li>
+        
+        <li><a href="/ai002/post/20260816/%E6%96%B0%E6%89%8B%E5%BF%85%E5%AD%A6%E7%9A%8410%E4%B8%AACodex%E5%B0%8F%E6%8A%80%E5%B7%A7/">新手必学的10个Codex小技巧</a></li>
+        
+        <li><a href="/ai002/post/20260815/OpenClaw-CodexCC-%E5%8D%95%E4%BA%BA%E7%94%A8Agent%E9%9B%86%E7%BE%A4%E6%9B%BF%E4%BB%A3%E6%95%B4%E4%B8%AA%E5%BC%80%E5%8F%91%E5%9B%A2%E9%98%9F/">OpenClaw &#43; CodexCC ：单人用Agent集群替代整个开发团队</a></li>
+        
+        <li><a href="/ai002/post/20260815/%E4%B8%80%E6%96%87%E6%95%99%E4%BD%A0%E5%AD%A6%E4%BC%9ASkills%E8%87%AA%E5%88%B6%E6%9C%80%E5%BC%BA%E6%B3%95%E5%BE%8B%E5%8A%A9%E6%89%8B/">一文教你学会Skills，自制最强法律助手</a></li>
+        
+        <li><a href="/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC10%E8%AF%BE%E4%BC%81%E4%B8%9A%E7%BA%A7-Agent-%E6%9E%B6%E6%9E%84%E4%B8%8E%E6%9C%AA%E6%9D%A5%E6%96%B9%E5%90%91/">Agent学习系列 第10课：企业级 Agent 架构与未来方向</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+                <li><a href='/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D'>提示词</a></li>
+                
+                <li><a href='/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93'>智能体</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC10%E8%AF%BE%E4%BC%81%E4%B8%9A%E7%BA%A7-Agent-%E6%9E%B6%E6%9E%84%E4%B8%8E%E6%9C%AA%E6%9D%A5%E6%96%B9%E5%90%91/" title="Agent学习系列 第10课：企业级 Agent 架构与未来方向">Agent学习系列 第10课：企业级 Agent 架构与未来方向</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC2%E8%AF%BE%E6%8A%8A-Agent-%E8%B0%83%E6%95%99%E5%A5%BDPrompt-%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%89%E5%85%A8%E9%98%B2%E7%BA%BF/" title="Agent学习系列 第2课：把 Agent 调教好——Prompt 设计与安全防线">Agent学习系列 第2课：把 Agent 调教好——Prompt 设计与安全防线</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC3%E8%AF%BETool-Calling-%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E7%B3%BB%E7%BB%9F/" title="Agent学习系列 第3课：Tool Calling 与函数调用系统">Agent学习系列 第3课：Tool Calling 与函数调用系统</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC7%E8%AF%BEMulti-Agent-%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93%E7%B3%BB%E7%BB%9F/" title="Agent学习系列 第7课：Multi-Agent 多智能体系统">Agent学习系列 第7课：Multi-Agent 多智能体系统</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC9%E8%AF%BEAgent-%E8%AF%84%E4%BC%B0%E7%9B%91%E6%8E%A7%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%8C%96/" title="Agent学习系列 第9课：Agent 评估、监控与生产化">Agent学习系列 第9课：Agent 评估、监控与生产化</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/" title="AI Agent 本体论工程（02）—— 时间感知知识图谱">AI Agent 本体论工程（02）—— 时间感知知识图谱</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E7%9A%84%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%BC%95%E6%93%8E/" title="AI Agent 长期记忆的知识图谱引擎">AI Agent 长期记忆的知识图谱引擎</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Apache-Doris-AI-RAG-%E5%AE%9E%E6%88%98%E4%BB%8E%E5%9F%BA%E7%A1%80-RAG-%E5%88%B0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%A2%9E%E5%BC%BA-%E6%8A%80%E6%9C%AF%E8%83%BD%E5%8A%9B%E4%B8%8E%E9%80%89%E5%9E%8B-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/" title="Apache Doris AI RAG 实战：从基础 RAG 到知识图谱增强 技术能力与选型 - 今日头条">Apache Doris AI RAG 实战：从基础 RAG 到知识图谱增强 技术能力与选型 - 今日头条</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/Code-Graph-RAG-0.0.593-%E5%AE%9E%E6%B5%8B%E7%BB%99-Coding-Agent-%E5%8A%A0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%80%BC%E4%B8%8D%E5%80%BC%E5%BE%97%E5%A4%9A%E5%85%BB%E4%B8%A4%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93/" title="Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？">Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260817/RAG-3.0-%E6%9D%A5%E4%BA%86%E5%91%8A%E5%88%AB%E4%BC%A0%E7%BB%9F%E7%9F%A5%E8%AF%86%E5%BA%93%E4%BC%81%E4%B8%9A-AI-%E6%AD%A3%E5%9C%A8%E5%85%A8%E9%9D%A2%E8%BD%AC%E5%90%91%E7%9F%A5%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/" title="RAG 3.0 来了：告别传统知识库，企业 AI 正在全面转向“知识智能体”！ - 今日头条">RAG 3.0 来了：告别传统知识库，企业 AI 正在全面转向“知识智能体”！ - 今日头条</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
