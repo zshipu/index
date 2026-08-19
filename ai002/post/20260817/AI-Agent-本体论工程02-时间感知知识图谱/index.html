@@ -1,38 +1,793 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><title>AI Agent 本体论工程（02）—— 时间感知知识图谱 | 知识铺的博客</title>
-<meta property="og:title" content="AI Agent 本体论工程（02）—— 时间感知知识图谱 - 知识铺的博客"><meta property="og:type" content="article"><meta property="article:published_time" content='2026-08-17T00:00:00+08:00'><meta property="article:modified_time" content='2026-08-17T00:00:00+08:00'><meta name=Keywords content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序"><meta name=description content="AI Agent 本体论工程（02）—— 时间感知知识图谱"><meta name=author content="知识铺"><meta property="og:url" content="https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/"><link rel="shortcut icon" href=/ai002/favicon.ico type=image/x-icon><link rel=stylesheet href=/ai002/css/normalize.css><link rel=stylesheet href=/ai002/css/style.css><script type=text/javascript src=//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js></script><script data-ad-client=ca-pub-2874221941555456 async src=https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js></script><script>(function(e,t,n,s,o){e[s]=e[s]||[],e[s].push({"gtm.start":(new Date).getTime(),event:"gtm.js"});var a=t.getElementsByTagName(n)[0],i=t.createElement(n),r=s!="dataLayer"?"&l="+s:"";i.async=!0,i.src="https://www.googletagmanager.com/gtm.js?id="+o+r,a.parentNode.insertBefore(i,a)})(window,document,"script","dataLayer","GTM-WLWJSST")</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-BY5XJ2PJ93")</script></head><body><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST" height=0 width=0 style=display:none;visibility:hidden></iframe></noscript><header id=header class=clearfix><div class=container><div class=col-group><div class=site-name><a id=logo href=https://index.zshipu.com/ai002/>知识铺的博客</a><p class=description>专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p></div><div><nav id=nav-menu class=clearfix><a class=current href=https://index.zshipu.com/ai002/>首页</a>
-<a href=https://index.zshipu.com/ai001/ title=AI技术>AI技术</a>
-<a href=https://index.zshipu.com title=总站>总站</a>
-<a href=https://index.zshipu.com/ai002/archives/ title=归档>归档</a>
-<a href=https://index.zshipu.com/ai002/about/ title=关于>关于</a></nav></div></div></div></header><div id=body><div class=container><div class=col-group><div class=col-8 id=main><div class=res-cons><style type=text/css>.post-toc{position:fixed;width:200px;margin-left:-210px;padding:5px 10px;font-family:Athelas,STHeiti,Microsoft Yahei,serif;font-size:12px;border:1px solid rgba(0,0,0,7%);border-radius:5px;background-color:rgba(255,255,255,.98);background-clip:padding-box;-webkit-box-shadow:1px 1px 2px rgba(0,0,0,.125);box-shadow:1px 1px 2px rgba(0,0,0,.125);word-wrap:break-word;white-space:nowrap;-webkit-box-sizing:border-box;box-sizing:border-box;z-index:999;cursor:pointer;max-height:70%;overflow-y:auto;overflow-x:hidden}.post-toc .post-toc-title{width:100%;margin:0 auto;font-size:20px;font-weight:400;text-transform:uppercase;text-align:center}.post-toc .post-toc-content{font-size:15px}.post-toc .post-toc-content>nav>ul{margin:10px 0}.post-toc .post-toc-content ul{padding-left:20px;list-style:square;margin:.5em;line-height:1.8em}.post-toc .post-toc-content ul ul{padding-left:15px;display:none}@media print,screen and (max-width:1057px){.post-toc{display:none}}</style><div class=post-toc style=position:absolute;top:188px><h2 class=post-toc-title>文章目录</h2><div class=post-toc-content><nav id=TableOfContents><ul><li><a href=#一个真实的翻车现场>一个真实的翻车现场</a></li><li><a href=#知识图谱复习它到底长什么样>知识图谱复习：它到底长什么样</a></li><li><a href=#三种读者三种读法>三种读者，三种读法</a><ul><li><a href=#-小白层次把会过期的事实记进本子>🟢 小白层次：把"会过期的事实"记进本子</a></li><li><a href=#-普通开发层次三阶段管道--失效-agent>🔵 普通开发层次：三阶段管道 + 失效 Agent</a></li><li><a href=#-专家层次这是-ontology-在时间维度上的补全>🔴 专家层次：这是 Ontology 在时间维度上的补全</a></li></ul></li><li><a href=#多跳推理为什么单跳查不到的东西它能查到>多跳推理：为什么单跳查不到的东西，它能查到</a></li><li><a href=#模型怎么选别一上来就堆最贵的>模型怎么选：别一上来就堆最贵的</a></li><li><a href=#从-demo-到生产三个坑>从 Demo 到生产，三个坑</a></li><li><a href=#跟上一篇怎么接上>跟上一篇怎么接上</a></li><li><a href=#-小结>📝 小结</a></li><li><a href=#-下一篇预告>🔮 下一篇预告</a><ul><li></li></ul></li></ul></nav></div></div><script type=text/javascript>$(document).ready(function(){if(e=$(".post-toc"),e.length){t=$("#main").offset().left,t<220&&e.css({width:t-10,"margin-left":0-t});var e,t,n=e.offset().top-20,s={start:{position:"absolute",top:n},process:{position:"fixed",top:20}};$(window).scroll(function(){var t=$(window).scrollTop();t<n?e.css(s.start):e.css(s.process)})}})</script><article class=post><header><h1 class=post-title>AI Agent 本体论工程（02）—— 时间感知知识图谱</h1></header><date class="post-meta meta-date">2026年8月17日</date><div class=post-meta><span id=busuanzi_container_page_pv>|<span id=busuanzi_value_page_pv></span><span>
-阅读</span></span></div><div class=post-content><blockquote><p><strong>📖 系列难度说明</strong>：本篇为<strong>实战入门</strong>，需要一点点 Python 基础。看不懂代码没关系，先把"为什么需要时间"这件事想明白，代码部分可以跳。<br><strong>🎁 核心收获</strong>：你会理解传统知识图谱最大的坑在哪，以及 OpenAI 是怎么用"带时间戳的三元组 + 失效 Agent"补上这个坑的。</p></blockquote><p><img class=mx-auto alt=图片 src=/ai002/images/pool/20260817/153c74d80f841a8f.webp></p><p>上篇我们聊了 Ontology 是什么——它是业务的语义地基。</p><p>但地基要是建在流沙上，房子照样塌。</p><p>什么意思？你给 Agent 喂了一张知识图谱，图谱上写着"苏姿丰是 AMD 的 CEO"。三个月后她卸任了，图谱没更新。Agent 还是拿着旧数据给别人出报告，还特别自信。</p><p>这不是 Agent 笨，是人类忘了告诉它：<strong>事实是会过期的。</strong></p><hr><h2 id=一个真实的翻车现场>一个真实的翻车现场</h2><p>金融圈有个经典问题：&ldquo;穆迪对 YY 银行的长期评级，从 2023 年 2 月以来怎么变的？&rdquo;</p><p>传统知识图谱怎么答？它大概率把"穆迪给 YY 银行的评级是 A3"这条静态事实存进去了。你问它历史，它给你一条当前的，或者干脆答不上来——因为它根本没存"这条事实从哪天生效、哪天作废"。</p><p>后果很具体：</p><ul><li><p>• 把历史评级和当前评级混为一谈，信用风险定价直接算错</p></li><li><p>• 问"ZZ 零售商发 FY-22 业绩指引时 CFO 是谁"，它归咎到错误的高管头上，内幕交易分析全歪了</p></li></ul><p>汽车、制药、法律行业也一样。一辆 2023 年 3 月出厂的车，转向柱螺栓扭矩规格可能和 2024 年 5 月出厂的完全不同。召回的时候漏掉一批，就是安全事故。</p><p><strong>问题不在模型，在图谱本身不记时间。</strong> 这正是 OpenAI 在 Cookbook 里那篇《Temporal Agents with Knowledge Graphs》想解决的事。</p><hr><h2 id=知识图谱复习它到底长什么样>知识图谱复习：它到底长什么样</h2><p>简单说，知识图谱就是一堆"三元组"堆出来的。</p><p>三元组结构：<code>[主体] - [谓词] - [客体]</code>。比如：</p><pre tabindex=0><code>&lt;span leaf=&#34;&#34;&gt;&#34;伦敦&#34; - &#34;是首都&#34; - &#34;英国&#34;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&#34;苏姿丰&#34; - &#34;任职于&#34; - &#34;AMD&#34;&lt;/span&gt;
-</code></pre><p>把成千上万个这样的三元组连起来，就成了一张网。Agent 在这张网上爬来爬去，就能发现藏在连接里的信息。</p><p>本篇里的"时间感知"，就是在每个三元组上<strong>多贴两个时间戳</strong>：<code>t_created</code>（这条事实从哪天开始真）和 <code>t_expired</code>（哪天开始不真了）。就这么一个改动，整个图谱的用途全变了。</p><hr><h2 id=三种读者三种读法>三种读者，三种读法</h2><p>同一篇内容，我按你的背景拆开讲，挑自己那层看就行。</p><h3 id=-小白层次把会过期的事实记进本子>🟢 小白层次：把"会过期的事实"记进本子</h3><p>你有个本子记朋友的联系方式。传统做法：写上去就不动了。结果朋友换了手机号，你还在拨旧的，打不通还奇怪。</p><p>时间感知图谱：你每次更新，都标上"这条从 2024 年春节起生效"，旧号码旁边画个叉写"2023 年底作废"。下次你想"2023 年中他用的什么号"，翻本子就能查到，不会搞混。</p><p>Agent 要的就是这么一本"带时间叉号"的本子。</p><h3 id=-普通开发层次三阶段管道--失效-agent>🔵 普通开发层次：三阶段管道 + 失效 Agent</h3><p>OpenAI 的做法是一根管道，把原始文本变成带时间戳的三元组。核心是三个阶段：</p><p><strong>阶段一：时间分类</strong><br>每条从文档里拆出来的句子，先打标签：</p><ul><li><p>• <strong>无时间性（Atemporal）</strong>：永远不变，如"光速约 3×10⁸ m/s"</p></li><li><p>• <strong>静态（Static）</strong>：从某天起有效且不再变，如"苏姿丰 2014 年 10 月 23 日成为 AMD CEO"</p></li><li><p>• <strong>动态（Dynamic）</strong>：会随时间演变，如"苏姿丰是 AMD CEO"</p></li></ul><p><strong>阶段二：时间事件提取</strong><br>文档里常写"周二"&ldquo;三个月前"这种模糊说法。管道用文档自身的时间戳当作参照，把模糊日期解析成绝对日期（只知道月份就默认月初或月末）。</p><p><strong>阶段三：时间有效性检查</strong><br>每条三元组必须有 <code>t_created</code>，过期的还要有 <code>t_expired</code>。然后它干一件关键的事——<strong>跟图谱里已有的旧条目对比</strong>：</p><ul><li><p>• 发现矛盾，给旧条目打上 <code>t_invalid</code> 标记</p></li><li><p>• 用 <code>invalidated_by</code> 把新语句和它所作废的旧语句连起来</p></li></ul><p>这一步就是"失效 Agent（Invalidation Agent）"。没有它，图谱只会越堆越乱，新旧事实打架。</p><p><img class=mx-auto alt=图片 src=/ai002/images/pool/20260817/55c002fd9e67f684.webp></p><h3 id=-专家层次这是-ontology-在时间维度上的补全>🔴 专家层次：这是 Ontology 在时间维度上的补全</h3><p>哲学家 Gruber 给 Ontology 的定义里，&ldquo;显式表述"是核心。但绝大多数工程实现只显式了"概念、属性、关系、公理&rdquo;，<strong>漏了时间这个维度</strong>。</p><p>时间感知图谱把时间当成一等公民：事实不再是 <code>subject-predicate-object</code>，而是 <code>subject-predicate-object-valid_during</code>。这本质上是给 Ontology 的"Axioms（公理）&ldquo;加了一条时间约束——&ldquo;这条公理在 [t1, t2) 区间内成立&rdquo;。</p><p>从符号主义角度看，这让推理从"布尔真假"升级成"时间区间内的真假&rdquo;。多跳推理时，每一跳都要检查时间区间是否重叠，这才是真正的时序逻辑推理。</p><hr><h2 id=多跳推理为什么单跳查不到的东西它能查到>多跳推理：为什么单跳查不到的东西，它能查到</h2><p>光有带时间戳的图谱还不够，得让 Agent 会在上面"走好几步&rdquo;。</p><p>单跳查询是什么？&ldquo;苏姿丰任职于哪家公司&rdquo;——一步就到答案。</p><p>但真实问题往往是多跳的：&ldquo;AMD 在 2019 年 Q2 财报电话会上提到的收购目标，其 CEO 当时还在另一家公司的董事会吗？&rdquo;</p><p>这个问题要走的路：</p><ol><li><p>1. 从 AMD 找到 2019 Q2 财报提到的收购目标 X</p></li><li><p>2. 从 X 找到当时的 CEO 是谁</p></li><li><p>3. 查这位 CEO 在同一时间点是不是 Y 公司的董事</p></li><li><p>4. 把几段关系拼起来给结论</p></li></ol><p>单跳查询只能回答第 1 步。多跳检索是让模型<strong>沿着关系边一步步爬</strong>，把分散在图谱拓扑里的证据聚合起来。</p><p>OpenAI 在教程里把"规划器（Planner）&ldquo;分成两类，挺实用：</p><ul><li><p>• <strong>任务导向</strong>：把问题拆成顺序子任务，路径明确，适合确定性报告</p></li><li><p>• <strong>假设导向</strong>：先抛出假设，再去证实或推翻，适合探索性研究</p></li></ul><p>工具设计也在一个谱上：从"固定工具（输出稳定可预测）&ldquo;到"自由形式工具（如代码执行，灵活但难控）"。选哪个，就是控制性和灵活性的权衡。</p><p><img class=mx-auto alt=图片 src=/ai002/images/pool/20260817/699091386fff71fa.webp></p><hr><h2 id=模型怎么选别一上来就堆最贵的>模型怎么选：别一上来就堆最贵的</h2><p>OpenAI 在教程里给了一条很实在的路线：</p><p>|
-阶段</p><p>|</p><p>模型</p><p>|</p><p>为什么</p><table><thead><tr><th></th><th></th><th></th></tr></thead><tbody><tr><td></td><td></td><td></td></tr></tbody></table><p>原型</p><p>|</p><p>GPT-4.1</p><p>|</p><p>指令遵循最强，先把三元组提取准</p><p>|
-|</p><p>优化</p><p>|</p><p>GPT-4.1-mini</p><p>|</p><p>质量够用，延迟和成本大幅下降</p><p>|
-|</p><p>蒸馏</p><p>|</p><p>用 4.1 输出训小模型</p><p>|</p><p>超大规模场景压到极致成本</p><p>|</p><p><strong>实践心法</strong>：先用最猛的模型把原型跑通、质量量出来，再一级级往下换便宜的，直到质量兜不住为止。别反过来——一上来就用 nano，错了你都不知道是数据问题还是模型问题。</p><hr><h2 id=从-demo-到生产三个坑>从 Demo 到生产，三个坑</h2><p>教程里这部分很干货，做过的都懂：</p><p><strong>1. 图谱会越长越肥</strong><br>给每条边算个相关性分数（时效性 × 可信度 × 查询频率），低分的自动归档或稀疏化。不然图一膨胀，检索就慢死。</p><p><strong>2. 摄取管道别串行</strong><br>&ldquo;文档→分块→提取→解析"线性跑，吞吐量上不去。改成按阶段分队列、配独立工作池的异步架构，再加背压机制，才能稳。</p><p><strong>3. 输出验证不能省</strong><br>时间字段统一成 ISO-8601，实体类型锁进受控词表，再加一层轻量模型做健全性检查。结构化日志带上可追踪 ID，数据漂移了能提前报警。</p><hr><h2 id=跟上一篇怎么接上>跟上一篇怎么接上</h2><p>上篇说 Ontology 是 Agent 的语义地基。本篇讲的，是这块地基怎么处理"时间&rdquo;——这是真实业务里最容易塌的地方。</p><p>对了，这里有个认知岔路值得记一下：Anthropic 在《Building Effective AI Agents》里说，早期用<strong>精细的上下文工程</strong>就能顶一阵，不一定非要上正式本体；但要从 Demo 走到工业级，必须建立控制循环。OpenAI 这篇则是直接从本体/图谱入手。两条路不矛盾——Anthropic 说的是"轻量起步&rdquo;，OpenAI 展示的是"规模化后图层的样子&rdquo;。</p><hr><h2 id=-小结>📝 小结</h2><ul><li><p>• 传统知识图谱把事实当静止的，真实世界的事实会过期，不记时间就会给 Agent 喂毒数据</p></li><li><p>• 时间感知图谱每个三元组带 <code>t_created</code> / <code>t_expired</code>，靠"失效 Agent"打叉号、连 <code>invalidated_by</code> 来维护正确性</p></li><li><p>• 多跳推理让 Agent 沿关系边走多步，回答单跳查不到的复杂时序问题</p></li><li><p>• 模型选择：4.1 原型 → mini 优化 → 蒸馏小模型，别一上来就堆贵的</p></li><li><p>• 生产化三件事：图谱瘦身、摄取并行化、输出强验证</p></li></ul><hr><h2 id=-下一篇预告>🔮 下一篇预告</h2><p>图谱和 Agent 的事我们说清了。但企业里最头铁的玩家不是 OpenAI，是 Palantir——他们把 Ontology 玩成了整个平台的心脏。</p><p>下一篇，我们看 Palantir 怎么用"本体"把 Agent 和企业决策绑在一起，以及那个听起来很玄的"数字双胞胎"到底是怎么回事。</p><hr><blockquote><p>📚 <strong>系列导航</strong></p><ul><li><p>• 第 01 篇：Ontology：被低估的 AI Agent 核心基础设施</p></li><li><p>• <strong>第 02 篇：时间感知知识图谱：让 Agent 记住"什么时候什么是真的"</strong> ⬅️ 你在这里</p></li><li><p>• 第 03 篇：Palantir 模式：本体如何成为企业 AI 的决策中枢</p></li><li><p>• 第 04 篇：Microsoft Fabric：企业语义层的工程实践</p></li><li><p>• 第 05 篇：Ontology 动手构建：OWL/RDF/SPARQL 实战指南</p></li><li><p>• 第 06 篇：Ontology 工具链：OSDK + MCP 实战指南</p></li><li><p>• 第 07 篇：从 Demo 到生产：规模化 Agent 的 Ontology 设计决策</p></li></ul></blockquote><hr><blockquote><p>📖 <strong>本系列参考资料</strong></p><ul><li><p>• Temporal Agents with Knowledge Graphs — OpenAI Cookbook[1]</p></li><li><p>• Building Effective AI Agents — Anthropic Engineering[2]</p></li><li><p>• Zep — 时间知识图谱参考实现[3]</p></li><li><p>• Graphiti — 知识图谱构建框架[4]</p></li></ul></blockquote><h4 id=引用链接>引用链接</h4><p><code>[1]</code> Temporal Agents with Knowledge Graphs — OpenAI Cookbook: <em><a href=https://developers.openai.com/cookbook/examples/partners/temporal>https://developers.openai.com/cookbook/examples/partners/temporal</a>_agents_with_knowledge_graphs/temporal_agents</em><br><code>[2]</code> Building Effective AI Agents — Anthropic Engineering: <em><a href=https://www.anthropic.com/engineering/building-effective-agents>https://www.anthropic.com/engineering/building-effective-agents</a></em><br><code>[3]</code> Zep — 时间知识图谱参考实现: <em><a href=https://github.com/getzep/zep>https://github.com/getzep/zep</a></em><br><code>[4]</code> Graphiti — 知识图谱构建框架: <em><a href=https://github.com/getzep/graphiti>https://github.com/getzep/graphiti</a></em></p></div><div class=post-archive><ul class=post-copyright><li><strong>原文作者：</strong><a rel=author href=https://index.zshipu.com/ai002/>知识铺</a></li><li style=word-break:break-all><strong>原文链接：</strong><a href=https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/>https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/</a></li><li><strong>版权声明：</strong>本作品采用<a rel=license href=https://creativecommons.org/licenses/by-nc-nd/4.0/>知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li><li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li></ul></div><br><div class=post-archive><h2>See Also</h2><ul class=listing><li><a href=/ai002/post/20260815/DeepSeek-Harness-vs-Claude-Code-vs-CodexAgent-%E4%B8%89%E5%A4%A7%E6%B5%81%E6%B4%BE%E6%B7%B1%E5%BA%A6%E5%AF%B9%E6%AF%94/>DeepSeek Harness vs Claude Code vs Codex：Agent 三大流派深度对比</a></li><li><a href=/ai002/post/20260817/AI-Agent-%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E7%9A%84%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%BC%95%E6%93%8E/>AI Agent 长期记忆的知识图谱引擎</a></li><li><a href=/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC3%E8%AF%BETool-Calling-%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E7%B3%BB%E7%BB%9F/>Agent学习系列 第3课：Tool Calling 与函数调用系统</a></li><li><a href=/ai002/post/20260817/Code-Graph-RAG-0.0.593-%E5%AE%9E%E6%B5%8B%E7%BB%99-Coding-Agent-%E5%8A%A0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%80%BC%E4%B8%8D%E5%80%BC%E5%BE%97%E5%A4%9A%E5%85%BB%E4%B8%A4%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93/>Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？</a></li><li><a href=/ai002/post/20260817/RAG-3.0-%E6%9D%A5%E4%BA%86%E5%91%8A%E5%88%AB%E4%BC%A0%E7%BB%9F%E7%9F%A5%E8%AF%86%E5%BA%93%E4%BC%81%E4%B8%9A-AI-%E6%AD%A3%E5%9C%A8%E5%85%A8%E9%9D%A2%E8%BD%AC%E5%90%91%E7%9F%A5%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/>RAG 3.0 来了：告别传统知识库，企业 AI 正在全面转向“知识智能体”！ - 今日头条</a></li></ul></div><div class="post-meta meta-tags"><ul class=clearfix><li><a href=/ai002/tags/mcp>mcp</a></li><li><a href=/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B>上下文工程</a></li></ul></div></article><div class="post bg-white"><script src=https://utteranc.es/client.js repo=zshipu/zshipu-index issue-term=pathname theme=github-light crossorigin=anonymous async></script></div></div><footer id=footer><div>&copy; 2026 <a href=https://index.zshipu.com/ai002/>知识铺的博客 By 知识铺</a>
-| <a rel=nofollow target=_blank href=https://beian.miit.gov.cn/>浙 ICP 备19032823号-3</a>
-| <a href=https://zshipu.com/privacy/index.html>隐私权政策</a></div><br><div><div class=github-badge><a href=https://gohugo.io/ target=_black rel=nofollow><span class=badge-subject>Powered by</span><span class="badge-value bg-blue">Hugo</span></a></div><div class=github-badge><a href=https://www.flysnow.org/ target=_black><span class=badge-subject>Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a></div><div class=github-badge><a href=https://github.com/flysnow-org/maupassant-hugo target=_black><span class=badge-subject>Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a></div></div></footer><script type=text/javascript>window.MathJax={tex2jax:{inlineMath:[["$","$"]],processEscapes:!0}}</script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script><a id=rocket href=#top></a><script type=text/javascript src='/ai002/js/totop.js?v=0.0.0' async></script><script type=text/javascript src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js async></script></div><div id=secondary><section class=widget><form id=search action=https://index.zshipu.com/ai002/search/ method=get accept-charset=utf-8 target=_blank _lpchecked=1><input type=text name=q maxlength=20 placeholder=Search>
-<input type=hidden name=sitesearch value=https://index.zshipu.com/ai002/>
-<button type=submit class="submit icon-search"></button></form></section><section class=widget><h3 class=widget-title>最近文章</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/ title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/ title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/ title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/ title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/ title=Cursor发布代码托管平台Origin，恰逢GitHub宕机>Cursor发布代码托管平台Origin，恰逢GitHub宕机</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/ title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-15-%E4%B8%87%E6%98%9F%E7%94%9F%E6%80%81%E4%BB%8E%E7%99%BE%E8%8A%B1%E9%BD%90%E6%94%BE%E8%B7%A8%E5%85%A5%E5%B7%A5%E4%B8%9A%E5%8C%96%E9%83%A8%E7%BD%B2_Agent_cumora_Skill/ title="DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill">DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-Cordis-%E6%95%99%E7%A8%8B%E4%BB%8E%E9%9B%B6%E5%88%B0%E6%8E%A5%E5%85%A5%E7%9C%9F%E5%AE%9E-harness_cordis%E6%8F%92%E4%BB%B6-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客">DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客">DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客</a></li></ul></section><section class=widget><h3 class=widget-title style=color:red>福利派送</h3><ul class=widget-list><li><a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target=_blank style=color:red><img src=https://index.zshipu.com/promo/nomissapi-001.webp></a></li><li><a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target=_blank style=color:red><img src=https://index.zshipu.com/promo/funai-001.webp></a></li></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/categories/>分类</a></h3><ul class=widget-list></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/tags/>标签</a></h3><div class=tagcloud><a href=https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/>AI办公</a>
-<a href=https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/>AI编程</a>
-<a href=https://index.zshipu.com/ai002/tags/claude-code/>Claude Code</a>
-<a href=https://index.zshipu.com/ai002/tags/cli/>Cli</a>
-<a href=https://index.zshipu.com/ai002/tags/Cloudflare/>Cloudflare</a>
-<a href=https://index.zshipu.com/ai002/tags/codex/>Codex</a>
-<a href=https://index.zshipu.com/ai002/tags/cursor/>Cursor</a>
-<a href=https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/>DeepSeek V4 Pro</a>
-<a href=https://index.zshipu.com/ai002/tags/GitHub/>GitHub</a>
-<a href=https://index.zshipu.com/ai002/tags/Grok-4.6/>Grok 4.6</a>
-<a href=https://index.zshipu.com/ai002/tags/mcp/>Mcp</a>
-<a href=https://index.zshipu.com/ai002/tags/Origin/>Origin</a>
-<a href=https://index.zshipu.com/ai002/tags/Precursor/>Precursor</a>
-<a href=https://index.zshipu.com/ai002/tags/prompt/>Prompt</a>
-<a href=https://index.zshipu.com/ai002/tags/skills/>Skills</a>
-<a href=https://index.zshipu.com/ai002/tags/WorkSwarm/>WorkSwarm</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/>上下文工程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/>代码托管</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/>接入教程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/>提示词</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/>智能体</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/>机器人识别</a>
-<a href=https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/>网络安全</a>
-<a href=https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/>行为分析</a></div></section><section class=widget><h3 class=widget-title>友情链接</h3><ul class=widget-list><li><a target=_blank href=https://blog.zshipu.com// title=知识铺的博客>知识铺的博客</a></li></ul></section><section class=widget><h3 class=widget-title>其它</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/index.xml>文章 RSS</a></li></ul></section></div></div></div></div></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>AI Agent 本体论工程（02）—— 时间感知知识图谱 | 知识铺的博客</title>
+    <meta property="og:title" content="AI Agent 本体论工程（02）—— 时间感知知识图谱 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="AI Agent 本体论工程（02）—— 时间感知知识图谱">
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一个真实的翻车现场">一个真实的翻车现场</a></li>
+    <li><a href="#知识图谱复习它到底长什么样">知识图谱复习：它到底长什么样</a></li>
+    <li><a href="#三种读者三种读法">三种读者，三种读法</a>
+      <ul>
+        <li><a href="#-小白层次把会过期的事实记进本子">🟢 小白层次：把&quot;会过期的事实&quot;记进本子</a></li>
+        <li><a href="#-普通开发层次三阶段管道--失效-agent">🔵 普通开发层次：三阶段管道 + 失效 Agent</a></li>
+        <li><a href="#-专家层次这是-ontology-在时间维度上的补全">🔴 专家层次：这是 Ontology 在时间维度上的补全</a></li>
+      </ul>
+    </li>
+    <li><a href="#多跳推理为什么单跳查不到的东西它能查到">多跳推理：为什么单跳查不到的东西，它能查到</a></li>
+    <li><a href="#模型怎么选别一上来就堆最贵的">模型怎么选：别一上来就堆最贵的</a></li>
+    <li><a href="#从-demo-到生产三个坑">从 Demo 到生产，三个坑</a></li>
+    <li><a href="#跟上一篇怎么接上">跟上一篇怎么接上</a></li>
+    <li><a href="#-小结">📝 小结</a></li>
+    <li><a href="#-下一篇预告">🔮 下一篇预告</a>
+      <ul>
+        <li></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">AI Agent 本体论工程（02）—— 时间感知知识图谱</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月17日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p><strong>📖 系列难度说明</strong>：本篇为<strong>实战入门</strong>，需要一点点 Python 基础。看不懂代码没关系，先把&quot;为什么需要时间&quot;这件事想明白，代码部分可以跳。<br>
+<strong>🎁 核心收获</strong>：你会理解传统知识图谱最大的坑在哪，以及 OpenAI 是怎么用&quot;带时间戳的三元组 + 失效 Agent&quot;补上这个坑的。</p>
+</blockquote>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/153c74d80f841a8f.webp" />   
+    </p>
+<p>上篇我们聊了 Ontology 是什么——它是业务的语义地基。</p>
+<p>但地基要是建在流沙上，房子照样塌。</p>
+<p>什么意思？你给 Agent 喂了一张知识图谱，图谱上写着&quot;苏姿丰是 AMD 的 CEO&quot;。三个月后她卸任了，图谱没更新。Agent 还是拿着旧数据给别人出报告，还特别自信。</p>
+<p>这不是 Agent 笨，是人类忘了告诉它：<strong>事实是会过期的。</strong></p>
+<hr>
+<h2 id="一个真实的翻车现场">一个真实的翻车现场</h2>
+<p>金融圈有个经典问题：&ldquo;穆迪对 YY 银行的长期评级，从 2023 年 2 月以来怎么变的？&rdquo;</p>
+<p>传统知识图谱怎么答？它大概率把&quot;穆迪给 YY 银行的评级是 A3&quot;这条静态事实存进去了。你问它历史，它给你一条当前的，或者干脆答不上来——因为它根本没存&quot;这条事实从哪天生效、哪天作废&quot;。</p>
+<p>后果很具体：</p>
+<ul>
+<li>
+<p>• 把历史评级和当前评级混为一谈，信用风险定价直接算错</p>
+</li>
+<li>
+<p>• 问&quot;ZZ 零售商发 FY-22 业绩指引时 CFO 是谁&quot;，它归咎到错误的高管头上，内幕交易分析全歪了</p>
+</li>
+</ul>
+<p>汽车、制药、法律行业也一样。一辆 2023 年 3 月出厂的车，转向柱螺栓扭矩规格可能和 2024 年 5 月出厂的完全不同。召回的时候漏掉一批，就是安全事故。</p>
+<p><strong>问题不在模型，在图谱本身不记时间。</strong> 这正是 OpenAI 在 Cookbook 里那篇《Temporal Agents with Knowledge Graphs》想解决的事。</p>
+<hr>
+<h2 id="知识图谱复习它到底长什么样">知识图谱复习：它到底长什么样</h2>
+<p>简单说，知识图谱就是一堆&quot;三元组&quot;堆出来的。</p>
+<p>三元组结构：<code>[主体] - [谓词] - [客体]</code>。比如：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&#34;伦敦&#34; - &#34;是首都&#34; - &#34;英国&#34;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&#34;苏姿丰&#34; - &#34;任职于&#34; - &#34;AMD&#34;&lt;/span&gt;
+</code></pre><p>把成千上万个这样的三元组连起来，就成了一张网。Agent 在这张网上爬来爬去，就能发现藏在连接里的信息。</p>
+<p>本篇里的&quot;时间感知&quot;，就是在每个三元组上<strong>多贴两个时间戳</strong>：<code>t_created</code>（这条事实从哪天开始真）和 <code>t_expired</code>（哪天开始不真了）。就这么一个改动，整个图谱的用途全变了。</p>
+<hr>
+<h2 id="三种读者三种读法">三种读者，三种读法</h2>
+<p>同一篇内容，我按你的背景拆开讲，挑自己那层看就行。</p>
+<h3 id="-小白层次把会过期的事实记进本子">🟢 小白层次：把&quot;会过期的事实&quot;记进本子</h3>
+<p>你有个本子记朋友的联系方式。传统做法：写上去就不动了。结果朋友换了手机号，你还在拨旧的，打不通还奇怪。</p>
+<p>时间感知图谱：你每次更新，都标上&quot;这条从 2024 年春节起生效&quot;，旧号码旁边画个叉写&quot;2023 年底作废&quot;。下次你想&quot;2023 年中他用的什么号&quot;，翻本子就能查到，不会搞混。</p>
+<p>Agent 要的就是这么一本&quot;带时间叉号&quot;的本子。</p>
+<h3 id="-普通开发层次三阶段管道--失效-agent">🔵 普通开发层次：三阶段管道 + 失效 Agent</h3>
+<p>OpenAI 的做法是一根管道，把原始文本变成带时间戳的三元组。核心是三个阶段：</p>
+<p><strong>阶段一：时间分类</strong><br>
+每条从文档里拆出来的句子，先打标签：</p>
+<ul>
+<li>
+<p>• <strong>无时间性（Atemporal）</strong>：永远不变，如&quot;光速约 3×10⁸ m/s&quot;</p>
+</li>
+<li>
+<p>• <strong>静态（Static）</strong>：从某天起有效且不再变，如&quot;苏姿丰 2014 年 10 月 23 日成为 AMD CEO&quot;</p>
+</li>
+<li>
+<p>• <strong>动态（Dynamic）</strong>：会随时间演变，如&quot;苏姿丰是 AMD CEO&quot;</p>
+</li>
+</ul>
+<p><strong>阶段二：时间事件提取</strong><br>
+文档里常写&quot;周二&quot;&ldquo;三个月前&quot;这种模糊说法。管道用文档自身的时间戳当作参照，把模糊日期解析成绝对日期（只知道月份就默认月初或月末）。</p>
+<p><strong>阶段三：时间有效性检查</strong><br>
+每条三元组必须有 <code>t_created</code>，过期的还要有 <code>t_expired</code>。然后它干一件关键的事——<strong>跟图谱里已有的旧条目对比</strong>：</p>
+<ul>
+<li>
+<p>• 发现矛盾，给旧条目打上 <code>t_invalid</code> 标记</p>
+</li>
+<li>
+<p>• 用 <code>invalidated_by</code> 把新语句和它所作废的旧语句连起来</p>
+</li>
+</ul>
+<p>这一步就是&quot;失效 Agent（Invalidation Agent）&quot;。没有它，图谱只会越堆越乱，新旧事实打架。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/55c002fd9e67f684.webp" />   
+    </p>
+<h3 id="-专家层次这是-ontology-在时间维度上的补全">🔴 专家层次：这是 Ontology 在时间维度上的补全</h3>
+<p>哲学家 Gruber 给 Ontology 的定义里，&ldquo;显式表述&quot;是核心。但绝大多数工程实现只显式了&quot;概念、属性、关系、公理&rdquo;，<strong>漏了时间这个维度</strong>。</p>
+<p>时间感知图谱把时间当成一等公民：事实不再是 <code>subject-predicate-object</code>，而是 <code>subject-predicate-object-valid_during</code>。这本质上是给 Ontology 的&quot;Axioms（公理）&ldquo;加了一条时间约束——&ldquo;这条公理在 [t1, t2) 区间内成立&rdquo;。</p>
+<p>从符号主义角度看，这让推理从&quot;布尔真假&quot;升级成&quot;时间区间内的真假&rdquo;。多跳推理时，每一跳都要检查时间区间是否重叠，这才是真正的时序逻辑推理。</p>
+<hr>
+<h2 id="多跳推理为什么单跳查不到的东西它能查到">多跳推理：为什么单跳查不到的东西，它能查到</h2>
+<p>光有带时间戳的图谱还不够，得让 Agent 会在上面&quot;走好几步&rdquo;。</p>
+<p>单跳查询是什么？&ldquo;苏姿丰任职于哪家公司&rdquo;——一步就到答案。</p>
+<p>但真实问题往往是多跳的：&ldquo;AMD 在 2019 年 Q2 财报电话会上提到的收购目标，其 CEO 当时还在另一家公司的董事会吗？&rdquo;</p>
+<p>这个问题要走的路：</p>
+<ol>
+<li>
+<p>1. 从 AMD 找到 2019 Q2 财报提到的收购目标 X</p>
+</li>
+<li>
+<p>2. 从 X 找到当时的 CEO 是谁</p>
+</li>
+<li>
+<p>3. 查这位 CEO 在同一时间点是不是 Y 公司的董事</p>
+</li>
+<li>
+<p>4. 把几段关系拼起来给结论</p>
+</li>
+</ol>
+<p>单跳查询只能回答第 1 步。多跳检索是让模型<strong>沿着关系边一步步爬</strong>，把分散在图谱拓扑里的证据聚合起来。</p>
+<p>OpenAI 在教程里把&quot;规划器（Planner）&ldquo;分成两类，挺实用：</p>
+<ul>
+<li>
+<p>• <strong>任务导向</strong>：把问题拆成顺序子任务，路径明确，适合确定性报告</p>
+</li>
+<li>
+<p>• <strong>假设导向</strong>：先抛出假设，再去证实或推翻，适合探索性研究</p>
+</li>
+</ul>
+<p>工具设计也在一个谱上：从&quot;固定工具（输出稳定可预测）&ldquo;到&quot;自由形式工具（如代码执行，灵活但难控）&quot;。选哪个，就是控制性和灵活性的权衡。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="/ai002/images/pool/20260817/699091386fff71fa.webp" />   
+    </p>
+<hr>
+<h2 id="模型怎么选别一上来就堆最贵的">模型怎么选：别一上来就堆最贵的</h2>
+<p>OpenAI 在教程里给了一条很实在的路线：</p>
+<p>|
+阶段</p>
+<p>|</p>
+<p>模型</p>
+<p>|</p>
+<p>为什么</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>原型</p>
+<p>|</p>
+<p>GPT-4.1</p>
+<p>|</p>
+<p>指令遵循最强，先把三元组提取准</p>
+<p>|
+|</p>
+<p>优化</p>
+<p>|</p>
+<p>GPT-4.1-mini</p>
+<p>|</p>
+<p>质量够用，延迟和成本大幅下降</p>
+<p>|
+|</p>
+<p>蒸馏</p>
+<p>|</p>
+<p>用 4.1 输出训小模型</p>
+<p>|</p>
+<p>超大规模场景压到极致成本</p>
+<p>|</p>
+<p><strong>实践心法</strong>：先用最猛的模型把原型跑通、质量量出来，再一级级往下换便宜的，直到质量兜不住为止。别反过来——一上来就用 nano，错了你都不知道是数据问题还是模型问题。</p>
+<hr>
+<h2 id="从-demo-到生产三个坑">从 Demo 到生产，三个坑</h2>
+<p>教程里这部分很干货，做过的都懂：</p>
+<p><strong>1. 图谱会越长越肥</strong><br>
+给每条边算个相关性分数（时效性 × 可信度 × 查询频率），低分的自动归档或稀疏化。不然图一膨胀，检索就慢死。</p>
+<p><strong>2. 摄取管道别串行</strong><br>
+&ldquo;文档→分块→提取→解析&quot;线性跑，吞吐量上不去。改成按阶段分队列、配独立工作池的异步架构，再加背压机制，才能稳。</p>
+<p><strong>3. 输出验证不能省</strong><br>
+时间字段统一成 ISO-8601，实体类型锁进受控词表，再加一层轻量模型做健全性检查。结构化日志带上可追踪 ID，数据漂移了能提前报警。</p>
+<hr>
+<h2 id="跟上一篇怎么接上">跟上一篇怎么接上</h2>
+<p>上篇说 Ontology 是 Agent 的语义地基。本篇讲的，是这块地基怎么处理&quot;时间&rdquo;——这是真实业务里最容易塌的地方。</p>
+<p>对了，这里有个认知岔路值得记一下：Anthropic 在《Building Effective AI Agents》里说，早期用<strong>精细的上下文工程</strong>就能顶一阵，不一定非要上正式本体；但要从 Demo 走到工业级，必须建立控制循环。OpenAI 这篇则是直接从本体/图谱入手。两条路不矛盾——Anthropic 说的是&quot;轻量起步&rdquo;，OpenAI 展示的是&quot;规模化后图层的样子&rdquo;。</p>
+<hr>
+<h2 id="-小结">📝 小结</h2>
+<ul>
+<li>
+<p>• 传统知识图谱把事实当静止的，真实世界的事实会过期，不记时间就会给 Agent 喂毒数据</p>
+</li>
+<li>
+<p>• 时间感知图谱每个三元组带 <code>t_created</code> / <code>t_expired</code>，靠&quot;失效 Agent&quot;打叉号、连 <code>invalidated_by</code> 来维护正确性</p>
+</li>
+<li>
+<p>• 多跳推理让 Agent 沿关系边走多步，回答单跳查不到的复杂时序问题</p>
+</li>
+<li>
+<p>• 模型选择：4.1 原型 → mini 优化 → 蒸馏小模型，别一上来就堆贵的</p>
+</li>
+<li>
+<p>• 生产化三件事：图谱瘦身、摄取并行化、输出强验证</p>
+</li>
+</ul>
+<hr>
+<h2 id="-下一篇预告">🔮 下一篇预告</h2>
+<p>图谱和 Agent 的事我们说清了。但企业里最头铁的玩家不是 OpenAI，是 Palantir——他们把 Ontology 玩成了整个平台的心脏。</p>
+<p>下一篇，我们看 Palantir 怎么用&quot;本体&quot;把 Agent 和企业决策绑在一起，以及那个听起来很玄的&quot;数字双胞胎&quot;到底是怎么回事。</p>
+<hr>
+<blockquote>
+<p>📚 <strong>系列导航</strong></p>
+<ul>
+<li>
+<p>• 第 01 篇：Ontology：被低估的 AI Agent 核心基础设施</p>
+</li>
+<li>
+<p>• <strong>第 02 篇：时间感知知识图谱：让 Agent 记住&quot;什么时候什么是真的&quot;</strong> ⬅️ 你在这里</p>
+</li>
+<li>
+<p>• 第 03 篇：Palantir 模式：本体如何成为企业 AI 的决策中枢</p>
+</li>
+<li>
+<p>• 第 04 篇：Microsoft Fabric：企业语义层的工程实践</p>
+</li>
+<li>
+<p>• 第 05 篇：Ontology 动手构建：OWL/RDF/SPARQL 实战指南</p>
+</li>
+<li>
+<p>• 第 06 篇：Ontology 工具链：OSDK + MCP 实战指南</p>
+</li>
+<li>
+<p>• 第 07 篇：从 Demo 到生产：规模化 Agent 的 Ontology 设计决策</p>
+</li>
+</ul>
+</blockquote>
+<hr>
+<blockquote>
+<p>📖 <strong>本系列参考资料</strong></p>
+<ul>
+<li>
+<p>• Temporal Agents with Knowledge Graphs — OpenAI Cookbook<!-- raw HTML omitted --><!-- raw HTML omitted -->[1]<!-- raw HTML omitted --><!-- raw HTML omitted --></p>
+</li>
+<li>
+<p>• Building Effective AI Agents — Anthropic Engineering<!-- raw HTML omitted --><!-- raw HTML omitted -->[2]<!-- raw HTML omitted --><!-- raw HTML omitted --></p>
+</li>
+<li>
+<p>• Zep — 时间知识图谱参考实现<!-- raw HTML omitted --><!-- raw HTML omitted -->[3]<!-- raw HTML omitted --><!-- raw HTML omitted --></p>
+</li>
+<li>
+<p>• Graphiti — 知识图谱构建框架<!-- raw HTML omitted --><!-- raw HTML omitted -->[4]<!-- raw HTML omitted --><!-- raw HTML omitted --></p>
+</li>
+</ul>
+</blockquote>
+<h4 id="引用链接">引用链接</h4>
+<p><code>[1]</code> Temporal Agents with Knowledge Graphs — OpenAI Cookbook: <em><a href="https://developers.openai.com/cookbook/examples/partners/temporal">https://developers.openai.com/cookbook/examples/partners/temporal</a>_agents_with_knowledge_graphs/temporal_agents</em><br>
+<code>[2]</code> Building Effective AI Agents — Anthropic Engineering: <em><a href="https://www.anthropic.com/engineering/building-effective-agents">https://www.anthropic.com/engineering/building-effective-agents</a></em><br>
+<code>[3]</code> Zep — 时间知识图谱参考实现: <em><a href="https://github.com/getzep/zep">https://github.com/getzep/zep</a></em><br>
+<code>[4]</code> Graphiti — 知识图谱构建框架: <em><a href="https://github.com/getzep/graphiti">https://github.com/getzep/graphiti</a></em></p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">https://index.zshipu.com/ai002/post/20260817/AI-Agent-%E6%9C%AC%E4%BD%93%E8%AE%BA%E5%B7%A5%E7%A8%8B02-%E6%97%B6%E9%97%B4%E6%84%9F%E7%9F%A5%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260815/DeepSeek-Harness-vs-Claude-Code-vs-CodexAgent-%E4%B8%89%E5%A4%A7%E6%B5%81%E6%B4%BE%E6%B7%B1%E5%BA%A6%E5%AF%B9%E6%AF%94/">DeepSeek Harness vs Claude Code vs Codex：Agent 三大流派深度对比</a></li>
+        
+        <li><a href="/ai002/post/20260817/AI-Agent-%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E7%9A%84%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%BC%95%E6%93%8E/">AI Agent 长期记忆的知识图谱引擎</a></li>
+        
+        <li><a href="/ai002/post/20260817/Agent%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97-%E7%AC%AC3%E8%AF%BETool-Calling-%E4%B8%8E%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E7%B3%BB%E7%BB%9F/">Agent学习系列 第3课：Tool Calling 与函数调用系统</a></li>
+        
+        <li><a href="/ai002/post/20260817/Code-Graph-RAG-0.0.593-%E5%AE%9E%E6%B5%8B%E7%BB%99-Coding-Agent-%E5%8A%A0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%80%BC%E4%B8%8D%E5%80%BC%E5%BE%97%E5%A4%9A%E5%85%BB%E4%B8%A4%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93/">Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？</a></li>
+        
+        <li><a href="/ai002/post/20260817/RAG-3.0-%E6%9D%A5%E4%BA%86%E5%91%8A%E5%88%AB%E4%BC%A0%E7%BB%9F%E7%9F%A5%E8%AF%86%E5%BA%93%E4%BC%81%E4%B8%9A-AI-%E6%AD%A3%E5%9C%A8%E5%85%A8%E9%9D%A2%E8%BD%AC%E5%90%91%E7%9F%A5%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/">RAG 3.0 来了：告别传统知识库，企业 AI 正在全面转向“知识智能体”！ - 今日头条</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/mcp'>mcp</a></li>
+                
+                <li><a href='/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B'>上下文工程</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Claude-Code-%E7%BC%A9%E5%87%8F%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6%E5%BC%80%E5%8F%91%E8%80%85%E5%A6%82%E4%BD%95%E5%BA%94%E5%AF%B9/" title="Claude Code 缩减免费额度，开发者如何应对？">Claude Code 缩减免费额度，开发者如何应对？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Java%E7%94%9F%E6%80%81%E5%8A%A8%E6%80%81Shenandoah-GC%E6%94%B9%E8%BF%9BTeamCity%E6%BC%8F%E6%B4%9E%E4%B8%8EA2A-SDK/" title="Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK">Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E7%99%BE%E8%A1%8C%E4%BB%A3%E7%A0%81%E6%9E%84%E5%BB%BA%E5%8E%9F%E7%94%9F%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89%E8%83%BD%E5%90%A6%E6%8C%91%E6%88%98AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/" title="百行代码构建原生编码代理：极简主义能否挑战AI编程助手？">百行代码构建原生编码代理：极简主义能否挑战AI编程助手？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90%E4%B8%BA%E4%BD%95%E7%94%A8-Apache-Doris-%E6%9B%BF%E6%8D%A2-Elasticsearch/" title="腾讯音乐为何用 Apache Doris 替换 Elasticsearch">腾讯音乐为何用 Apache Doris 替换 Elasticsearch</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/" title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/" title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/" title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/" title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/" title="Cursor发布代码托管平台Origin，恰逢GitHub宕机">Cursor发布代码托管平台Origin，恰逢GitHub宕机</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/" title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

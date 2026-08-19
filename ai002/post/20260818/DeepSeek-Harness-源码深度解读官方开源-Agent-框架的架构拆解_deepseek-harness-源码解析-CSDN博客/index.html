@@ -1,38 +1,815 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><title>DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客 | 知识铺的博客</title>
-<meta property="og:title" content="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客 - 知识铺的博客"><meta property="og:type" content="article"><meta property="article:published_time" content='2026-08-18T00:00:00+08:00'><meta property="article:modified_time" content='2026-08-18T00:00:00+08:00'><meta name=Keywords content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序"><meta name=description content="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客"><meta name=author content="知识铺"><meta property="og:url" content="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/"><link rel="shortcut icon" href=/ai002/favicon.ico type=image/x-icon><link rel=stylesheet href=/ai002/css/normalize.css><link rel=stylesheet href=/ai002/css/style.css><script type=text/javascript src=//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js></script><script data-ad-client=ca-pub-2874221941555456 async src=https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js></script><script>(function(e,t,n,s,o){e[s]=e[s]||[],e[s].push({"gtm.start":(new Date).getTime(),event:"gtm.js"});var a=t.getElementsByTagName(n)[0],i=t.createElement(n),r=s!="dataLayer"?"&l="+s:"";i.async=!0,i.src="https://www.googletagmanager.com/gtm.js?id="+o+r,a.parentNode.insertBefore(i,a)})(window,document,"script","dataLayer","GTM-WLWJSST")</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-BY5XJ2PJ93")</script></head><body><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST" height=0 width=0 style=display:none;visibility:hidden></iframe></noscript><header id=header class=clearfix><div class=container><div class=col-group><div class=site-name><a id=logo href=https://index.zshipu.com/ai002/>知识铺的博客</a><p class=description>专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p></div><div><nav id=nav-menu class=clearfix><a class=current href=https://index.zshipu.com/ai002/>首页</a>
-<a href=https://index.zshipu.com/ai001/ title=AI技术>AI技术</a>
-<a href=https://index.zshipu.com title=总站>总站</a>
-<a href=https://index.zshipu.com/ai002/archives/ title=归档>归档</a>
-<a href=https://index.zshipu.com/ai002/about/ title=关于>关于</a></nav></div></div></div></header><div id=body><div class=container><div class=col-group><div class=col-8 id=main><div class=res-cons><style type=text/css>.post-toc{position:fixed;width:200px;margin-left:-210px;padding:5px 10px;font-family:Athelas,STHeiti,Microsoft Yahei,serif;font-size:12px;border:1px solid rgba(0,0,0,7%);border-radius:5px;background-color:rgba(255,255,255,.98);background-clip:padding-box;-webkit-box-shadow:1px 1px 2px rgba(0,0,0,.125);box-shadow:1px 1px 2px rgba(0,0,0,.125);word-wrap:break-word;white-space:nowrap;-webkit-box-sizing:border-box;box-sizing:border-box;z-index:999;cursor:pointer;max-height:70%;overflow-y:auto;overflow-x:hidden}.post-toc .post-toc-title{width:100%;margin:0 auto;font-size:20px;font-weight:400;text-transform:uppercase;text-align:center}.post-toc .post-toc-content{font-size:15px}.post-toc .post-toc-content>nav>ul{margin:10px 0}.post-toc .post-toc-content ul{padding-left:20px;list-style:square;margin:.5em;line-height:1.8em}.post-toc .post-toc-content ul ul{padding-left:15px;display:none}@media print,screen and (max-width:1057px){.post-toc{display:none}}</style><div class=post-toc style=position:absolute;top:188px><h2 class=post-toc-title>文章目录</h2><div class=post-toc-content><nav id=TableOfContents><ul><li><ul><li><a href=#一仓库全景这不是一个小玩具>一、仓库全景：这不是一个"小玩具&rdquo;</a></li><li><a href=#二核心架构一切皆插件连-agent-loop-本身都是插件>二、核心架构：一切皆插件，连 Agent Loop 本身都是插件</a></li><li><a href=#三事件驱动三类事件三种职责>三、事件驱动：三类事件，三种职责</a></li><li><a href=#四轮次与步骤agent-loop-的心脏>四、轮次与步骤：Agent Loop 的心脏</a></li><li><a href=#五能力-seam可替换能力的标准姿势>五、能力 Seam：可替换能力的标准姿势</a></li><li><a href=#六模型能看到什么内置工具生态盘点>六、模型能看到什么：内置工具生态盘点</a></li><li><a href=#七subagent-家族能真的拉起-claude-code--codex>七、Subagent 家族：能真的拉起 Claude Code / Codex</a></li><li><a href=#八安全与沙箱landlock--windows-acl--远程沙箱>八、安全与沙箱：Landlock + Windows ACL + 远程沙箱</a></li><li><a href=#九三种接入姿势web--cli--协议>九、三种接入姿势：Web / CLI / 协议</a></li><li><a href=#十评价与展望>十、评价与展望</a></li></ul></li></ul></nav></div></div><script type=text/javascript>$(document).ready(function(){if(e=$(".post-toc"),e.length){t=$("#main").offset().left,t<220&&e.css({width:t-10,"margin-left":0-t});var e,t,n=e.offset().top-20,s={start:{position:"absolute",top:n},process:{position:"fixed",top:20}};$(window).scroll(function(){var t=$(window).scrollTop();t<n?e.css(s.start):e.css(s.process)})}})</script><article class=post><header><h1 class=post-title>DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客</h1></header><date class="post-meta meta-date">2026年8月18日</date><div class=post-meta><span id=busuanzi_container_page_pv>|<span id=busuanzi_value_page_pv></span><span>
-阅读</span></span></div><div class=post-content><blockquote><p><strong>项目</strong>: deepseek-ai/deepseek-harness（<code>dsh</code>）· MIT 协议 · 发布 2 天即获 4.1 万+ Star<br><strong>核心设计</strong>: 一切皆插件（Everything is a Plugin），基于 vendored Cordis 构建</p></blockquote><p>2026 年 8 月 13 日，DeepSeek 官方在 GitHub 开源了 <strong>DeepSeek Harness</strong>（简称 <code>dsh</code>）——一个插件化的 Agent Harness（智能体框架），口号只有一句话：<strong>Everything is a Plugin</strong>。仓库发布两天 Star 数突破 4.1 万、Fork 3283，热度直逼年初 DeepSeek 开源大模型时的盛况。</p><p>本文不部署、不跑 demo，直接对克隆下来的源码做一次架构级拆解：它到底"新"在哪、代码怎么组织、&ldquo;一切皆插件"是怎么落到每一行代码上的。</p><hr><h3 id=一仓库全景这不是一个小玩具>一、仓库全景：这不是一个"小玩具&rdquo;</h3><p>先看几个硬数字（截至 2026-08-14 主分支）：</p><table><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody><tr><td>包目录（<code>packages/</code>）</td><td>54 个</td></tr><tr><td>TypeScript 源文件</td><td>1247 个（不含测试）</td></tr><tr><td>TS 源码总行数</td><td>约 20 万行</td></tr><tr><td>Git 提交数</td><td>12293 次</td></tr><tr><td>主贡献者</td><td>Tianyi Cui（5235 次提交）等</td></tr><tr><td>版本</td><td>0.1.0-rc.5（明确标注 Developer Preview，破坏性变更随时可能发生）</td></tr><tr><td>许可证</td><td>MIT</td></tr></tbody></table><p>技术栈上：<strong>Node.js + TypeScript（全 ESM）+ pnpm workspaces</strong>，前端是自研 Web UI（Vue 系组件库），另带一个 <strong>Python SDK</strong>（<code>python/sdk/</code>，走 JSON-RPC）。仓库还有 <code>native/</code>（Landlock 沙箱的 Node 插件）、<code>website/</code>（VitePress 文档站）。</p><p>最值得注意的是<strong>代码质量工程化</strong>：每个 npm 包都是 <code>@deepseek-ai/dsh-*</code> 命名，单测要求<strong>每个源文件 100% 行覆盖率</strong>（CI 门禁），并且每个包都必须自带一个 <code>invariant</code>（运行时不变量断言模块）——这不是普通开源项目会做的自我要求。</p><hr><h3 id=二核心架构一切皆插件连-agent-loop-本身都是插件>二、核心架构：一切皆插件，连 Agent Loop 本身都是插件</h3><p><code>dsh</code> 底层是 <strong>Cordis</strong>——一个插件化框架（源码直接 vendor 进仓库的 <code>vendor/cordis/</code>）。Cordis 的核心抽象是：</p><ul><li><strong>插件</strong>向共享上下文（<code>Context</code>）贡献服务（Service）、类型化事件（Event）和可逆副作用（Effect）；</li><li>插件之间通过 <code>ctx.xxx</code> 键互相引用，注册即副作用，卸载自动撤销。</li></ul><p><code>dsh</code> 的产品层——模型适配器、工具注册表、会话日志、<strong>甚至 agent loop 本身</strong>——全部是插件。文档里原话：“不存在需要打补丁的特权内核：扩展 dsh 的方式是把插件挂载到其他插件旁边。”</p><h4 id=profile-与组合包配置即组装>Profile 与组合包：配置即组装</h4><p>运行中的 <code>dsh</code> 是一棵<strong>由多层配置叠加出来的插件树</strong>。核心概念：</p><ul><li><strong>Profile</strong>：存放在 Harness home 的具名组装，列出要叠放的组合包（<code>web</code>、<code>headless</code> 是随发行版交付的模板）；</li><li><strong>Bundle（组合包）</strong>：Cordis 配置项 + 挂载代码的分发格式；</li><li><strong>Patch</strong>：按 id 定位条目、替换整个 config 或插入新条目的覆盖机制。</li></ul><p>叠放顺序：<code>空条目列表 → profile 列出的各组合包 → profile 的 cordis.patch.yml → home 级 patch → --patch overlay</code>。也就是<strong>越晚叠的层权力越大</strong>，任何一条启动配置都能被你的 patch 替换。</p><p><code>dsh-base</code> 是每个 profile 的第一层（模型、工具、持久化、沙箱、审批、设置、凭据、遥测），<code>dsh-web-app</code> 加浏览器应用，<code>dsh-headless</code> 提供无服务器的"跑一次就退"模式。</p><hr><h3 id=三事件驱动三类事件三种职责>三、事件驱动：三类事件，三种职责</h3><p>事件是 dsh 的扩展点，选对事件域是改动的第一个决定：</p><table><thead><tr><th>事件域</th><th>性质</th><th>用途</th></tr></thead><tbody><tr><td><strong>会话事件</strong>（<code>session/event</code>）</td><td>持久、追加式</td><td>必须跨重启保留的事实：<code>turn/*</code>、<code>step/*</code>、<code>user/message</code>、<code>assistant/*</code>、<code>tool/*</code></td></tr><tr><td><strong>Agent 事件</strong>（<code>agent/*</code>）</td><td>实时</td><td>携带活跃 Agent：inbox、步骤、状态、请求、验证、续跑</td></tr><tr><td><strong>能力事件</strong>（<code>fs/*</code>、<code>tools/*</code>、<code>telemetry/*</code>）</td><td>实时</td><td>给 seam 附加策略和适配器，避免导入循环</td></tr></tbody></table><p><strong>设计铁律：“模型可见即已记录。”</strong> 抵达模型请求的一切都必须能从会话日志重建，运行时不变量断言这一点。所以新增一项模型可见输入，就必须新增一个会话事件。这保证了 fork、恢复、transcript、遥测都能从同一份事件流派生——日志是唯一的真相源。</p><hr><h3 id=四轮次与步骤agent-loop-的心脏>四、轮次与步骤：Agent Loop 的心脏</h3><p><code>packages/core/agent-loop/</code> 里是默认驱动器 <code>ReactLoopAgent</code>（约 500 行，<code>agent.ts</code>）。术语先厘清：</p><ul><li><strong>步骤（Step）</strong> = 一次模型请求 + 它调用的工具；</li><li><strong>轮次（Turn）</strong> = 零到多个步骤，领取首条输入时打开，不再欠任何工作时关闭。</li></ul><p>轮次流程（简化）：</p><div class=highlight><div style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
-</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-text data-lang=text><span style=display:flex><span>turn/start → 领取下一条输入 + 一条排队消息 → agent/pre-step（waterfall：监听器可改写消息或直接拒绝） → step/start → 从日志派生模型历史 → agent/request → llm/stream → assistant/chunk* → assistant/message → tool/call* → tools/pre-execute → tools/execute → tools/post-execute → tool/result* → step/end → 工具还欠请求？或有新输入？→ 再领取 → 下一个 step → agent/turn-stopping（serial，唯一没有 next() 的检查点） turn/end
-</span></span></code></pre></td></tr></table></div></div><p>几个值得注意的工程细节：</p><ol><li><strong>waterfall vs serial 事件</strong>：<code>agent/pre-step</code>、<code>agent/request</code>、<code>llm/stream</code>、<code>tools/*</code> 是 waterfall 事件，监听器必须调用 <code>next()</code> 才能委托给下游——这是实现"拦截/改写"的机制；<code>agent/turn-stopping</code> 是 serial 事件，专门用于"是否该停"的终检。</li><li><strong>空内容也记账</strong>：<code>assistant/message</code> 会记录每次成功的提供方调用，包括返回空内容或以 max-tokens 结束的调用——空内容不进派生历史，但用量保留，<code>sourceEventSeqs</code> 精确对应 chunk 事件。</li><li><strong>错误恢复有专门路径</strong>：<code>agent/request-error</code> 处理规范上下文溢出，先做可选的工具结果剪枝，再选摘要；只有恢复真正推进了版本才会开新重试轮次。</li><li><strong>输入走统一 inbox</strong>：注入的上下文留在 inbox 里等待唤醒，steering（中途引导）与注入消息经过同一个 <code>agent/pre-step</code> waterfall。</li></ol><hr><h3 id=五能力-seam可替换能力的标准姿势>五、能力 Seam：可替换能力的标准姿势</h3><p>一个 <strong>seam</strong> 是 dsh 里"可替换能力"的完整形态，包含三个角色：</p><ol><li><strong>Service Definition</strong>：声明接口；</li><li><strong>Service Provider</strong>：实现它；</li><li><strong>Consumer</strong>：使用它（通常是面向模型的工具）。</li></ol><p><strong>换一个 Provider 就换掉整个产品能力</strong>——这是 dsh 最优雅的设计。文档举的例子：文件系统与进程 Provider 共享同一个执行世界，把 <code>ctx.fs</code> 指向远程沙箱（E2B），Bash、PTY、LSP 就全部一起搬过去了，不需要为每个能力写专门的 fork。</p><p>代码里对应的真实结构：</p><ul><li><code>packages/fs/</code>：fs 能力家族（fs + fs-e2b + fs-observation-policy 等）</li><li><code>packages/shell/</code>：bash 能力（bash-local / bash-sandbox）</li><li><code>packages/subagent/</code>：<strong>subagent 能力家族，支持 6 种 Provider</strong></li><li><code>packages/web/</code>：web 搜索/抓取（deepseek / exa / perplexity 三个 Provider + http fetch）</li><li><code>packages/sandbox/</code>：进程沙箱（local Landlock / windows-acl / policy）</li><li><code>packages/llm/</code>：模型适配器（deepseek / pi-ai / retry）</li></ul><hr><h3 id=六模型能看到什么内置工具生态盘点>六、模型能看到什么：内置工具生态盘点</h3><p><code>docs/tool-catalog.md</code> 是<strong>生成式目录</strong>——不是手写文档，而是"启动每个工具插件、读取真实 <code>ctx.tools.schemas()</code>&ldquo;生成。这本身就说明工具注册是运行时行为。内置工具全家桶（24 个工具族）：</p><p><strong>文件与代码</strong></p><ul><li><code>read</code> / <code>write</code> / <code>edit</code> / <code>read_image</code>（fs，配合"先读后写"策略插件）</li><li><code>glob</code> / <code>grep</code>（打包了 ripgrep 二进制，不依赖宿主安装）</li><li><code>run_code</code>（代码模式保留传输通道，支持并发子调用）</li><li><code>str_replace_editor</code>（独立文本编辑工具）</li><li><code>lsp</code>（语言服务器，provider 可换）</li></ul><p><strong>执行与终端</strong></p><ul><li><code>bash</code> / <code>pwsh</code>（一次性命令）</li><li><code>terminal_open/read/send/...</code> 六个工具（持久 PTY 终端）</li><li><code>job_list</code> / <code>job_kill</code> / <code>job_output</code>（后台任务，bash/PTY/subagent 通用）</li></ul><p><strong>协作与智能体</strong></p><ul><li><code>subagent</code> / <code>subagent_fork</code>（委派子 agent，支持后台可续跑）</li><li><code>send_message</code> / <code>interrupt_agent</code> / <code>list_agents</code>（子 agent 控制）</li><li><code>report</code>（子级向父级汇报）</li><li><code>create_goal</code> / <code>get_goal</code> / <code>update_goal</code>（目标管理，带轮次上限）</li><li><code>ask_user_question</code>（暂停工具调用，等 UI 返回人类回答）</li></ul><p><strong>信息与记忆</strong></p><ul><li><code>web_fetch</code> / <code>web_search</code>（provider 可换）</li><li><code>skill</code>（技能加载）</li><li><code>session_search</code> / <code>session_event_read</code> 等 5 个（会话查询，只读）</li><li><code>todo_write</code>（待办清单）</li><li><code>schedule_create/list/delete</code>（会话内提醒）</li></ul><p><strong>自指（最激进的一组）</strong></p><ul><li><code>cordis_define</code> / <code>cordis_run</code> / <code>cordis_stop</code> / <code>cordis_inspect_*</code>：让 Agent <strong>在运行时定义、启动、停止自己的插件</strong>。默认不进任何发行树（刻意 opt-in），但仓库的 <code>web-cordis</code> 示例演示了一个能检查并修改内存中 Cordis 插件树的"自指 agent&rdquo;。这是 dsh 区别于其他框架的标志性能力。</li></ul><hr><h3 id=七subagent-家族能真的拉起-claude-code--codex>七、Subagent 家族：能真的拉起 Claude Code / Codex</h3><p><code>packages/subagent/</code> 把"委派"做成了一个完整的可插拔能力：</p><table><thead><tr><th>Provider</th><th>说明</th></tr></thead><tbody><tr><td><code>subagent-spawn-in-process</code></td><td>全新进程内子 agent</td></tr><tr><td><code>subagent-fork-in-process</code></td><td>从父 agent 历史 fork 出子 agent</td></tr><tr><td><code>subagent-acp</code></td><td>通过 ACP 协议启动<strong>进程外</strong>子 agent</td></tr><tr><td><code>subagent-codex</code></td><td>启动真实 Codex app-server 子 agent</td></tr><tr><td><code>subagent-claude-code</code></td><td>通过官方 Claude Agent SDK 启动真实 Claude Code</td></tr><tr><td><code>subagent-dsh-sdk</code></td><td>通过 TypeScript SDK 启动进程外 Harness 子 agent</td></tr></tbody></table><p>也就是说，dsh 里的 Agent 可以把活儿委派给<strong>另一个产品</strong>（Claude Code、Codex）当子 agent——多智能体编排在 seam 抽象下变成"选 Provider"的问题。</p><hr><h3 id=八安全与沙箱landlock--windows-acl--远程沙箱>八、安全与沙箱：Landlock + Windows ACL + 远程沙箱</h3><ul><li><code>sandbox-local</code>：Linux 上用 <strong>Landlock</strong>（通过 native Node 插件）限制子进程，支持逐会话策略（<code>sandbox-policy</code> 解析持久策略）；</li><li><code>sandbox-windows-acl</code>：Windows 的 ACL 方案；</li><li><code>e2b</code> / <code>fs-e2b</code> / <code>subprocess-e2b</code>：把文件系统与子进程 Provider 指向 E2B 远程沙箱——<strong>一个替换，所有能力一起隔离</strong>，正是 seam 设计的红利；</li><li>hooks 家族（<code>hooks-claude-code</code> / <code>hooks-codex</code>）：兼容 Claude Code / Codex 的 hook 协议，让 dsh 能接入既有工具链的钩子事件。</li></ul><hr><h3 id=九三种接入姿势web--cli--协议>九、三种接入姿势：Web / CLI / 协议</h3><div class=highlight><div style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><table style=border-spacing:0;padding:0;margin:0;border:0><tr><td style=vertical-align:top;padding:0;margin:0;border:0><pre tabindex=0 style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:.4em;padding:0 .4em;color:#7f7f7f">1
-</span></code></pre></td><td style=vertical-align:top;padding:0;margin:0;border:0;width:100%><pre tabindex=0 style=background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sh data-lang=sh><span style=display:flex><span>npx @deepseek-ai/dsh web <span style=color:#998;font-style:italic># Web UI，默认 http://127.0.0.1:3080 npx @deepseek-ai/dsh headless &#34;task&#34; # 一次性跑任务，无服务器</span>
-</span></span></code></pre></td></tr></table></div></div><p><code>examples/</code> 里 6 个可运行 demo：</p><ul><li><code>headless-agent</code>：非交互式，接受任务 → 输出结果；</li><li><code>acp-agent</code>：ACP（Agent Client Protocol）自动化服务器，面向程序化客户端；</li><li><code>jsonrpc-agent</code>：Python SDK + JSON-RPC 驱动的无人值守编码 agent；</li><li><code>mcp-memory</code>：通用 MCP 客户端连第三方记忆服务器；</li><li><code>web-cordis</code>：自指 agent；</li><li><code>web-schedule</code>：会话内提醒。</li></ul><p>Python SDK（<code>python/sdk/</code>，<code>hatch</code>/<code>uv</code> 管理）提供了 <code>deepseek_harness.api</code> / <code>client</code> / <code>models</code> 等封装，让 Python 侧可以直接驱动 Harness。</p><hr><h3 id=十评价与展望>十、评价与展望</h3><p><strong>亮点</strong></p><ol><li><strong>架构纯度罕见</strong>：把 “一切皆插件” 贯彻到连 agent loop、模型适配器、会话日志都是插件，配置（patch 叠层）与代码（插件注册）统一成一套组合模型。这是很多号称"可扩展"的框架做不到的——它们通常只是给核心留几个回调钩子。</li><li><strong>事件即契约</strong>：&ldquo;模型可见即已记录"的运行时不变式，让整个系统可以从日志重建、fork、回放，这是一套认真思考过可观测性的设计。</li><li><strong>seam 三件套</strong>：Definition / Provider / Consumer 的严格分工，让"替换 E2B 沙箱 = 整体迁移能力"这种全局替换成为可能。</li><li><strong>工程纪律</strong>：100% 覆盖率门禁、每包 invariant、生成式目录文档、双语文档配对——工程化水平在开源 AI 项目里属于第一梯队。</li></ol><p><strong>风险与不足</strong></p><ol><li><strong>Developer Preview</strong>：0.1.0-rc.5，官方明说"破坏性变更随时发生&rdquo;，SQLite schema 用单调版本号、会话格式版本无兼容承诺——现在不适合作为生产依赖。</li><li><strong>重度绑定 Cordis</strong>：vendor 了 Cordis 源码（rescope 成私有包），框架选型一旦深入，迁移成本很高。</li><li><strong>门槛</strong>：约 20 万行 TS、54 个包，插件开发需要吃透事件域和 seam 体系，文档虽全但学习曲线陡。</li><li><strong>生态未起</strong>：<code>dsh-plugin</code> topic 刚开放，第三方插件还很少；对模型提供方目前默认 DeepSeek 系（deepseek / pi-ai）。</li></ol><p><strong>一句话总结</strong>：DeepSeek Harness 不是又一个"Agent 框架"，而是把"框架本身"也变成了可插拔组合的<strong>Agent 操作系统</strong>。它现在最大的价值是给 Agent 工程社区提供了一个极其干净的架构范本——而 0.1.0 的版本号意味着，真正的生态故事才刚刚开始。</p><hr><blockquote><p><strong>参考</strong>: 分析基于 <code>deepseek-ai/deepseek-harness</code> @ 47f943859b（2026-08-14 克隆），README.zh.md / docs/architecture.zh.md / docs/agent-lifecycle.zh.md / docs/tool-catalog.md / packages/core/agent-loop 源码等。</p><p><strong>作者</strong>: 喵本喵叁肆 · 技术博客 | 欢迎关注、收藏、评论区交流</p></blockquote></div><div class=post-archive><ul class=post-copyright><li><strong>原文作者：</strong><a rel=author href=https://index.zshipu.com/ai002/>知识铺</a></li><li style=word-break:break-all><strong>原文链接：</strong><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/>https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/</a></li><li><strong>版权声明：</strong>本作品采用<a rel=license href=https://creativecommons.org/licenses/by-nc-nd/4.0/>知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li><li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li></ul></div><br><div class=post-archive><h2>See Also</h2><ul class=listing><li><a href=/ai002/post/20260815/Codex-%E7%8B%AC%E7%AB%8B-App-%E6%9D%A5%E4%BA%86%E8%BF%99%E6%98%AF%E4%B8%80%E4%B8%AA%E6%96%B0%E4%B8%9C%E8%A5%BF/>Codex 独立 App 来了，这是一个新东西</a></li><li><a href=/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/>DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a></li><li><a href=/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/>DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li><li><a href=/ai002/post/20260817/Code-Graph-RAG-0.0.593-%E5%AE%9E%E6%B5%8B%E7%BB%99-Coding-Agent-%E5%8A%A0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%80%BC%E4%B8%8D%E5%80%BC%E5%BE%97%E5%A4%9A%E5%85%BB%E4%B8%A4%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93/>Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？</a></li><li><a href=/ai002/post/20260817/%E7%94%A8-WorkBuddy-Obsidian-LLM-Wiki-%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E9%95%BF%E6%9C%9F%E7%9F%A5%E8%AF%86%E7%B3%BB%E7%BB%9F-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/>用 WorkBuddy + Obsidian + LLM Wiki 搭建个人长期知识系统 - 今日头条</a></li></ul></div><div class="post-meta meta-tags"><ul class=clearfix><li><a href=/ai002/tags/claude-code>claude code</a></li><li><a href=/ai002/tags/cli>cli</a></li><li><a href=/ai002/tags/codex>codex</a></li><li><a href=/ai002/tags/mcp>mcp</a></li><li><a href=/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93>智能体</a></li></ul></div></article><div class="post bg-white"><script src=https://utteranc.es/client.js repo=zshipu/zshipu-index issue-term=pathname theme=github-light crossorigin=anonymous async></script></div></div><footer id=footer><div>&copy; 2026 <a href=https://index.zshipu.com/ai002/>知识铺的博客 By 知识铺</a>
-| <a rel=nofollow target=_blank href=https://beian.miit.gov.cn/>浙 ICP 备19032823号-3</a>
-| <a href=https://zshipu.com/privacy/index.html>隐私权政策</a></div><br><div><div class=github-badge><a href=https://gohugo.io/ target=_black rel=nofollow><span class=badge-subject>Powered by</span><span class="badge-value bg-blue">Hugo</span></a></div><div class=github-badge><a href=https://www.flysnow.org/ target=_black><span class=badge-subject>Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a></div><div class=github-badge><a href=https://github.com/flysnow-org/maupassant-hugo target=_black><span class=badge-subject>Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a></div></div></footer><script type=text/javascript>window.MathJax={tex2jax:{inlineMath:[["$","$"]],processEscapes:!0}}</script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script><a id=rocket href=#top></a><script type=text/javascript src='/ai002/js/totop.js?v=0.0.0' async></script><script type=text/javascript src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js async></script></div><div id=secondary><section class=widget><form id=search action=https://index.zshipu.com/ai002/search/ method=get accept-charset=utf-8 target=_blank _lpchecked=1><input type=text name=q maxlength=20 placeholder=Search>
-<input type=hidden name=sitesearch value=https://index.zshipu.com/ai002/>
-<button type=submit class="submit icon-search"></button></form></section><section class=widget><h3 class=widget-title>最近文章</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/ title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/ title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/ title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/ title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/ title=Cursor发布代码托管平台Origin，恰逢GitHub宕机>Cursor发布代码托管平台Origin，恰逢GitHub宕机</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/ title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-15-%E4%B8%87%E6%98%9F%E7%94%9F%E6%80%81%E4%BB%8E%E7%99%BE%E8%8A%B1%E9%BD%90%E6%94%BE%E8%B7%A8%E5%85%A5%E5%B7%A5%E4%B8%9A%E5%8C%96%E9%83%A8%E7%BD%B2_Agent_cumora_Skill/ title="DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill">DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-Cordis-%E6%95%99%E7%A8%8B%E4%BB%8E%E9%9B%B6%E5%88%B0%E6%8E%A5%E5%85%A5%E7%9C%9F%E5%AE%9E-harness_cordis%E6%8F%92%E4%BB%B6-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客">DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客">DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客</a></li></ul></section><section class=widget><h3 class=widget-title style=color:red>福利派送</h3><ul class=widget-list><li><a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target=_blank style=color:red><img src=https://index.zshipu.com/promo/nomissapi-001.webp></a></li><li><a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target=_blank style=color:red><img src=https://index.zshipu.com/promo/funai-001.webp></a></li></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/categories/>分类</a></h3><ul class=widget-list></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/tags/>标签</a></h3><div class=tagcloud><a href=https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/>AI办公</a>
-<a href=https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/>AI编程</a>
-<a href=https://index.zshipu.com/ai002/tags/claude-code/>Claude Code</a>
-<a href=https://index.zshipu.com/ai002/tags/cli/>Cli</a>
-<a href=https://index.zshipu.com/ai002/tags/Cloudflare/>Cloudflare</a>
-<a href=https://index.zshipu.com/ai002/tags/codex/>Codex</a>
-<a href=https://index.zshipu.com/ai002/tags/cursor/>Cursor</a>
-<a href=https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/>DeepSeek V4 Pro</a>
-<a href=https://index.zshipu.com/ai002/tags/GitHub/>GitHub</a>
-<a href=https://index.zshipu.com/ai002/tags/Grok-4.6/>Grok 4.6</a>
-<a href=https://index.zshipu.com/ai002/tags/mcp/>Mcp</a>
-<a href=https://index.zshipu.com/ai002/tags/Origin/>Origin</a>
-<a href=https://index.zshipu.com/ai002/tags/Precursor/>Precursor</a>
-<a href=https://index.zshipu.com/ai002/tags/prompt/>Prompt</a>
-<a href=https://index.zshipu.com/ai002/tags/skills/>Skills</a>
-<a href=https://index.zshipu.com/ai002/tags/WorkSwarm/>WorkSwarm</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/>上下文工程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/>代码托管</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/>接入教程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/>提示词</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/>智能体</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/>机器人识别</a>
-<a href=https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/>网络安全</a>
-<a href=https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/>行为分析</a></div></section><section class=widget><h3 class=widget-title>友情链接</h3><ul class=widget-list><li><a target=_blank href=https://blog.zshipu.com// title=知识铺的博客>知识铺的博客</a></li></ul></section><section class=widget><h3 class=widget-title>其它</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/index.xml>文章 RSS</a></li></ul></section></div></div></div></div></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客 | 知识铺的博客</title>
+    <meta property="og:title" content="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-18T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-18T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客">
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/">
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#一仓库全景这不是一个小玩具">一、仓库全景：这不是一个&quot;小玩具&rdquo;</a></li>
+        <li><a href="#二核心架构一切皆插件连-agent-loop-本身都是插件">二、核心架构：一切皆插件，连 Agent Loop 本身都是插件</a></li>
+        <li><a href="#三事件驱动三类事件三种职责">三、事件驱动：三类事件，三种职责</a></li>
+        <li><a href="#四轮次与步骤agent-loop-的心脏">四、轮次与步骤：Agent Loop 的心脏</a></li>
+        <li><a href="#五能力-seam可替换能力的标准姿势">五、能力 Seam：可替换能力的标准姿势</a></li>
+        <li><a href="#六模型能看到什么内置工具生态盘点">六、模型能看到什么：内置工具生态盘点</a></li>
+        <li><a href="#七subagent-家族能真的拉起-claude-code--codex">七、Subagent 家族：能真的拉起 Claude Code / Codex</a></li>
+        <li><a href="#八安全与沙箱landlock--windows-acl--远程沙箱">八、安全与沙箱：Landlock + Windows ACL + 远程沙箱</a></li>
+        <li><a href="#九三种接入姿势web--cli--协议">九、三种接入姿势：Web / CLI / 协议</a></li>
+        <li><a href="#十评价与展望">十、评价与展望</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月18日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p><strong>项目</strong>: deepseek-ai/deepseek-harness（<code>dsh</code>）· MIT 协议 · 发布 2 天即获 4.1 万+ Star<br>
+<strong>核心设计</strong>: 一切皆插件（Everything is a Plugin），基于 vendored Cordis 构建</p>
+</blockquote>
+<p>2026 年 8 月 13 日，DeepSeek 官方在 GitHub 开源了 <strong>DeepSeek Harness</strong>（简称 <code>dsh</code>）——一个插件化的 Agent Harness（智能体框架），口号只有一句话：<strong>Everything is a Plugin</strong>。仓库发布两天 Star 数突破 4.1 万、Fork 3283，热度直逼年初 DeepSeek 开源大模型时的盛况。</p>
+<p>本文不部署、不跑 demo，直接对克隆下来的源码做一次架构级拆解：它到底&quot;新&quot;在哪、代码怎么组织、&ldquo;一切皆插件&quot;是怎么落到每一行代码上的。</p>
+<hr>
+<h3 id="一仓库全景这不是一个小玩具">一、仓库全景：这不是一个&quot;小玩具&rdquo;</h3>
+<p>先看几个硬数字（截至 2026-08-14 主分支）：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>数值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>包目录（<code>packages/</code>）</td>
+<td>54 个</td>
+</tr>
+<tr>
+<td>TypeScript 源文件</td>
+<td>1247 个（不含测试）</td>
+</tr>
+<tr>
+<td>TS 源码总行数</td>
+<td>约 20 万行</td>
+</tr>
+<tr>
+<td>Git 提交数</td>
+<td>12293 次</td>
+</tr>
+<tr>
+<td>主贡献者</td>
+<td>Tianyi Cui（5235 次提交）等</td>
+</tr>
+<tr>
+<td>版本</td>
+<td>0.1.0-rc.5（明确标注 Developer Preview，破坏性变更随时可能发生）</td>
+</tr>
+<tr>
+<td>许可证</td>
+<td>MIT</td>
+</tr>
+</tbody>
+</table>
+<p>技术栈上：<strong>Node.js + TypeScript（全 ESM）+ pnpm workspaces</strong>，前端是自研 Web UI（Vue 系组件库），另带一个 <strong>Python SDK</strong>（<code>python/sdk/</code>，走 JSON-RPC）。仓库还有 <code>native/</code>（Landlock 沙箱的 Node 插件）、<code>website/</code>（VitePress 文档站）。</p>
+<p>最值得注意的是<strong>代码质量工程化</strong>：每个 npm 包都是 <code>@deepseek-ai/dsh-*</code> 命名，单测要求<strong>每个源文件 100% 行覆盖率</strong>（CI 门禁），并且每个包都必须自带一个 <code>invariant</code>（运行时不变量断言模块）——这不是普通开源项目会做的自我要求。</p>
+<hr>
+<h3 id="二核心架构一切皆插件连-agent-loop-本身都是插件">二、核心架构：一切皆插件，连 Agent Loop 本身都是插件</h3>
+<p><code>dsh</code> 底层是 <strong>Cordis</strong>——一个插件化框架（源码直接 vendor 进仓库的 <code>vendor/cordis/</code>）。Cordis 的核心抽象是：</p>
+<ul>
+<li><strong>插件</strong>向共享上下文（<code>Context</code>）贡献服务（Service）、类型化事件（Event）和可逆副作用（Effect）；</li>
+<li>插件之间通过 <code>ctx.xxx</code> 键互相引用，注册即副作用，卸载自动撤销。</li>
+</ul>
+<p><code>dsh</code> 的产品层——模型适配器、工具注册表、会话日志、<strong>甚至 agent loop 本身</strong>——全部是插件。文档里原话：“不存在需要打补丁的特权内核：扩展 dsh 的方式是把插件挂载到其他插件旁边。”</p>
+<h4 id="profile-与组合包配置即组装">Profile 与组合包：配置即组装</h4>
+<p>运行中的 <code>dsh</code> 是一棵<strong>由多层配置叠加出来的插件树</strong>。核心概念：</p>
+<ul>
+<li><strong>Profile</strong>：存放在 Harness home 的具名组装，列出要叠放的组合包（<code>web</code>、<code>headless</code> 是随发行版交付的模板）；</li>
+<li><strong>Bundle（组合包）</strong>：Cordis 配置项 + 挂载代码的分发格式；</li>
+<li><strong>Patch</strong>：按 id 定位条目、替换整个 config 或插入新条目的覆盖机制。</li>
+</ul>
+<p>叠放顺序：<code>空条目列表 → profile 列出的各组合包 → profile 的 cordis.patch.yml → home 级 patch → --patch overlay</code>。也就是<strong>越晚叠的层权力越大</strong>，任何一条启动配置都能被你的 patch 替换。</p>
+<p><code>dsh-base</code> 是每个 profile 的第一层（模型、工具、持久化、沙箱、审批、设置、凭据、遥测），<code>dsh-web-app</code> 加浏览器应用，<code>dsh-headless</code> 提供无服务器的&quot;跑一次就退&quot;模式。</p>
+<hr>
+<h3 id="三事件驱动三类事件三种职责">三、事件驱动：三类事件，三种职责</h3>
+<p>事件是 dsh 的扩展点，选对事件域是改动的第一个决定：</p>
+<table>
+<thead>
+<tr>
+<th>事件域</th>
+<th>性质</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>会话事件</strong>（<code>session/event</code>）</td>
+<td>持久、追加式</td>
+<td>必须跨重启保留的事实：<code>turn/*</code>、<code>step/*</code>、<code>user/message</code>、<code>assistant/*</code>、<code>tool/*</code></td>
+</tr>
+<tr>
+<td><strong>Agent 事件</strong>（<code>agent/*</code>）</td>
+<td>实时</td>
+<td>携带活跃 Agent：inbox、步骤、状态、请求、验证、续跑</td>
+</tr>
+<tr>
+<td><strong>能力事件</strong>（<code>fs/*</code>、<code>tools/*</code>、<code>telemetry/*</code>）</td>
+<td>实时</td>
+<td>给 seam 附加策略和适配器，避免导入循环</td>
+</tr>
+</tbody>
+</table>
+<p><strong>设计铁律：“模型可见即已记录。”</strong> 抵达模型请求的一切都必须能从会话日志重建，运行时不变量断言这一点。所以新增一项模型可见输入，就必须新增一个会话事件。这保证了 fork、恢复、transcript、遥测都能从同一份事件流派生——日志是唯一的真相源。</p>
+<hr>
+<h3 id="四轮次与步骤agent-loop-的心脏">四、轮次与步骤：Agent Loop 的心脏</h3>
+<p><code>packages/core/agent-loop/</code> 里是默认驱动器 <code>ReactLoopAgent</code>（约 500 行，<code>agent.ts</code>）。术语先厘清：</p>
+<ul>
+<li><strong>步骤（Step）</strong> = 一次模型请求 + 它调用的工具；</li>
+<li><strong>轮次（Turn）</strong> = 零到多个步骤，领取首条输入时打开，不再欠任何工作时关闭。</li>
+</ul>
+<p>轮次流程（简化）：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-text" data-lang="text"><span style="display:flex;"><span>turn/start → 领取下一条输入 + 一条排队消息 → agent/pre-step（waterfall：监听器可改写消息或直接拒绝） → step/start → 从日志派生模型历史 → agent/request → llm/stream → assistant/chunk* → assistant/message → tool/call* → tools/pre-execute → tools/execute → tools/post-execute → tool/result* → step/end → 工具还欠请求？或有新输入？→ 再领取 → 下一个 step → agent/turn-stopping（serial，唯一没有 next() 的检查点） turn/end
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>几个值得注意的工程细节：</p>
+<ol>
+<li><strong>waterfall vs serial 事件</strong>：<code>agent/pre-step</code>、<code>agent/request</code>、<code>llm/stream</code>、<code>tools/*</code> 是 waterfall 事件，监听器必须调用 <code>next()</code> 才能委托给下游——这是实现&quot;拦截/改写&quot;的机制；<code>agent/turn-stopping</code> 是 serial 事件，专门用于&quot;是否该停&quot;的终检。</li>
+<li><strong>空内容也记账</strong>：<code>assistant/message</code> 会记录每次成功的提供方调用，包括返回空内容或以 max-tokens 结束的调用——空内容不进派生历史，但用量保留，<code>sourceEventSeqs</code> 精确对应 chunk 事件。</li>
+<li><strong>错误恢复有专门路径</strong>：<code>agent/request-error</code> 处理规范上下文溢出，先做可选的工具结果剪枝，再选摘要；只有恢复真正推进了版本才会开新重试轮次。</li>
+<li><strong>输入走统一 inbox</strong>：注入的上下文留在 inbox 里等待唤醒，steering（中途引导）与注入消息经过同一个 <code>agent/pre-step</code> waterfall。</li>
+</ol>
+<hr>
+<h3 id="五能力-seam可替换能力的标准姿势">五、能力 Seam：可替换能力的标准姿势</h3>
+<p>一个 <strong>seam</strong> 是 dsh 里&quot;可替换能力&quot;的完整形态，包含三个角色：</p>
+<ol>
+<li><strong>Service Definition</strong>：声明接口；</li>
+<li><strong>Service Provider</strong>：实现它；</li>
+<li><strong>Consumer</strong>：使用它（通常是面向模型的工具）。</li>
+</ol>
+<p><strong>换一个 Provider 就换掉整个产品能力</strong>——这是 dsh 最优雅的设计。文档举的例子：文件系统与进程 Provider 共享同一个执行世界，把 <code>ctx.fs</code> 指向远程沙箱（E2B），Bash、PTY、LSP 就全部一起搬过去了，不需要为每个能力写专门的 fork。</p>
+<p>代码里对应的真实结构：</p>
+<ul>
+<li><code>packages/fs/</code>：fs 能力家族（fs + fs-e2b + fs-observation-policy 等）</li>
+<li><code>packages/shell/</code>：bash 能力（bash-local / bash-sandbox）</li>
+<li><code>packages/subagent/</code>：<strong>subagent 能力家族，支持 6 种 Provider</strong></li>
+<li><code>packages/web/</code>：web 搜索/抓取（deepseek / exa / perplexity 三个 Provider + http fetch）</li>
+<li><code>packages/sandbox/</code>：进程沙箱（local Landlock / windows-acl / policy）</li>
+<li><code>packages/llm/</code>：模型适配器（deepseek / pi-ai / retry）</li>
+</ul>
+<hr>
+<h3 id="六模型能看到什么内置工具生态盘点">六、模型能看到什么：内置工具生态盘点</h3>
+<p><code>docs/tool-catalog.md</code> 是<strong>生成式目录</strong>——不是手写文档，而是&quot;启动每个工具插件、读取真实 <code>ctx.tools.schemas()</code>&ldquo;生成。这本身就说明工具注册是运行时行为。内置工具全家桶（24 个工具族）：</p>
+<p><strong>文件与代码</strong></p>
+<ul>
+<li><code>read</code> / <code>write</code> / <code>edit</code> / <code>read_image</code>（fs，配合&quot;先读后写&quot;策略插件）</li>
+<li><code>glob</code> / <code>grep</code>（打包了 ripgrep 二进制，不依赖宿主安装）</li>
+<li><code>run_code</code>（代码模式保留传输通道，支持并发子调用）</li>
+<li><code>str_replace_editor</code>（独立文本编辑工具）</li>
+<li><code>lsp</code>（语言服务器，provider 可换）</li>
+</ul>
+<p><strong>执行与终端</strong></p>
+<ul>
+<li><code>bash</code> / <code>pwsh</code>（一次性命令）</li>
+<li><code>terminal_open/read/send/...</code> 六个工具（持久 PTY 终端）</li>
+<li><code>job_list</code> / <code>job_kill</code> / <code>job_output</code>（后台任务，bash/PTY/subagent 通用）</li>
+</ul>
+<p><strong>协作与智能体</strong></p>
+<ul>
+<li><code>subagent</code> / <code>subagent_fork</code>（委派子 agent，支持后台可续跑）</li>
+<li><code>send_message</code> / <code>interrupt_agent</code> / <code>list_agents</code>（子 agent 控制）</li>
+<li><code>report</code>（子级向父级汇报）</li>
+<li><code>create_goal</code> / <code>get_goal</code> / <code>update_goal</code>（目标管理，带轮次上限）</li>
+<li><code>ask_user_question</code>（暂停工具调用，等 UI 返回人类回答）</li>
+</ul>
+<p><strong>信息与记忆</strong></p>
+<ul>
+<li><code>web_fetch</code> / <code>web_search</code>（provider 可换）</li>
+<li><code>skill</code>（技能加载）</li>
+<li><code>session_search</code> / <code>session_event_read</code> 等 5 个（会话查询，只读）</li>
+<li><code>todo_write</code>（待办清单）</li>
+<li><code>schedule_create/list/delete</code>（会话内提醒）</li>
+</ul>
+<p><strong>自指（最激进的一组）</strong></p>
+<ul>
+<li><code>cordis_define</code> / <code>cordis_run</code> / <code>cordis_stop</code> / <code>cordis_inspect_*</code>：让 Agent <strong>在运行时定义、启动、停止自己的插件</strong>。默认不进任何发行树（刻意 opt-in），但仓库的 <code>web-cordis</code> 示例演示了一个能检查并修改内存中 Cordis 插件树的&quot;自指 agent&rdquo;。这是 dsh 区别于其他框架的标志性能力。</li>
+</ul>
+<hr>
+<h3 id="七subagent-家族能真的拉起-claude-code--codex">七、Subagent 家族：能真的拉起 Claude Code / Codex</h3>
+<p><code>packages/subagent/</code> 把&quot;委派&quot;做成了一个完整的可插拔能力：</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>subagent-spawn-in-process</code></td>
+<td>全新进程内子 agent</td>
+</tr>
+<tr>
+<td><code>subagent-fork-in-process</code></td>
+<td>从父 agent 历史 fork 出子 agent</td>
+</tr>
+<tr>
+<td><code>subagent-acp</code></td>
+<td>通过 ACP 协议启动<strong>进程外</strong>子 agent</td>
+</tr>
+<tr>
+<td><code>subagent-codex</code></td>
+<td>启动真实 Codex app-server 子 agent</td>
+</tr>
+<tr>
+<td><code>subagent-claude-code</code></td>
+<td>通过官方 Claude Agent SDK 启动真实 Claude Code</td>
+</tr>
+<tr>
+<td><code>subagent-dsh-sdk</code></td>
+<td>通过 TypeScript SDK 启动进程外 Harness 子 agent</td>
+</tr>
+</tbody>
+</table>
+<p>也就是说，dsh 里的 Agent 可以把活儿委派给<strong>另一个产品</strong>（Claude Code、Codex）当子 agent——多智能体编排在 seam 抽象下变成&quot;选 Provider&quot;的问题。</p>
+<hr>
+<h3 id="八安全与沙箱landlock--windows-acl--远程沙箱">八、安全与沙箱：Landlock + Windows ACL + 远程沙箱</h3>
+<ul>
+<li><code>sandbox-local</code>：Linux 上用 <strong>Landlock</strong>（通过 native Node 插件）限制子进程，支持逐会话策略（<code>sandbox-policy</code> 解析持久策略）；</li>
+<li><code>sandbox-windows-acl</code>：Windows 的 ACL 方案；</li>
+<li><code>e2b</code> / <code>fs-e2b</code> / <code>subprocess-e2b</code>：把文件系统与子进程 Provider 指向 E2B 远程沙箱——<strong>一个替换，所有能力一起隔离</strong>，正是 seam 设计的红利；</li>
+<li>hooks 家族（<code>hooks-claude-code</code> / <code>hooks-codex</code>）：兼容 Claude Code / Codex 的 hook 协议，让 dsh 能接入既有工具链的钩子事件。</li>
+</ul>
+<hr>
+<h3 id="九三种接入姿势web--cli--协议">九、三种接入姿势：Web / CLI / 协议</h3>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>npx @deepseek-ai/dsh web <span style="color:#998;font-style:italic"># Web UI，默认 http://127.0.0.1:3080 npx @deepseek-ai/dsh headless &#34;task&#34; # 一次性跑任务，无服务器</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>examples/</code> 里 6 个可运行 demo：</p>
+<ul>
+<li><code>headless-agent</code>：非交互式，接受任务 → 输出结果；</li>
+<li><code>acp-agent</code>：ACP（Agent Client Protocol）自动化服务器，面向程序化客户端；</li>
+<li><code>jsonrpc-agent</code>：Python SDK + JSON-RPC 驱动的无人值守编码 agent；</li>
+<li><code>mcp-memory</code>：通用 MCP 客户端连第三方记忆服务器；</li>
+<li><code>web-cordis</code>：自指 agent；</li>
+<li><code>web-schedule</code>：会话内提醒。</li>
+</ul>
+<p>Python SDK（<code>python/sdk/</code>，<code>hatch</code>/<code>uv</code> 管理）提供了 <code>deepseek_harness.api</code> / <code>client</code> / <code>models</code> 等封装，让 Python 侧可以直接驱动 Harness。</p>
+<hr>
+<h3 id="十评价与展望">十、评价与展望</h3>
+<p><strong>亮点</strong></p>
+<ol>
+<li><strong>架构纯度罕见</strong>：把 “一切皆插件” 贯彻到连 agent loop、模型适配器、会话日志都是插件，配置（patch 叠层）与代码（插件注册）统一成一套组合模型。这是很多号称&quot;可扩展&quot;的框架做不到的——它们通常只是给核心留几个回调钩子。</li>
+<li><strong>事件即契约</strong>：&ldquo;模型可见即已记录&quot;的运行时不变式，让整个系统可以从日志重建、fork、回放，这是一套认真思考过可观测性的设计。</li>
+<li><strong>seam 三件套</strong>：Definition / Provider / Consumer 的严格分工，让&quot;替换 E2B 沙箱 = 整体迁移能力&quot;这种全局替换成为可能。</li>
+<li><strong>工程纪律</strong>：100% 覆盖率门禁、每包 invariant、生成式目录文档、双语文档配对——工程化水平在开源 AI 项目里属于第一梯队。</li>
+</ol>
+<p><strong>风险与不足</strong></p>
+<ol>
+<li><strong>Developer Preview</strong>：0.1.0-rc.5，官方明说&quot;破坏性变更随时发生&rdquo;，SQLite schema 用单调版本号、会话格式版本无兼容承诺——现在不适合作为生产依赖。</li>
+<li><strong>重度绑定 Cordis</strong>：vendor 了 Cordis 源码（rescope 成私有包），框架选型一旦深入，迁移成本很高。</li>
+<li><strong>门槛</strong>：约 20 万行 TS、54 个包，插件开发需要吃透事件域和 seam 体系，文档虽全但学习曲线陡。</li>
+<li><strong>生态未起</strong>：<code>dsh-plugin</code> topic 刚开放，第三方插件还很少；对模型提供方目前默认 DeepSeek 系（deepseek / pi-ai）。</li>
+</ol>
+<p><strong>一句话总结</strong>：DeepSeek Harness 不是又一个&quot;Agent 框架&quot;，而是把&quot;框架本身&quot;也变成了可插拔组合的<strong>Agent 操作系统</strong>。它现在最大的价值是给 Agent 工程社区提供了一个极其干净的架构范本——而 0.1.0 的版本号意味着，真正的生态故事才刚刚开始。</p>
+<hr>
+<blockquote>
+<p><strong>参考</strong>: 分析基于 <code>deepseek-ai/deepseek-harness</code> @ 47f943859b（2026-08-14 克隆），README.zh.md / docs/architecture.zh.md / docs/agent-lifecycle.zh.md / docs/tool-catalog.md / packages/core/agent-loop 源码等。</p>
+<p><strong>作者</strong>: 喵本喵叁肆 · 技术博客 | 欢迎关注、收藏、评论区交流</p>
+</blockquote>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/">https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260815/Codex-%E7%8B%AC%E7%AB%8B-App-%E6%9D%A5%E4%BA%86%E8%BF%99%E6%98%AF%E4%B8%80%E4%B8%AA%E6%96%B0%E4%B8%9C%E8%A5%BF/">Codex 独立 App 来了，这是一个新东西</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li>
+        
+        <li><a href="/ai002/post/20260817/Code-Graph-RAG-0.0.593-%E5%AE%9E%E6%B5%8B%E7%BB%99-Coding-Agent-%E5%8A%A0%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%80%BC%E4%B8%8D%E5%80%BC%E5%BE%97%E5%A4%9A%E5%85%BB%E4%B8%A4%E4%B8%AA%E6%95%B0%E6%8D%AE%E5%BA%93/">Code-Graph-RAG 0.0.593 实测：给 Coding Agent 加知识图谱，值不值得多养两个数据库？</a></li>
+        
+        <li><a href="/ai002/post/20260817/%E7%94%A8-WorkBuddy-Obsidian-LLM-Wiki-%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E9%95%BF%E6%9C%9F%E7%9F%A5%E8%AF%86%E7%B3%BB%E7%BB%9F-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/">用 WorkBuddy &#43; Obsidian &#43; LLM Wiki 搭建个人长期知识系统 - 今日头条</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/claude-code'>claude code</a></li>
+                
+                <li><a href='/ai002/tags/cli'>cli</a></li>
+                
+                <li><a href='/ai002/tags/codex'>codex</a></li>
+                
+                <li><a href='/ai002/tags/mcp'>mcp</a></li>
+                
+                <li><a href='/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93'>智能体</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Claude-Code-%E7%BC%A9%E5%87%8F%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6%E5%BC%80%E5%8F%91%E8%80%85%E5%A6%82%E4%BD%95%E5%BA%94%E5%AF%B9/" title="Claude Code 缩减免费额度，开发者如何应对？">Claude Code 缩减免费额度，开发者如何应对？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Java%E7%94%9F%E6%80%81%E5%8A%A8%E6%80%81Shenandoah-GC%E6%94%B9%E8%BF%9BTeamCity%E6%BC%8F%E6%B4%9E%E4%B8%8EA2A-SDK/" title="Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK">Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E7%99%BE%E8%A1%8C%E4%BB%A3%E7%A0%81%E6%9E%84%E5%BB%BA%E5%8E%9F%E7%94%9F%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89%E8%83%BD%E5%90%A6%E6%8C%91%E6%88%98AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/" title="百行代码构建原生编码代理：极简主义能否挑战AI编程助手？">百行代码构建原生编码代理：极简主义能否挑战AI编程助手？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90%E4%B8%BA%E4%BD%95%E7%94%A8-Apache-Doris-%E6%9B%BF%E6%8D%A2-Elasticsearch/" title="腾讯音乐为何用 Apache Doris 替换 Elasticsearch">腾讯音乐为何用 Apache Doris 替换 Elasticsearch</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/" title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/" title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/" title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/" title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/" title="Cursor发布代码托管平台Origin，恰逢GitHub宕机">Cursor发布代码托管平台Origin，恰逢GitHub宕机</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/" title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

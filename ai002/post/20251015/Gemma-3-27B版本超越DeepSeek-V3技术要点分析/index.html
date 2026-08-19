@@ -1,34 +1,637 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content="IE=edge"><meta name=viewport content="width=device-width,initial-scale=1"><title>Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ | 知识铺的博客</title>
-<meta property="og:title" content="Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ - 知识铺的博客"><meta property="og:type" content="article"><meta property="article:published_time" content='2025-10-16T23:40:46+08:00'><meta property="article:modified_time" content='2025-10-16T23:40:46+08:00'><meta name=Keywords content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序"><meta name=description content="Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ --知识铺"><meta name=author content="知识铺"><meta property="og:url" content="https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/"><link rel="shortcut icon" href=/ai002/favicon.ico type=image/x-icon><link rel=stylesheet href=/ai002/css/normalize.css><link rel=stylesheet href=/ai002/css/style.css><script type=text/javascript src=//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js></script><script data-ad-client=ca-pub-2874221941555456 async src=https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js></script><script>(function(e,t,n,s,o){e[s]=e[s]||[],e[s].push({"gtm.start":(new Date).getTime(),event:"gtm.js"});var a=t.getElementsByTagName(n)[0],i=t.createElement(n),r=s!="dataLayer"?"&l="+s:"";i.async=!0,i.src="https://www.googletagmanager.com/gtm.js?id="+o+r,a.parentNode.insertBefore(i,a)})(window,document,"script","dataLayer","GTM-WLWJSST")</script><script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date),gtag("config","G-BY5XJ2PJ93")</script></head><body><noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST" height=0 width=0 style=display:none;visibility:hidden></iframe></noscript><header id=header class=clearfix><div class=container><div class=col-group><div class=site-name><a id=logo href=https://index.zshipu.com/ai002/>知识铺的博客</a><p class=description>专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p></div><div><nav id=nav-menu class=clearfix><a class=current href=https://index.zshipu.com/ai002/>首页</a>
-<a href=https://index.zshipu.com/ai001/ title=AI技术>AI技术</a>
-<a href=https://index.zshipu.com title=总站>总站</a>
-<a href=https://index.zshipu.com/ai002/archives/ title=归档>归档</a>
-<a href=https://index.zshipu.com/ai002/about/ title=关于>关于</a></nav></div></div></div></header><div id=body><div class=container><div class=col-group><div class=col-8 id=main><div class=res-cons><style type=text/css>.post-toc{position:fixed;width:200px;margin-left:-210px;padding:5px 10px;font-family:Athelas,STHeiti,Microsoft Yahei,serif;font-size:12px;border:1px solid rgba(0,0,0,7%);border-radius:5px;background-color:rgba(255,255,255,.98);background-clip:padding-box;-webkit-box-shadow:1px 1px 2px rgba(0,0,0,.125);box-shadow:1px 1px 2px rgba(0,0,0,.125);word-wrap:break-word;white-space:nowrap;-webkit-box-sizing:border-box;box-sizing:border-box;z-index:999;cursor:pointer;max-height:70%;overflow-y:auto;overflow-x:hidden}.post-toc .post-toc-title{width:100%;margin:0 auto;font-size:20px;font-weight:400;text-transform:uppercase;text-align:center}.post-toc .post-toc-content{font-size:15px}.post-toc .post-toc-content>nav>ul{margin:10px 0}.post-toc .post-toc-content ul{padding-left:20px;list-style:square;margin:.5em;line-height:1.8em}.post-toc .post-toc-content ul ul{padding-left:15px;display:none}@media print,screen and (max-width:1057px){.post-toc{display:none}}</style><div class=post-toc style=position:absolute;top:188px><h2 class=post-toc-title>文章目录</h2><div class=post-toc-content><nav id=TableOfContents><ul><li><a href=#gemma-3-的模型架构与训练方法><strong>Gemma 3 的模型架构与训练方法</strong></a></li><li><a href=#gemma-3性能以及评估><strong>Gemma 3性能以及评估</strong></a><ul><li><a href=#lmsys-chatbot-arena评分><strong>LMSYS Chatbot Arena评分</strong></a></li><li><a href=#标准基准测试><strong>标准基准测试</strong></a></li><li><a href=#gemma-3-27b-在-pareto-甜点区><strong>Gemma 3 27B 在 pareto 甜点区</strong></a></li><li><a href=#消融实验><strong>消融实验</strong></a></li></ul></li><li><a href=#gemma-3总结><strong>Gemma 3总结</strong></a></li></ul></nav></div></div><script type=text/javascript>$(document).ready(function(){if(e=$(".post-toc"),e.length){t=$("#main").offset().left,t<220&&e.css({width:t-10,"margin-left":0-t});var e,t,n=e.offset().top-20,s={start:{position:"absolute",top:n},process:{position:"fixed",top:20}};$(window).scroll(function(){var t=$(window).scrollTop();t<n?e.css(s.start):e.css(s.process)})}})</script><article class=post><header><h1 class=post-title>Gemma 3 27B版本超越DeepSeek V3：技术要点分析！</h1></header><date class="post-meta meta-date">2025年10月16日</date><div class=post-meta><span id=busuanzi_container_page_pv>|<span id=busuanzi_value_page_pv></span><span>
-阅读</span></span></div><div class=post-content><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/5970820251017080113mRjOscha.jpg></p><p>Gemma是来自Google的一个轻量级模型系列，基于 Gemini 技术构建。2025年3月12日，也就是昨天，Google 发布了 Gemma 3，这是他们 Gemma 系列模型的新一代。Gemma 3模型是多模态的——可以处理文本和图像——并具有 <strong>128K的上下文窗口</strong>，<strong>支持超过140种语言</strong>。它们有1B、4B、12B 和27B参数大小的版本，在问答、摘要和推理等任务中表现出色，同时其紧凑的设计允许部署在资源有限的设备上。</p><blockquote><p>谷歌自称评分高于deepseek v3，现在小模型越来越厉害了，前有qwq-32b，后有gemma3，再精简精简端侧运行似乎也没什么障碍。</p></blockquote><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7659020251017080113kza74jkg.jpg></p><blockquote><p>HuggingFace Gemma3模型权重合集</p></blockquote><p>Gemma 3 是 Google 最新的开放权重大型语言模型。它有四种尺寸，分别是 10 亿、40 亿、120 亿 和 270 亿 参数，包含基础（预训练）和指令调优版本。Gemma 3 支持 多模态！ <strong>4B亿、12B和 27B参数的模型可以处理 图像 和 文本，而1B参数的模型仅限于文本。</strong></p><ul><li>项目官网：<strong><a href="https://zshipu.com/t/?url=https://developers.googleblog.com/en/introducing-gemma3/">https://developers.googleblog.com/en/introducing-gemma3/</a></strong></li><li>HuggingFace模型库：<strong><a href="https://zshipu.com/t/?url=https://huggingface.co/collections/google/gemma-3-release-67c6c6f89c4f76621268bb6d">https://huggingface.co/collections/google/gemma-3-release-67c6c6f89c4f76621268bb6d</a></strong></li><li>技术报告：<strong><a href="https://zshipu.com/t/?url=https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf">https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf</a></strong></li><li>Ollma地址：<strong><a href="https://zshipu.com/t/?url=https://ollama.com/library/gemma3">https://ollama.com/library/gemma3</a></strong></li></ul><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/4661020251017080113W65L83ou.jpg></p><blockquote><p>Ollma Gemma3模型权重合集</p></blockquote><h2 id=gemma-3-的模型架构与训练方法><strong>Gemma 3 的模型架构与训练方法</strong></h2><p>Gemma 3 支架了Gemma 系列的解码器专用Transformer架构，并在架构和训练上进行了化：</p><ol><li><p><strong>架构与 Gemma 2 的差异：</strong><br>为了降低长上下的记忆体需求，Gemma 3 模型在架构中交错使用了局部滑动窗口自注意力层和全域自注意力层，比例为 5:1，即每 5 个局部层布局 1 个全域层。局部层的跨度被限制在 1024 个 token，只有全域处理层长。 <strong>这样做添加了更多滑动窗口，以减少 KV 缓存负担！实验表明 5:1 的比例效果最佳，而 7:1 也能正常工作。SWA 设为 1024，实验显示 1024 至 2048 之间的值均可行。</strong></p></li><li><p><strong>训练与后训练：</strong><br>Gemma-3 使用 TPU 进行训练，并结合 Zero-3 类算法与 JAX。27B 版本在 14 万亿 tokens 上训练，12B 版本训练数据为 12T，4B 版本为 4T，1B 版本为 2T。所有版本在强化学习（RL）/后训练阶段都使用了蒸馏（distillation），每个 token 采样了 256 个 logits，来自更大的指令模型（具体不明，可能是闭源模型）。强化学习阶段采用 BOND、WARM 和 WARP 算法。</p></li><li><p><strong>对话模板（Chat Template）调整：</strong><br>现在对话模板强制包含 BOS（Begin of Sentence）起始标记！格式采用 <code>&lt;start_of_turn>user</code> 和 <code>&lt;start_of_turn>model</code>。词汇表大小为 262K，使用 SentencePiece 分词器，支持拆分数字、保留空格，并具有字节回退机制（byte fallback）。</p></li><li><p><strong>长上下文 & 视觉编码器（Vision Encoder）：</strong><br>训练过程中从 32K 上下文扩展到 128K，上下文旋转位置编码（RoPE）缩放因子为 8。视觉编码器采用“Pan & Scan”算法，固定分辨率为 896 × 896，并在推理时使用窗口化（windowing）以支持其他尺寸。</p></li><li><p><strong>多语言支持</strong> 为了让大型语言模型支持多种语言，预训练数据集包含了更多的语言。Gemma 3 的数据集包含 两倍 的多语言数据，以提高语言覆盖率。为了适应这些变化，分词器与 Gemini 2.0 相同。这是一个包含 262K 条目的 SentencePiece 分词器，并采用了过滤技术来降低模型产生危害或不安全输出的风险。新的分词器显著提高了对中文、日文和韩文文本的编码，但英文和代码的标记数量略有增加。</p></li></ol><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/31052202510170801139y7S6egY.jpg></p><h2 id=gemma-3性能以及评估><strong>Gemma 3性能以及评估</strong></h2><blockquote><p>Google声称，Gemma 3 是「世界上最好的单加速器模型」，在配备单个GPU 的主机上的性能表现超越了Facebook 的Llama、DeepSeek 和OpenAI 等竞争对手。具体来说，Gemma 3 27B 在Chatbot Arena Elo 分数测试中排名第二，仅次于DeepSeek-R1。它超过了DeepSeek 的较小模型、DeepSeek v3、OpenAI 的o3-mini、Meta 的Llama-405B 和Mistral Large。</p></blockquote><h3 id=lmsys-chatbot-arena评分><strong>LMSYS Chatbot Arena评分</strong></h3><blockquote><p>LMSys Elo 分数是一个数字，根据模型在双人竞赛中的表现（由人类偏好评判）来排名。</p></blockquote><p>LMSYS Chatbot Arena的人类盲测评估中位居前十的 Gemma 3 27B IT 模型，超越了许多更大规模的开源模型，例如 DeepSeek-V3、LLaMA 3 405B 和 Qwen2.5–70B。</p><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7871020251017080113M460GOiO.jpg></p><blockquote><p>该图表根据Chatbot Arena Elo 分数对AI 模型进行排名；分数越高（顶部数字）表示用户偏好越高。圆点表示预估的NVIDIA H100 GPU 需求。 Gemma 3 27B 排名靠前，尽管其他模型需要多达32 个GPU，但它仅需单个GPU 即可运行。</p></blockquote><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/3536120251017080113f5DXsYlT.jpg></p><p>在 LMSys Chatbot Arena 中，Gemma 3 27B IT 报告的 Elo 分数为 1339，并在包括领先封闭模型在内的前十名模型中排名。该分数与 o1-preview 相当，并且高于其他 非思维 开放模型。这个分数是在 Gemma 3 仅处理文本输入时获得的，就像表中的其他 LLM 一样。</p><h3 id=标准基准测试><strong>标准基准测试</strong></h3><p>在标准基准测试中，Gemma 3 IT模型在各项能力上都超越了Gemma 2 和 Gemini 2.0。</p><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/9757820251017080113a4H7vwoS.jpg></p><p>Gemma 3 在 MMLU-Pro（27B: 67.5）、LiveCodeBench（27B: 29.7）和 Bird-SQL（27B: 54.4）等基准测试中表现出竞争力，与封闭的 Gemini 模型相比性能相当。GPQA Diamond（27B: 42.4）和 MATH（27B: 69.0）等测试突显了其推理和数学能力，而 FACTS Grounding（27B: 74.9）和 MMMU（27B: 64.9）则展示了其强大的事实接地能力。</p><h3 id=gemma-3-27b-在-pareto-甜点区><strong>Gemma 3 27B 在 pareto 甜点区</strong></h3><p>Google表示，当前的Gemma 3 27B 已经处于帕累托最优点。</p><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/85307202510170801131Dduigrl.jpg></p><blockquote><p>在 AI 领域，Pareto 甜点区（Pareto Frontier, Sweet Spot） 这个概念指的是在 计算资源（成本） 和 性能（效果） 之间的最佳平衡点。</p></blockquote><h3 id=消融实验><strong>消融实验</strong></h3><p>研究团队进行了详细的消融实验，验证了局部/全域注意力层比例、滑动窗口大小、长上下文扩展、教师模型规模以及视觉编码解析器解析度等架构和训练策略对模型认知和记忆体占用的影响。实验结果证明了Gemma 3架构设计的有效性，特别是在降低KV-cache记忆体占用和支持长上下文方面的优势。</p><p><img class=mx-auto alt src=https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7772520251017080114fa5stbck.jpg></p><p>Gemma 3 通过增加“局部注意力层（local attention layers）”相较于全局注意力层（global attention layers）的比例，并缩短局部注意力的跨度（仅 1024 个 tokens），减少了长上下文时 KV 缓存爆炸问题。</p><h2 id=gemma-3总结><strong>Gemma 3总结</strong></h2><p><strong>Gemma 3作为Gemma系列的最新迭代，带来了以下几个关键的进步：</strong></p><ul><li><strong>多模态能力：</strong> Gemma 3整合了视觉理解能力，能够处理图像输入，扩展了模型的应用范围。它采用了SigLIP视觉编码器的客制化版本，将转换为模型可以理解的令牌序列。为了降低图像处理的成本，嵌入被压缩为固定大小，并采用Pan & Scan (P&amp;S)方法来处理不同解析度的图像。</li><li><strong>长上下文处理：</strong> Gemma 3 显着提升了上下文处理能力，支持至少 128K tokens 的长度，1B 模型也支持 32K tokens。为了应对长上下文带来的 KV-cache 记忆体爆炸问题，Gemma 3 采用了新的架构设计，增加了局部焦点层与全域焦点层的区域，并聚焦了局部焦点层的跨度，有效降低了记忆体占用。</li><li><strong>更广泛的语言覆盖：</strong> Gemma 3在多语言能力方面进行了强化，重新调整了训练数据的组成，增加了多语言数据的比例，提升了模型在不同语言上的能力。</li><li><strong>卓越的表现：</strong> Gemma 3 模型训练知识调整进行训练，在预和指令驱动版本上都表现出比 Gemma 2 更优异的表现。特别是，开发团队采用了创新的后期训练方法，显着提升了模型在数学、聊天、指令遵循和多语言能力方面的表现，使得 Gemma3–4B-IT 的相当漂亮 Gemma2–27B-IT，而 Gemma3–27B-IT 则可与Gemini-1.5-Pro 相提并论。</li><li><strong>开源发布：</strong> Google DeepMind将所有Gemma 3模型开源发布，供社群使用，促进了AI技术的普及和发展。</li></ul></div><div class=post-archive><ul class=post-copyright><li><strong>原文作者：</strong><a rel=author href=https://index.zshipu.com/ai002/>知识铺</a></li><li style=word-break:break-all><strong>原文链接：</strong><a href=https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/>https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/</a></li><li><strong>版权声明：</strong>本作品采用<a rel=license href=https://creativecommons.org/licenses/by-nc-nd/4.0/>知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li><li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li></ul></div><br><div class=post-archive><h2>See Also</h2><ul class=listing><li><a href=/ai002/post/20251015/%E8%B0%B7%E6%AD%8C-Gemini-3-%E5%8F%91%E5%B8%83%E6%97%A5%E6%9C%9F%E7%96%91%E4%BC%BC%E6%9B%9D%E5%85%89%E7%AC%AC%E4%B8%80%E6%B3%A2%E5%AE%9E%E6%B5%8B%E6%95%88%E6%9E%9C%E6%83%8A%E8%89%B3/>谷歌 Gemini 3 发布日期疑似曝光，第一波实测效果惊艳！</a></li><li><a href=/ai002/post/20251015/Gemini-3-%E6%9C%80%E6%96%B0%E5%AE%9E%E6%B5%8B%E6%9B%9D%E5%85%89%E8%BF%99%E6%AC%A1%E8%BD%AE%E5%88%B0-OpenAI-%E9%A2%A4%E6%8A%96%E4%BA%86/>Gemini 3 最新实测曝光，这次轮到 OpenAI 颤抖了</a></li><li><a href=/ai002/post/20251015/Claude-4-%E5%9B%BD%E5%86%85%E4%BD%BF%E7%94%A8%E5%85%A8%E6%94%BB%E7%95%A5%E6%94%AF%E6%8C%81Claude-4-Sonnet%E7%9B%B4%E6%8E%A5%E4%BD%93%E9%AA%8C2025%E5%B9%B410%E6%9C%88%E6%9C%80%E6%96%B0/>Claude 4 国内使用全攻略（支持Claude-4-Sonnet，直接体验！）【2025年10月最新】</a></li><li><a href=/ai002/post/20251015/AI%E8%BF%99%E4%B9%88%E7%81%AB%E7%9C%9F%E6%9C%89%E4%BA%BA%E7%94%A8AI%E6%8C%A3%E5%88%B0%E9%92%B1%E5%90%97%E5%93%AA%E6%80%95100%E5%9D%97/>AI这么火，真有人用AI挣到钱吗？哪怕100块</a></li><li><a href=/ai002/post/20251015/%E4%B8%80%E6%AC%A1%E6%80%A7%E6%8A%93%E5%88%B0%E4%B8%89%E4%B8%AA%E7%94%A8AI%E5%86%99%E4%BD%9C%E6%96%87%E7%9A%84/>一次性抓到三个用AI写作文的</a></li></ul></div><div class="post-meta meta-tags">没有标签</div></article><div class="post bg-white"><script src=https://utteranc.es/client.js repo=zshipu/zshipu-index issue-term=pathname theme=github-light crossorigin=anonymous async></script></div></div><footer id=footer><div>&copy; 2026 <a href=https://index.zshipu.com/ai002/>知识铺的博客 By 知识铺</a>
-| <a rel=nofollow target=_blank href=https://beian.miit.gov.cn/>浙 ICP 备19032823号-3</a>
-| <a href=https://zshipu.com/privacy/index.html>隐私权政策</a></div><br><div><div class=github-badge><a href=https://gohugo.io/ target=_black rel=nofollow><span class=badge-subject>Powered by</span><span class="badge-value bg-blue">Hugo</span></a></div><div class=github-badge><a href=https://www.flysnow.org/ target=_black><span class=badge-subject>Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a></div><div class=github-badge><a href=https://github.com/flysnow-org/maupassant-hugo target=_black><span class=badge-subject>Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a></div></div></footer><script type=text/javascript>window.MathJax={tex2jax:{inlineMath:[["$","$"]],processEscapes:!0}}</script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script><a id=rocket href=#top></a><script type=text/javascript src='/ai002/js/totop.js?v=0.0.0' async></script><script type=text/javascript src=//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js async></script></div><div id=secondary><section class=widget><form id=search action=https://index.zshipu.com/ai002/search/ method=get accept-charset=utf-8 target=_blank _lpchecked=1><input type=text name=q maxlength=20 placeholder=Search>
-<input type=hidden name=sitesearch value=https://index.zshipu.com/ai002/>
-<button type=submit class="submit icon-search"></button></form></section><section class=widget><h3 class=widget-title>最近文章</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/ title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/ title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤+5 个实测案例） - 知乎</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/ title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/ title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/ title=Cursor发布代码托管平台Origin，恰逢GitHub宕机>Cursor发布代码托管平台Origin，恰逢GitHub宕机</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/ title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-15-%E4%B8%87%E6%98%9F%E7%94%9F%E6%80%81%E4%BB%8E%E7%99%BE%E8%8A%B1%E9%BD%90%E6%94%BE%E8%B7%A8%E5%85%A5%E5%B7%A5%E4%B8%9A%E5%8C%96%E9%83%A8%E7%BD%B2_Agent_cumora_Skill/ title="DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill">DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-Cordis-%E6%95%99%E7%A8%8B%E4%BB%8E%E9%9B%B6%E5%88%B0%E6%8E%A5%E5%85%A5%E7%9C%9F%E5%AE%9E-harness_cordis%E6%8F%92%E4%BB%B6-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客">DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li><li><a href=https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-%E6%BA%90%E7%A0%81%E6%B7%B1%E5%BA%A6%E8%A7%A3%E8%AF%BB%E5%AE%98%E6%96%B9%E5%BC%80%E6%BA%90-Agent-%E6%A1%86%E6%9E%B6%E7%9A%84%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3_deepseek-harness-%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/ title="DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客">DeepSeek Harness 源码深度解读：官方开源 Agent 框架的架构拆解_deepseek harness 源码解析-CSDN博客</a></li></ul></section><section class=widget><h3 class=widget-title style=color:red>福利派送</h3><ul class=widget-list><li><a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target=_blank style=color:red><img src=https://index.zshipu.com/promo/nomissapi-001.webp></a></li><li><a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target=_blank style=color:red><img src=https://index.zshipu.com/promo/funai-001.webp></a></li></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/categories/>分类</a></h3><ul class=widget-list></ul></section><section class=widget><h3 class=widget-title><a href=/ai002/tags/>标签</a></h3><div class=tagcloud><a href=https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/>AI办公</a>
-<a href=https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/>AI编程</a>
-<a href=https://index.zshipu.com/ai002/tags/claude-code/>Claude Code</a>
-<a href=https://index.zshipu.com/ai002/tags/cli/>Cli</a>
-<a href=https://index.zshipu.com/ai002/tags/Cloudflare/>Cloudflare</a>
-<a href=https://index.zshipu.com/ai002/tags/codex/>Codex</a>
-<a href=https://index.zshipu.com/ai002/tags/cursor/>Cursor</a>
-<a href=https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/>DeepSeek V4 Pro</a>
-<a href=https://index.zshipu.com/ai002/tags/GitHub/>GitHub</a>
-<a href=https://index.zshipu.com/ai002/tags/Grok-4.6/>Grok 4.6</a>
-<a href=https://index.zshipu.com/ai002/tags/mcp/>Mcp</a>
-<a href=https://index.zshipu.com/ai002/tags/Origin/>Origin</a>
-<a href=https://index.zshipu.com/ai002/tags/Precursor/>Precursor</a>
-<a href=https://index.zshipu.com/ai002/tags/prompt/>Prompt</a>
-<a href=https://index.zshipu.com/ai002/tags/skills/>Skills</a>
-<a href=https://index.zshipu.com/ai002/tags/WorkSwarm/>WorkSwarm</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/>上下文工程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/>代码托管</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/>接入教程</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/>提示词</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/>智能体</a>
-<a href=https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/>机器人识别</a>
-<a href=https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/>网络安全</a>
-<a href=https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/>行为分析</a></div></section><section class=widget><h3 class=widget-title>友情链接</h3><ul class=widget-list><li><a target=_blank href=https://blog.zshipu.com// title=知识铺的博客>知识铺的博客</a></li></ul></section><section class=widget><h3 class=widget-title>其它</h3><ul class=widget-list><li><a href=https://index.zshipu.com/ai002/index.xml>文章 RSS</a></li></ul></section></div></div></div></div></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ | 知识铺的博客</title>
+    <meta property="og:title" content="Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2025-10-16T23:40:46&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2025-10-16T23:40:46&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="Gemma 3 27B版本超越DeepSeek V3：技术要点分析！ --知识铺">
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/">
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#gemma-3-的模型架构与训练方法"><strong>Gemma 3 的模型架构与训练方法</strong></a></li>
+    <li><a href="#gemma-3性能以及评估"><strong>Gemma 3性能以及评估</strong></a>
+      <ul>
+        <li><a href="#lmsys-chatbot-arena评分"><strong>LMSYS Chatbot Arena评分</strong></a></li>
+        <li><a href="#标准基准测试"><strong>标准基准测试</strong></a></li>
+        <li><a href="#gemma-3-27b-在-pareto-甜点区"><strong>Gemma 3 27B 在 pareto 甜点区</strong></a></li>
+        <li><a href="#消融实验"><strong>消融实验</strong></a></li>
+      </ul>
+    </li>
+    <li><a href="#gemma-3总结"><strong>Gemma 3总结</strong></a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">Gemma 3 27B版本超越DeepSeek V3：技术要点分析！</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2025年10月16日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/5970820251017080113mRjOscha.jpg" />   
+    </p>
+<p>Gemma是来自Google的一个轻量级模型系列，基于 Gemini 技术构建。2025年3月12日，也就是昨天，Google 发布了 Gemma 3，这是他们 Gemma 系列模型的新一代。Gemma 3模型是多模态的——可以处理文本和图像——并具有 <strong>128K的上下文窗口</strong>，<strong>支持超过140种语言</strong>。它们有1B、4B、12B 和27B参数大小的版本，在问答、摘要和推理等任务中表现出色，同时其紧凑的设计允许部署在资源有限的设备上。</p>
+<blockquote>
+<p>谷歌自称评分高于deepseek v3，现在小模型越来越厉害了，前有qwq-32b，后有gemma3，再精简精简端侧运行似乎也没什么障碍。</p>
+</blockquote>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7659020251017080113kza74jkg.jpg" />   
+    </p>
+<blockquote>
+<p>HuggingFace Gemma3模型权重合集</p>
+</blockquote>
+<p>Gemma 3 是 Google 最新的开放权重大型语言模型。它有四种尺寸，分别是 10 亿、40 亿、120 亿 和 270 亿 参数，包含基础（预训练）和指令调优版本。Gemma 3 支持 多模态！ <strong>4B亿、12B和 27B参数的模型可以处理 图像 和 文本，而1B参数的模型仅限于文本。</strong></p>
+<ul>
+<li>项目官网：<strong><a href="https://zshipu.com/t/?url=https://developers.googleblog.com/en/introducing-gemma3/">https://developers.googleblog.com/en/introducing-gemma3/</a></strong></li>
+<li>HuggingFace模型库：<strong><a href="https://zshipu.com/t/?url=https://huggingface.co/collections/google/gemma-3-release-67c6c6f89c4f76621268bb6d">https://huggingface.co/collections/google/gemma-3-release-67c6c6f89c4f76621268bb6d</a></strong></li>
+<li>技术报告：<strong><a href="https://zshipu.com/t/?url=https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf">https://storage.googleapis.com/deepmind-media/gemma/Gemma3Report.pdf</a></strong></li>
+<li>Ollma地址：<strong><a href="https://zshipu.com/t/?url=https://ollama.com/library/gemma3">https://ollama.com/library/gemma3</a></strong></li>
+</ul>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/4661020251017080113W65L83ou.jpg" />   
+    </p>
+<blockquote>
+<p>Ollma Gemma3模型权重合集</p>
+</blockquote>
+<h2 id="gemma-3-的模型架构与训练方法"><strong>Gemma 3 的模型架构与训练方法</strong></h2>
+<p>Gemma 3 支架了Gemma 系列的解码器专用Transformer架构，并在架构和训练上进行了化：</p>
+<ol>
+<li>
+<p><strong>架构与 Gemma 2 的差异：</strong><br>
+为了降低长上下的记忆体需求，Gemma 3 模型在架构中交错使用了局部滑动窗口自注意力层和全域自注意力层，比例为 5:1，即每 5 个局部层布局 1 个全域层。局部层的跨度被限制在 1024 个 token，只有全域处理层长。 <strong>这样做添加了更多滑动窗口，以减少 KV 缓存负担！实验表明 5:1 的比例效果最佳，而 7:1 也能正常工作。SWA 设为 1024，实验显示 1024 至 2048 之间的值均可行。</strong></p>
+</li>
+<li>
+<p><strong>训练与后训练：</strong><br>
+Gemma-3 使用 TPU 进行训练，并结合 Zero-3 类算法与 JAX。27B 版本在 14 万亿 tokens 上训练，12B 版本训练数据为 12T，4B 版本为 4T，1B 版本为 2T。所有版本在强化学习（RL）/后训练阶段都使用了蒸馏（distillation），每个 token 采样了 256 个 logits，来自更大的指令模型（具体不明，可能是闭源模型）。强化学习阶段采用 BOND、WARM 和 WARP 算法。</p>
+</li>
+<li>
+<p><strong>对话模板（Chat Template）调整：</strong><br>
+现在对话模板强制包含 BOS（Begin of Sentence）起始标记！格式采用 <code>&lt;start_of_turn&gt;user</code> 和 <code>&lt;start_of_turn&gt;model</code>。词汇表大小为 262K，使用 SentencePiece 分词器，支持拆分数字、保留空格，并具有字节回退机制（byte fallback）。</p>
+</li>
+<li>
+<p><strong>长上下文 &amp; 视觉编码器（Vision Encoder）：</strong><br>
+训练过程中从 32K 上下文扩展到 128K，上下文旋转位置编码（RoPE）缩放因子为 8。视觉编码器采用“Pan &amp; Scan”算法，固定分辨率为 896 × 896，并在推理时使用窗口化（windowing）以支持其他尺寸。</p>
+</li>
+<li>
+<p><strong>多语言支持</strong> 为了让大型语言模型支持多种语言，预训练数据集包含了更多的语言。Gemma 3 的数据集包含 两倍 的多语言数据，以提高语言覆盖率。为了适应这些变化，分词器与 Gemini 2.0 相同。这是一个包含 262K 条目的 SentencePiece 分词器，并采用了过滤技术来降低模型产生危害或不安全输出的风险。新的分词器显著提高了对中文、日文和韩文文本的编码，但英文和代码的标记数量略有增加。</p>
+</li>
+</ol>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/31052202510170801139y7S6egY.jpg" />   
+    </p>
+<h2 id="gemma-3性能以及评估"><strong>Gemma 3性能以及评估</strong></h2>
+<blockquote>
+<p>Google声称，Gemma 3 是「世界上最好的单加速器模型」，在配备单个GPU 的主机上的性能表现超越了Facebook 的Llama、DeepSeek 和OpenAI 等竞争对手。具体来说，Gemma 3 27B 在Chatbot Arena Elo 分数测试中排名第二，仅次于DeepSeek-R1。它超过了DeepSeek 的较小模型、DeepSeek v3、OpenAI 的o3-mini、Meta 的Llama-405B 和Mistral Large。</p>
+</blockquote>
+<h3 id="lmsys-chatbot-arena评分"><strong>LMSYS Chatbot Arena评分</strong></h3>
+<blockquote>
+<p>LMSys Elo 分数是一个数字，根据模型在双人竞赛中的表现（由人类偏好评判）来排名。</p>
+</blockquote>
+<p>LMSYS Chatbot Arena的人类盲测评估中位居前十的 Gemma 3 27B IT 模型，超越了许多更大规模的开源模型，例如 DeepSeek-V3、LLaMA 3 405B 和 Qwen2.5–70B。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7871020251017080113M460GOiO.jpg" />   
+    </p>
+<blockquote>
+<p>该图表根据Chatbot Arena Elo 分数对AI 模型进行排名；分数越高（顶部数字）表示用户偏好越高。圆点表示预估的NVIDIA H100 GPU 需求。 Gemma 3 27B 排名靠前，尽管其他模型需要多达32 个GPU，但它仅需单个GPU 即可运行。</p>
+</blockquote>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/3536120251017080113f5DXsYlT.jpg" />   
+    </p>
+<p>在 LMSys Chatbot Arena 中，Gemma 3 27B IT 报告的 Elo 分数为 1339，并在包括领先封闭模型在内的前十名模型中排名。该分数与 o1-preview 相当，并且高于其他 非思维 开放模型。这个分数是在 Gemma 3 仅处理文本输入时获得的，就像表中的其他 LLM 一样。</p>
+<h3 id="标准基准测试"><strong>标准基准测试</strong></h3>
+<p>在标准基准测试中，Gemma 3 IT模型在各项能力上都超越了Gemma 2 和 Gemini 2.0。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/9757820251017080113a4H7vwoS.jpg" />   
+    </p>
+<p>Gemma 3 在 MMLU-Pro（27B: 67.5）、LiveCodeBench（27B: 29.7）和 Bird-SQL（27B: 54.4）等基准测试中表现出竞争力，与封闭的 Gemini 模型相比性能相当。GPQA Diamond（27B: 42.4）和 MATH（27B: 69.0）等测试突显了其推理和数学能力，而 FACTS Grounding（27B: 74.9）和 MMMU（27B: 64.9）则展示了其强大的事实接地能力。</p>
+<h3 id="gemma-3-27b-在-pareto-甜点区"><strong>Gemma 3 27B 在 pareto 甜点区</strong></h3>
+<p>Google表示，当前的Gemma 3 27B 已经处于帕累托最优点。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/85307202510170801131Dduigrl.jpg" />   
+    </p>
+<blockquote>
+<p>在 AI 领域，Pareto 甜点区（Pareto Frontier, Sweet Spot） 这个概念指的是在 计算资源（成本） 和 性能（效果） 之间的最佳平衡点。</p>
+</blockquote>
+<h3 id="消融实验"><strong>消融实验</strong></h3>
+<p>研究团队进行了详细的消融实验，验证了局部/全域注意力层比例、滑动窗口大小、长上下文扩展、教师模型规模以及视觉编码解析器解析度等架构和训练策略对模型认知和记忆体占用的影响。实验结果证明了Gemma 3架构设计的有效性，特别是在降低KV-cache记忆体占用和支持长上下文方面的优势。</p>
+<p>
+        <img class="mx-auto" alt="" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv5/2025-10-17/7772520251017080114fa5stbck.jpg" />   
+    </p>
+<p>Gemma 3 通过增加“局部注意力层（local attention layers）”相较于全局注意力层（global attention layers）的比例，并缩短局部注意力的跨度（仅 1024 个 tokens），减少了长上下文时 KV 缓存爆炸问题。</p>
+<h2 id="gemma-3总结"><strong>Gemma 3总结</strong></h2>
+<p><strong>Gemma 3作为Gemma系列的最新迭代，带来了以下几个关键的进步：</strong></p>
+<ul>
+<li><strong>多模态能力：</strong> Gemma 3整合了视觉理解能力，能够处理图像输入，扩展了模型的应用范围。它采用了SigLIP视觉编码器的客制化版本，将转换为模型可以理解的令牌序列。为了降低图像处理的成本，嵌入被压缩为固定大小，并采用Pan &amp; Scan (P&amp;S)方法来处理不同解析度的图像。</li>
+<li><strong>长上下文处理：</strong> Gemma 3 显着提升了上下文处理能力，支持至少 128K tokens 的长度，1B 模型也支持 32K tokens。为了应对长上下文带来的 KV-cache 记忆体爆炸问题，Gemma 3 采用了新的架构设计，增加了局部焦点层与全域焦点层的区域，并聚焦了局部焦点层的跨度，有效降低了记忆体占用。</li>
+<li><strong>更广泛的语言覆盖：</strong> Gemma 3在多语言能力方面进行了强化，重新调整了训练数据的组成，增加了多语言数据的比例，提升了模型在不同语言上的能力。</li>
+<li><strong>卓越的表现：</strong> Gemma 3 模型训练知识调整进行训练，在预和指令驱动版本上都表现出比 Gemma 2 更优异的表现。特别是，开发团队采用了创新的后期训练方法，显着提升了模型在数学、聊天、指令遵循和多语言能力方面的表现，使得 Gemma3–4B-IT 的相当漂亮 Gemma2–27B-IT，而 Gemma3–27B-IT 则可与Gemini-1.5-Pro 相提并论。</li>
+<li><strong>开源发布：</strong> Google DeepMind将所有Gemma 3模型开源发布，供社群使用，促进了AI技术的普及和发展。</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/">https://index.zshipu.com/ai002/post/20251015/Gemma-3-27B%E7%89%88%E6%9C%AC%E8%B6%85%E8%B6%8ADeepSeek-V3%E6%8A%80%E6%9C%AF%E8%A6%81%E7%82%B9%E5%88%86%E6%9E%90/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20251015/%E8%B0%B7%E6%AD%8C-Gemini-3-%E5%8F%91%E5%B8%83%E6%97%A5%E6%9C%9F%E7%96%91%E4%BC%BC%E6%9B%9D%E5%85%89%E7%AC%AC%E4%B8%80%E6%B3%A2%E5%AE%9E%E6%B5%8B%E6%95%88%E6%9E%9C%E6%83%8A%E8%89%B3/">谷歌 Gemini 3 发布日期疑似曝光，第一波实测效果惊艳！</a></li>
+        
+        <li><a href="/ai002/post/20251015/Gemini-3-%E6%9C%80%E6%96%B0%E5%AE%9E%E6%B5%8B%E6%9B%9D%E5%85%89%E8%BF%99%E6%AC%A1%E8%BD%AE%E5%88%B0-OpenAI-%E9%A2%A4%E6%8A%96%E4%BA%86/">Gemini 3 最新实测曝光，这次轮到 OpenAI 颤抖了</a></li>
+        
+        <li><a href="/ai002/post/20251015/Claude-4-%E5%9B%BD%E5%86%85%E4%BD%BF%E7%94%A8%E5%85%A8%E6%94%BB%E7%95%A5%E6%94%AF%E6%8C%81Claude-4-Sonnet%E7%9B%B4%E6%8E%A5%E4%BD%93%E9%AA%8C2025%E5%B9%B410%E6%9C%88%E6%9C%80%E6%96%B0/">Claude 4 国内使用全攻略（支持Claude-4-Sonnet，直接体验！）【2025年10月最新】</a></li>
+        
+        <li><a href="/ai002/post/20251015/AI%E8%BF%99%E4%B9%88%E7%81%AB%E7%9C%9F%E6%9C%89%E4%BA%BA%E7%94%A8AI%E6%8C%A3%E5%88%B0%E9%92%B1%E5%90%97%E5%93%AA%E6%80%95100%E5%9D%97/">AI这么火，真有人用AI挣到钱吗？哪怕100块</a></li>
+        
+        <li><a href="/ai002/post/20251015/%E4%B8%80%E6%AC%A1%E6%80%A7%E6%8A%93%E5%88%B0%E4%B8%89%E4%B8%AA%E7%94%A8AI%E5%86%99%E4%BD%9C%E6%96%87%E7%9A%84/">一次性抓到三个用AI写作文的</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            没有标签
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Claude-Code-%E7%BC%A9%E5%87%8F%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6%E5%BC%80%E5%8F%91%E8%80%85%E5%A6%82%E4%BD%95%E5%BA%94%E5%AF%B9/" title="Claude Code 缩减免费额度，开发者如何应对？">Claude Code 缩减免费额度，开发者如何应对？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/Java%E7%94%9F%E6%80%81%E5%8A%A8%E6%80%81Shenandoah-GC%E6%94%B9%E8%BF%9BTeamCity%E6%BC%8F%E6%B4%9E%E4%B8%8EA2A-SDK/" title="Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK">Java生态动态：Shenandoah GC改进、TeamCity漏洞与A2A SDK</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E7%99%BE%E8%A1%8C%E4%BB%A3%E7%A0%81%E6%9E%84%E5%BB%BA%E5%8E%9F%E7%94%9F%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89%E8%83%BD%E5%90%A6%E6%8C%91%E6%88%98AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/" title="百行代码构建原生编码代理：极简主义能否挑战AI编程助手？">百行代码构建原生编码代理：极简主义能否挑战AI编程助手？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260819/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90%E4%B8%BA%E4%BD%95%E7%94%A8-Apache-Doris-%E6%9B%BF%E6%8D%A2-Elasticsearch/" title="腾讯音乐为何用 Apache Doris 替换 Elasticsearch">腾讯音乐为何用 Apache Doris 替换 Elasticsearch</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/AI%E5%85%A5%E9%97%A8%E7%9F%A5%E8%AF%86%E7%82%B9Harness-%E6%98%AF%E4%BB%80%E4%B9%88%E4%B8%BA%E4%BB%80%E4%B9%88-DeepSeek-%E8%A6%81%E7%BB%84%E5%BB%BA-Harness-%E5%9B%A2%E9%98%9F_%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD_%E5%88%9B%E4%B8%96%E5%AE%87%E5%9B%BE-AtomGit%E5%BC%80%E6%BA%90%E7%A4%BE%E5%8C%BA/" title="【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区">【AI入门知识点】Harness 是什么？为什么 DeepSeek 要组建 Harness 团队？_人工智能_创世宇图-AtomGit开源社区</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/2026-%E6%9C%80%E6%96%B0-DeepSeek-Harness-%E4%BD%BF%E7%94%A8%E6%95%99%E7%A8%8B%E9%99%84%E4%BF%9D%E5%A7%86%E7%BA%A7%E5%AE%89%E8%A3%85%E6%AD%A5%E9%AA%A45-%E4%B8%AA%E5%AE%9E%E6%B5%8B%E6%A1%88%E4%BE%8B-%E7%9F%A5%E4%B9%8E/" title="2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎">2026 最新 DeepSeek Harness 使用教程！（附保姆级安装步骤&#43;5 个实测案例） - 知乎</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cloudflare-%E6%8E%A8%E5%87%BA-Precursor%E7%94%A8%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90%E8%AF%86%E5%88%AB%E6%81%B6%E6%84%8F%E6%9C%BA%E5%99%A8%E4%BA%BA/" title="Cloudflare 推出 Precursor，用行为分析识别恶意机器人">Cloudflare 推出 Precursor，用行为分析识别恶意机器人</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Codex-%E6%8E%A5%E5%85%A5-DeepSeek-V4-Pro-%E5%92%8C-Grok-4.6-%E7%9A%84%E5%85%AD%E7%A7%8D%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86/" title="Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理">Codex 接入 DeepSeek V4 Pro 和 Grok 4.6 的六种方法整理</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/Cursor%E5%8F%91%E5%B8%83%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0Origin%E6%81%B0%E9%80%A2GitHub%E5%AE%95%E6%9C%BA/" title="Cursor发布代码托管平台Origin，恰逢GitHub宕机">Cursor发布代码托管平台Origin，恰逢GitHub宕机</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260818/DeepSeek-Harness-DeepSeek-%E6%8E%A8%E5%87%BA%E7%9A%84%E5%BC%80%E6%BA%90-AI-Agent-Harness-%E5%BC%80%E5%8F%91%E6%A1%86%E6%9E%B6-AIHub/" title="DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub">DeepSeek Harness - DeepSeek 推出的开源 AI Agent Harness 开发框架 - AIHub</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
