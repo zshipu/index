@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>第5期｜用 Spring AI 手搓一个「诊断 Agent」：让 AI 像老 SA 一样「听→想→查→下结论」 | 知识铺的博客</title>
+    <meta property="og:title" content="第5期｜用 Spring AI 手搓一个「诊断 Agent」：让 AI 像老 SA 一样「听→想→查→下结论」 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="上一期我用 Spring AI 搭了一个客服 Agent，核心是 RAG &#43; Memory &#43; Tool Calling &#43; MCP Client 四大模块。但客服 Agent 本质是「问答」——客户问、Agent 答。今天我们要往前走一步，进入售后最核心、最考验功力的环节：诊断。诊断不是问答，是推 …">
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260822/%E7%AC%AC5%E6%9C%9F%E7%94%A8-Spring-AI-%E6%89%8B%E6%90%93%E4%B8%80%E4%B8%AA%E8%AF%8A%E6%96%AD-Agent%E8%AE%A9-AI-%E5%83%8F%E8%80%81-SA-%E4%B8%80%E6%A0%B7%E5%90%AC%E6%83%B3%E6%9F%A5%E4%B8%8B%E7%BB%93%E8%AE%BA/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260822/%E7%AC%AC5%E6%9C%9F%E7%94%A8-Spring-AI-%E6%89%8B%E6%90%93%E4%B8%80%E4%B8%AA%E8%AF%8A%E6%96%AD-Agent%E8%AE%A9-AI-%E5%83%8F%E8%80%81-SA-%E4%B8%80%E6%A0%B7%E5%90%AC%E6%83%B3%E6%9F%A5%E4%B8%8B%E7%BB%93%E8%AE%BA/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一开篇客服-agent-跑通了然后呢">一、开篇：客服 Agent 跑通了，然后呢？</a></li>
+    <li><a href="#二诊断-agent-和客服-agent-的本质区别">二、诊断 Agent 和客服 Agent 的本质区别</a></li>
+    <li><a href="#三场景还原老-sa-是怎么诊断的">三、场景还原：老 SA 是怎么诊断的？</a></li>
+    <li><a href="#四spring-ai-中的-reacttool-calling-循环就是-react">四、Spring AI 中的 ReAct：Tool Calling 循环就是 ReAct</a></li>
+    <li><a href="#五诊断-agent-的工具设计">五、诊断 Agent 的工具设计</a>
+      <ul>
+        <li><a href="#51-工具清单">5.1 工具清单</a></li>
+        <li><a href="#52-工具实现代码">5.2 工具实现代码</a></li>
+      </ul>
+    </li>
+    <li><a href="#六诊断-agent-核心实现">六、诊断 Agent 核心实现</a>
+      <ul>
+        <li><a href="#61-system-prompt诊断-agent-的大脑配置">6.1 System Prompt：诊断 Agent 的「大脑配置」</a></li>
+        <li><a href="#62-对比如果不靠框架react-循环长什么样">6.2 对比：如果不靠框架，ReAct 循环长什么样？</a></li>
+      </ul>
+    </li>
+    <li><a href="#七模拟数据层让-agent-能跑起来">七、模拟数据层：让 Agent 能跑起来</a></li>
+    <li><a href="#八rest-接口与运行效果">八、REST 接口与运行效果</a>
+      <ul>
+        <li><a href="#81-controller">8.1 Controller</a></li>
+        <li><a href="#82-运行效果">8.2 运行效果</a></li>
+        <li><a href="#83-agent-的-react-执行过程日志视角">8.3 Agent 的 ReAct 执行过程（日志视角）</a></li>
+        <li><a href="#84-最终诊断报告">8.4 最终诊断报告</a></li>
+      </ul>
+    </li>
+    <li><a href="#九进阶让-agent-的推理过程可追溯">九、进阶：让 Agent 的推理过程可追溯</a>
+      <ul>
+        <li><a href="#91-开启-spring-ai-的工具调用日志">9.1 开启 Spring AI 的工具调用日志</a></li>
+        <li><a href="#92-自定义工具调用审计">9.2 自定义工具调用审计</a></li>
+      </ul>
+    </li>
+    <li><a href="#十踩坑清单react-诊断-agent-的-5-个暗坑">十、踩坑清单：ReAct 诊断 Agent 的 5 个暗坑</a>
+      <ul>
+        <li><a href="#坑1工具描述太模糊llm-不知道什么时候该用">坑1：工具描述太模糊，LLM 不知道什么时候该用</a></li>
+        <li><a href="#坑2工具返回太长撑爆上下文窗口">坑2：工具返回太长，撑爆上下文窗口</a></li>
+        <li><a href="#坑3temperature-太高agent-开始创造性诊断">坑3：temperature 太高，Agent 开始「创造性诊断」</a></li>
+        <li><a href="#坑4没有设置最大步数agent-陷入无限循环">坑4：没有设置最大步数，Agent 陷入无限循环</a></li>
+        <li><a href="#坑5没有我不知道选项agent-硬编结论">坑5：没有「我不知道」选项，Agent 硬编结论</a></li>
+      </ul>
+    </li>
+    <li><a href="#十一诊断-agent-架构全景图">十一、诊断 Agent 架构全景图</a></li>
+    <li><a href="#十二项目结构">十二、项目结构</a></li>
+    <li><a href="#十三客服-agent-vs-诊断-agent一图看懂">十三、客服 Agent vs 诊断 Agent：一图看懂</a></li>
+    <li><a href="#十四总结--下期预告">十四、总结 &amp; 下期预告</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">第5期｜用 Spring AI 手搓一个「诊断 Agent」：让 AI 像老 SA 一样「听→想→查→下结论」</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月22日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p>上一期我用 Spring AI 搭了一个客服 Agent，核心是 RAG + Memory + Tool Calling + MCP Client 四大模块。但客服 Agent 本质是「问答」——客户问、Agent 答。今天我们要往前走一步，进入售后最核心、最考验功力的环节：诊断。诊断不是问答，是推理。</p>
+</blockquote>
+<hr>
+<h2 id="一开篇客服-agent-跑通了然后呢">一、开篇：客服 Agent 跑通了，然后呢？</h2>
+<p>第4期结尾我说了一句话：「这个 Demo 虽然叫客服，但它的模块完全可以复用到诊断 Agent 中。」有读者后台问我：老张，复用是复用了，但诊断和客服到底差在哪？</p>
+<p>差在一个字：推理。</p>
+<p>客服场景：客户问「5 万公里保养多少钱」→ Agent 查手册 → 报价。一问一答，路径确定。</p>
+<p>诊断场景：客户说「低速刹车有异响」→ Agent 要判断是刹车片？分泵？导向销？制动盘？→ 查维保历史 → 查 OBD 故障码 → 查配件库存 → 综合下结论。每一步的结果都会改变下一步的方向。</p>
+<p>这就是第2期讲的ReAct 模式——Reasoning + Acting，推理与行动交替进行。客服 Agent 用的是「检索 + 生成」，诊断 Agent 用的是「思考 + 调用 + 观察 + 再思考」。</p>
+<blockquote>
+<p>今天的目标：用 Spring AI 把 ReAct 模式写成代码，让 Agent 像一个干了 8 年的老 SA 一样诊断故障。</p>
+</blockquote>
+<hr>
+<h2 id="二诊断-agent-和客服-agent-的本质区别">二、诊断 Agent 和客服 Agent 的本质区别</h2>
+<p>在写代码之前，先把这两类 Agent 的差异想清楚。这不是学术讨论，而是架构决策——选错模式，代码写得再漂亮也跑不出正确结果。</p>
+<p>|
+维度</p>
+<p>|</p>
+<p>客服 Agent（第4期）</p>
+<p>|</p>
+<p>诊断 Agent（本期）</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>核心模式</p>
+<p>|</p>
+<p>RAG 问答 + 单轮工具调用</p>
+<p>|</p>
+<p>ReAct 循环：Thought→Action→Observation→…→Final Answer</p>
+<p>|
+|</p>
+<p>交互特点</p>
+<p>|</p>
+<p>客户主动提问，Agent 被动回答</p>
+<p>|</p>
+<p>Agent 主动追问、主动调工具、主动下结论</p>
+<p>|
+|</p>
+<p>工具调用次数</p>
+<p>|</p>
+<p>通常 1 次（查一下就答）</p>
+<p>|</p>
+<p>可能 3-5 次，每次结果影响下一步</p>
+<p>|
+|</p>
+<p>推理深度</p>
+<p>|</p>
+<p>浅：意图匹配 → 知识检索 → 生成回复</p>
+<p>|</p>
+<p>深：症状分析 → 假设生成 → 验证 → 排除 → 结论</p>
+<p>|
+|</p>
+<p>错误代价</p>
+<p>|</p>
+<p>低：答错可转人工</p>
+<p>|</p>
+<p>高：误诊可能导致错误维修，客户投诉</p>
+<p>|
+|</p>
+<p>Spring AI 关键能力</p>
+<p>|</p>
+<p>ChatClient + VectorStore + ChatMemory</p>
+<p>|</p>
+<p>ChatClient + Tool Calling 循环 + 结构化输出</p>
+<p>|</p>
+<p>一句话总结：客服 Agent 是「听到问题找答案」，诊断 Agent 是「听到症状找病因」。找答案靠检索，找病因靠推理。</p>
+<hr>
+<h2 id="三场景还原老-sa-是怎么诊断的">三、场景还原：老 SA 是怎么诊断的？</h2>
+<p>还是那辆 2022 款奥迪 Q5。张先生说：</p>
+<blockquote>
+<p>「师傅，最近低速刹车的时候有尖锐异响，特别是倒车的时候更明显。我马上要跑一趟长途，有点担心安全问题。」</p>
+</blockquote>
+<p>如果我还在 4S 店当 SA，脑子里是这样转的：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;第&lt;span&gt;1&lt;/span&gt;轮：&lt;/span&gt;
+</code></pre><p>看到了吗？这就是 ReAct。四轮「想→做→看」，每一轮都基于上一轮的观察结果调整推理方向。这不是线性流程，而是一个收敛的推理链。</p>
+<p>现在的问题来了：这个循环，用 Spring AI 怎么写？</p>
+<hr>
+<h2 id="四spring-ai-中的-reacttool-calling-循环就是-react">四、Spring AI 中的 ReAct：Tool Calling 循环就是 ReAct</h2>
+<p>很多人以为 ReAct 要自己写 while 循环、自己解析 LLM 输出的 Thought/Action/Observation。在 Spring AI 里，不需要。</p>
+<p>Spring AI 的 ChatClient 在你注册了 @Tool 之后，底层自动跑的就是 ReAct 循环：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;用户输入 → LLM 思考要不要调工具&lt;/span&gt;
+</code></pre><p>这就是 ReAct 的 Thought → Action → Observation → Thought → … → Final Answer。</p>
+<p>关键在于：你要把工具设计得足够「原子化」，让 LLM 有足够的「行动选择空间」。</p>
+<hr>
+<h2 id="五诊断-agent-的工具设计">五、诊断 Agent 的工具设计</h2>
+<p>诊断 Agent 的核心不是代码量大，而是工具设计。工具就是 SA 的「手和眼」——你能查什么，决定了你能诊断什么。</p>
+<h3 id="51-工具清单">5.1 工具清单</h3>
+<p>|
+工具名</p>
+<p>|</p>
+<p>作用</p>
+<p>|</p>
+<p>对应 SA 动作</p>
+<p>|</p>
+<p>数据来源</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>queryMaintenanceHistory</code></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>查车辆维保历史</p>
+<p>|</p>
+<p>翻系统看上次换了什么</p>
+<p>|</p>
+<p>DMS / CRM</p>
+<p>|
+| <code>readObdFaultCodes</code> |</p>
+<p>读 OBD 故障码</p>
+<p>|</p>
+<p>插诊断仪读码</p>
+<p>|</p>
+<p>诊断设备接口</p>
+<p>|
+| <code>queryPartSpec</code> |</p>
+<p>查配件技术规格（磨损极限、扭矩值等）</p>
+<p>|</p>
+<p>翻维修手册</p>
+<p>|</p>
+<p>知识库 / ETKA</p>
+<p>|
+| <code>checkPartsInventory</code> |</p>
+<p>查配件库存</p>
+<p>|</p>
+<p>打电话问配件仓</p>
+<p>|</p>
+<p>WMS</p>
+<p>|
+| <code>queryRepairGuide</code> |</p>
+<p>查维修方案和工时</p>
+<p>|</p>
+<p>翻维修手册查标准工时</p>
+<p>|</p>
+<p>知识库</p>
+<p>|
+| <code>estimateRepairCost</code> |</p>
+<p>估算维修费用</p>
+<p>|</p>
+<p>算配件费 + 工时费</p>
+<p>|</p>
+<p>报价引擎</p>
+<p>|</p>
+<h3 id="52-工具实现代码">5.2 工具实现代码</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;package&lt;/span&gt;&amp;nbsp;com.aftersales.diag.tools;&lt;/span&gt;
+</code></pre><p>工具设计的三条原则（这是我在 4S 店和代码堆里各踩了几年总结出来的）：</p>
+<ol>
+<li>
+<p>描述要写给 LLM 看，不是写给 Java 开发看。<code>@Tool</code> 的 <code>description</code> 要告诉 LLM 什么时候该用这个工具、用了能拿到什么。比如「没有故障码不代表没有问题」这句话，是引导 LLM 在 OBD 无码时不要直接下「无故障」结论。</p>
+</li>
+<li>
+<p>粒度要原子化，不要做大而全的「万能查询」。 拆成 <code>queryPartSpec</code> 和 <code>checkPartsInventory</code> 两个工具，而不是合成一个 <code>queryPartInfo</code>。原子工具让 LLM 的组合空间更大。</p>
+</li>
+<li>
+<p>返回值要结构化，不要返回一坨散文。 返回 JSON 或结构化文本，LLM 解析更准确。</p>
+</li>
+</ol>
+<hr>
+<h2 id="六诊断-agent-核心实现">六、诊断 Agent 核心实现</h2>
+<h3 id="61-system-prompt诊断-agent-的大脑配置">6.1 System Prompt：诊断 Agent 的「大脑配置」</h3>
+<p>诊断 Agent 的 System Prompt 和客服完全不同。客服强调「亲切、转人工」，诊断强调**「推理链路、证据导向、不臆测」**。</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;package&lt;/span&gt;&amp;nbsp;com.aftersales.diag.agent;&lt;/span&gt;
+</code></pre><p>注意这一行：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;.tools(”queryMaintenanceHistory”, ”readObdFaultCodes”,&lt;/span&gt;
+</code></pre><p>这是 Spring AI 的魔法所在：你把工具注册给 ChatClient，LLM 自己决定什么时候调、调哪个、调几次。你不需要写任何 if-else 或 while 循环——Spring AI 底层自动处理了「LLM 返回工具调用 → 执行工具 → 把结果喂回 LLM → LLM 决定继续调还是出结论」的整个 ReAct 循环。</p>
+<h3 id="62-对比如果不靠框架react-循环长什么样">6.2 对比：如果不靠框架，ReAct 循环长什么样？</h3>
+<p>为了让你理解 Spring AI 帮你省了多少事，我贴一段不使用框架时手写的 ReAct 循环伪代码：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;// ❌ 不用框架的手写 ReAct 循环——又长又脆&lt;/span&gt;&lt;/span&gt;
+</code></pre><p>这段代码的问题：LLM 输出格式不稳定、工具解析容易出错、错误处理复杂、没有 Memory 支持。Spring AI 用一行.tools(&hellip;)就把这些全包了。这就是第3期我说「用对框架少踩 80% 的坑」的具体含义。</p>
+<hr>
+<h2 id="七模拟数据层让-agent-能跑起来">七、模拟数据层：让 Agent 能跑起来</h2>
+<p>Demo 要能跑，得有模拟数据。我建一个 Mock 服务来模拟 DMS、OBD、WMS 的返回。</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;package&lt;/span&gt;&amp;nbsp;com.aftersales.diag.service;&lt;/span&gt;
+</code></pre><pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;package com.&lt;span&gt;aftersales&lt;/span&gt;.&lt;span&gt;diag&lt;/span&gt;.&lt;span&gt;service&lt;/span&gt;;&lt;/span&gt;
+</code></pre><pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;package com.&lt;span&gt;aftersales&lt;/span&gt;.&lt;span&gt;diag&lt;/span&gt;.&lt;span&gt;service&lt;/span&gt;;&lt;/span&gt;
+</code></pre><pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;package com.&lt;span&gt;aftersales&lt;/span&gt;.&lt;span&gt;diag&lt;/span&gt;.&lt;span&gt;service&lt;/span&gt;;&lt;/span&gt;
+</code></pre><pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;package com.&lt;span&gt;aftersales&lt;/span&gt;.&lt;span&gt;diag&lt;/span&gt;.&lt;span&gt;service&lt;/span&gt;;&lt;/span&gt;
+</code></pre><hr>
+<h2 id="八rest-接口与运行效果">八、REST 接口与运行效果</h2>
+<h3 id="81-controller">8.1 Controller</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;package&lt;/span&gt;&amp;nbsp;com.aftersales.diag.controller;&lt;/span&gt;
+</code></pre><h3 id="82-运行效果">8.2 运行效果</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;curl -X POST http://localhost:8080/api/diagnosis/diagnose \&lt;/span&gt;
+</code></pre><h3 id="83-agent-的-react-执行过程日志视角">8.3 Agent 的 ReAct 执行过程（日志视角）</h3>
+<p>以下是 Spring AI DEBUG 日志中可以看到的 Agent 推理过程（简化呈现）：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;[&lt;span&gt;DEBUG&lt;/span&gt;] User Message: 车牌浙A12345，奥迪Q5L，低速刹车异响，倒车更明显，要跑长途&lt;/span&gt;
+</code></pre><h3 id="84-最终诊断报告">8.4 最终诊断报告</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;═══════════════════════════════════════════&lt;/span&gt;&lt;/span&gt;
+</code></pre><p>注意看：Agent 主动调了 6 次工具，每次调用都基于上一轮的结果调整方向——这正是 ReAct 的精髓。客服 Agent 调 1 次工具就出答案；诊断 Agent 调 6 次，因为诊断本身就是一个排除法过程。</p>
+<hr>
+<h2 id="九进阶让-agent-的推理过程可追溯">九、进阶：让 Agent 的推理过程可追溯</h2>
+<p>诊断和客服最大的区别在于可解释性要求。客服答错了客户最多不满意；诊断错了，客户可能拿报告去投诉。所以诊断 Agent 的推理过程必须可追溯。</p>
+<h3 id="91-开启-spring-ai-的工具调用日志">9.1 开启 Spring AI 的工具调用日志</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;spring&lt;/span&gt;:&lt;/span&gt;
+</code></pre><h3 id="92-自定义工具调用审计">9.2 自定义工具调用审计</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;package&lt;/span&gt;&amp;nbsp;com.aftersales.diag.audit;&lt;/span&gt;
+</code></pre><p>然后把它挂到 ChatClient 上：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;// 在 DiagnosticAgent 中&lt;/span&gt;&lt;/span&gt;
+</code></pre><p>这样每一次诊断的完整推理链路都可以回溯，出了问题能查到是哪一步的推理出了偏差。</p>
+<hr>
+<h2 id="十踩坑清单react-诊断-agent-的-5-个暗坑">十、踩坑清单：ReAct 诊断 Agent 的 5 个暗坑</h2>
+<p>我在实际开发中踩过的坑，提前给你标出来：</p>
+<h3 id="坑1工具描述太模糊llm-不知道什么时候该用">坑1：工具描述太模糊，LLM 不知道什么时候该用</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;❌ description = ”查询配件信息”&lt;/span&gt;
+</code></pre><p>LLM 选工具靠的是 description。描述不清，LLM 要么不调，要么乱调。</p>
+<h3 id="坑2工具返回太长撑爆上下文窗口">坑2：工具返回太长，撑爆上下文窗口</h3>
+<p>OBD 返回几百个参数、维保历史返回几百条记录——这些全塞进上下文，几轮之后 Token 就爆了。</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;解决方案：&lt;/span&gt;
+</code></pre><h3 id="坑3temperature-太高agent-开始创造性诊断">坑3：temperature 太高，Agent 开始「创造性诊断」</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;&lt;span&gt;# ❌ 诊断 Agent 不要用高 temperature&lt;/span&gt;&lt;/span&gt;
+</code></pre><p>temperature 高了，Agent 可能「发明」客户没描述过的症状，或者跳过查证直接下结论。</p>
+<h3 id="坑4没有设置最大步数agent-陷入无限循环">坑4：没有设置最大步数，Agent 陷入无限循环</h3>
+<p>ReAct 模式有个经典问题：LLM 可能反复调用同一个工具，或者在两个工具之间来回弹，始终不出 Final Answer。</p>
+<p>Spring AI 底层有最大工具调用次数限制，但你也要在 System Prompt 里加约束：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;【诊断规则】&lt;/span&gt;
+</code></pre><h3 id="坑5没有我不知道选项agent-硬编结论">坑5：没有「我不知道」选项，Agent 硬编结论</h3>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;【诊断规则】&lt;/span&gt;
+</code></pre><p>一个不会说「我不确定」的诊断 Agent 是危险的。让它学会承认不确定性，比让它假装什么都懂重要一百倍。</p>
+<hr>
+<h2 id="十一诊断-agent-架构全景图">十一、诊断 Agent 架构全景图</h2>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;┌─────────────────────────────────────────────────────────────────────────┐&lt;/span&gt;
+</code></pre><hr>
+<h2 id="十二项目结构">十二、项目结构</h2>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;aftersales&lt;span&gt;-&lt;/span&gt;diagnostic&lt;span&gt;-&lt;/span&gt;agent&lt;span&gt;/&lt;/span&gt;&lt;/span&gt;
+</code></pre><hr>
+<h2 id="十三客服-agent-vs-诊断-agent一图看懂">十三、客服 Agent vs 诊断 Agent：一图看懂</h2>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;客服 Agent（第&lt;span&gt;4&lt;/span&gt;期） &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;诊断 Agent（第&lt;span&gt;5&lt;/span&gt;期）&lt;/span&gt;
+</code></pre><hr>
+<h2 id="十四总结--下期预告">十四、总结 &amp; 下期预告</h2>
+<p>今天我从第2期的 ReAct 理论走到了代码实现，用 Spring AI 搭建了一个完整的汽车售后诊断 Agent：</p>
+<ul>
+<li>
+<p>6 个原子化诊断工具：维保历史、OBD 读码、配件规格、库存查询、维修方案、费用估算</p>
+</li>
+<li>
+<p>ReAct 循环由 Spring AI 自动驱动：你只需要注册工具和写好 System Prompt，<code>.tools(...)</code> 一行搞定</p>
+</li>
+<li>
+<p>推理过程可审计：通过自定义 Advisor 记录每一步的 Thought → Action → Observation</p>
+</li>
+<li>
+<p>5 个实战踩坑：工具描述、上下文管理、temperature、最大步数、不确定性表达</p>
+</li>
+</ul>
+<p>核心认知：诊断 Agent 的难点不在代码量，而在三个地方——工具设计的粒度、System Prompt 的诊断规则、不确定性时的兜底策略。这三件事决定了你的 Agent 是「老 SA」还是「实习生」。</p>
+<blockquote>
+<p>第6期预告：Plan-and-Execute 模式落地——用 Spring AI 搭一个「维修工单编排 Agent」，让它像售后经理一样「开单 → 派工 → 执行 → 质检」一次性规划全流程。ReAct 是「走一步看一步」，Plan-and-Execute 是「先想好再干」，两者怎么选？下期代码见。</p>
+</blockquote>
+<blockquote>
+<p>互动话题：如果你是售后经理，你店里最难诊断的故障是什么？是间歇性异响？还是偶发亮灯？把你觉得最「玄学」的故障发在评论区，下期我可能会用 Plan-and-Execute 帮你编排一套诊断+维修的完整工单流程。</p>
+</blockquote>
+<hr>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260822/%E7%AC%AC5%E6%9C%9F%E7%94%A8-Spring-AI-%E6%89%8B%E6%90%93%E4%B8%80%E4%B8%AA%E8%AF%8A%E6%96%AD-Agent%E8%AE%A9-AI-%E5%83%8F%E8%80%81-SA-%E4%B8%80%E6%A0%B7%E5%90%AC%E6%83%B3%E6%9F%A5%E4%B8%8B%E7%BB%93%E8%AE%BA/">https://index.zshipu.com/ai002/post/20260822/%E7%AC%AC5%E6%9C%9F%E7%94%A8-Spring-AI-%E6%89%8B%E6%90%93%E4%B8%80%E4%B8%AA%E8%AF%8A%E6%96%AD-Agent%E8%AE%A9-AI-%E5%83%8F%E8%80%81-SA-%E4%B8%80%E6%A0%B7%E5%90%AC%E6%83%B3%E6%9F%A5%E4%B8%8B%E7%BB%93%E8%AE%BA/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260822/Multi-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E5%B7%A5%E7%A8%8B%E6%9D%83%E8%A1%A1%E4%B8%8ELangGraph-%E5%AE%9E%E7%8E%B0/">Multi-Agent 系统：架构设计、工程权衡与LangGraph 实现</a></li>
+        
+        <li><a href="/ai002/post/20260822/Spring-AI-2.0-%E5%8D%87%E7%BA%A7%E5%8D%B3%E7%BC%96%E8%AF%91%E6%8A%A5%E9%94%999-%E4%B8%AA%E7%A0%B4%E5%9D%8F%E6%80%A7%E5%8F%98%E6%9B%B4%E9%80%90%E4%B8%AA%E6%8B%86%E8%A7%A3%E9%99%84%E5%AE%8C%E6%95%B4%E8%BF%81%E7%A7%BB%E4%BB%A3%E7%A0%81/">Spring AI 2.0 升级即编译报错？9 个破坏性变更逐个拆解，附完整迁移代码</a></li>
+        
+        <li><a href="/ai002/post/20260822/Spring-AI-2.0-%E6%AD%A3%E5%BC%8F%E8%90%BD%E5%9C%B0JAVA%E7%A8%8B%E5%BA%8F%E5%91%98%E8%BD%AC%E5%9E%8BAI%E7%9A%84%E6%9C%80%E4%BD%B3%E9%80%89%E6%8B%A9/">Spring AI 2.0 正式落地，JAVA程序员转型AI的最佳选择</a></li>
+        
+        <li><a href="/ai002/post/20260822/AI%E5%AE%9E%E6%88%98%E9%A1%B9%E7%9B%AE%E5%9F%BA%E4%BA%8ESpringAIMCP%E7%9A%84AI-Agent%E5%B2%97%E4%BD%8D%E5%8C%B9%E9%85%8D%E4%B8%8E%E6%B1%82%E8%81%8C%E8%A7%84%E5%88%92%E7%B3%BB%E7%BB%9F/">【AI实战项目】基于SpringAI&#43;MCP的AI Agent岗位匹配与求职规划系统</a></li>
+        
+        <li><a href="/ai002/post/20260822/%E4%BF%9D%E5%A7%86%E7%BA%A7AI%E6%97%B6%E4%BB%A3%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%B0%8F%E7%99%BD%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF%E9%99%84xmind%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE%E5%BB%BA%E8%AE%AE%E6%94%B6%E8%97%8F/">【保姆级】AI时代计算机小白学习路线，附xmind思维导图，建议收藏！</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/cli'>cli</a></li>
+                
+                <li><a href='/ai002/tags/mcp'>mcp</a></li>
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/AI%E5%AE%9E%E6%88%98%E9%A1%B9%E7%9B%AE%E5%9F%BA%E4%BA%8ESpringAIMCP%E7%9A%84AI-Agent%E5%B2%97%E4%BD%8D%E5%8C%B9%E9%85%8D%E4%B8%8E%E6%B1%82%E8%81%8C%E8%A7%84%E5%88%92%E7%B3%BB%E7%BB%9F/" title="【AI实战项目】基于SpringAI&#43;MCP的AI Agent岗位匹配与求职规划系统">【AI实战项目】基于SpringAI&#43;MCP的AI Agent岗位匹配与求职规划系统</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/%E4%BF%9D%E5%A7%86%E7%BA%A7AI%E6%97%B6%E4%BB%A3%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%B0%8F%E7%99%BD%E5%AD%A6%E4%B9%A0%E8%B7%AF%E7%BA%BF%E9%99%84xmind%E6%80%9D%E7%BB%B4%E5%AF%BC%E5%9B%BE%E5%BB%BA%E8%AE%AE%E6%94%B6%E8%97%8F/" title="【保姆级】AI时代计算机小白学习路线，附xmind思维导图，建议收藏！">【保姆级】AI时代计算机小白学习路线，附xmind思维导图，建议收藏！</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/6%E6%9C%9FPlan-and-Execute-%E8%90%BD%E5%9C%B0%E7%94%A8-Spring-AI-%E6%90%AD%E4%B8%80%E4%B8%AA%E7%BB%B4%E4%BF%AE%E5%B7%A5%E5%8D%95%E7%BC%96%E6%8E%92-Agent%E8%AE%A9%E5%AE%83%E5%83%8F%E5%94%AE%E5%90%8E%E7%BB%8F%E7%90%86%E4%B8%80%E6%A0%B7%E5%BC%80%E5%8D%95%E6%B4%BE%E5%B7%A5%E6%89%A7%E8%A1%8C%E8%B4%A8%E6%A3%80/" title="6期｜Plan-and-Execute 落地：用 Spring AI 搭一个「维修工单编排 Agent」，让它像售后经理一样「开单→派工→执行→质检」">6期｜Plan-and-Execute 落地：用 Spring AI 搭一个「维修工单编排 Agent」，让它像售后经理一样「开单→派工→执行→质检」</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Agent-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E4%B8%8ELangChain-%E5%AE%9E%E8%B7%B5/" title="Agent 记忆系统：架构、设计与LangChain 实践">Agent 记忆系统：架构、设计与LangChain 实践</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Agentic-Engineering%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90%E4%BB%8E%E5%8D%95Agent%E5%88%B0%E5%A4%9AAgent%E5%8D%8F%E4%BD%9C%E7%9A%84%E8%8C%83%E5%BC%8F%E6%BC%94%E5%8F%98/" title="Agentic Engineering技术解析：从单Agent到多Agent协作的范式演变">Agentic Engineering技术解析：从单Agent到多Agent协作的范式演变</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Agent%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%85%A8%E6%99%AF%E5%9B%BELLMMemorySkillMCPRAGPrompt-%E5%88%B0%E5%BA%95%E6%98%AF%E4%BB%80%E4%B9%88/" title="Agent核心概念全景图：LLM、Memory、Skill、MCP、RAG、Prompt 到底是什么？">Agent核心概念全景图：LLM、Memory、Skill、MCP、RAG、Prompt 到底是什么？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/AI%E6%99%BA%E8%83%BD%E4%BD%93%E5%B9%B3%E5%8F%B0%E6%B7%B1%E5%BA%A6%E6%8B%86%E8%A7%A3%E4%B8%80%E5%BD%93LangGraph%E9%81%87%E4%B8%8ASpring-AI%E6%88%91%E4%BB%AC%E5%A6%82%E4%BD%95%E6%89%93%E9%80%A0%E4%BC%81%E4%B8%9A%E7%BA%A7AI%E6%B5%81%E7%A8%8B%E7%BC%96%E6%8E%92%E5%BC%95%E6%93%8E/" title="AI智能体平台深度拆解（一）：当LangGraph遇上Spring AI——我们如何打造企业级AI流程编排引擎？">AI智能体平台深度拆解（一）：当LangGraph遇上Spring AI——我们如何打造企业级AI流程编排引擎？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Java%E5%BC%80%E5%8F%91%E8%80%85%E6%80%8E%E4%B9%88%E5%81%9ARAGSpring-AI%E5%92%8CLangChain4j%E5%8F%8C%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/" title="Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比">Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/JetBrains-AI%E8%B4%A6%E5%8D%95%E6%AF%8F%E6%9C%88%E7%83%A7%E6%8E%89%E6%95%B0%E7%99%BE%E4%B8%87%E7%BE%8E%E5%85%83%E9%A6%96%E6%89%B9%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E6%8E%AA%E6%96%BD%E5%87%BA%E7%82%89/" title="JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉">JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/MQTT-%E5%8F%AA%E6%98%AF%E5%85%A5%E5%8F%A3AI-Agent-%E6%97%B6%E4%BB%A3IoT-%E5%B9%B3%E5%8F%B0%E8%A6%81%E6%B2%89%E6%B7%80%E8%BF%99%E4%BA%94%E7%B1%BB%E8%B5%84%E4%BA%A7/" title="MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产">MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
