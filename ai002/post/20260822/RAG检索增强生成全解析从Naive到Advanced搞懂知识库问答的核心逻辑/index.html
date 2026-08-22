@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑 | 知识铺的博客</title>
+    <meta property="og:title" content="RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="你有没有遇到过这种情况：让大模型回答公司内部文档的问题，它要么编答案，要么说&amp;quot;我不清楚&amp;quot;？你花了几万块买的GPT-4 API，结果在业务场景里跟个摆设一样。 这就是大模型的两个致命缺陷：幻觉（一本正经胡说八道）和知识截止（不知道训练之后发生的事）。RAG（Retr">
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#rag到底在干什么一个比喻秒懂">RAG到底在干什么？一个比喻秒懂</a></li>
+    <li><a href="#三代rag架构演进从能跑到好用">三代RAG架构演进：从能跑到好用</a>
+      <ul>
+        <li><a href="#第一代naive-rag能跑就行">第一代：Naive RAG（能跑就行）</a></li>
+        <li><a href="#第二代advanced-rag精度提升">第二代：Advanced RAG（精度提升）</a></li>
+        <li><a href="#第三代modularagentic-rag自主决策">第三代：Modular/Agentic RAG（自主决策）</a></li>
+      </ul>
+    </li>
+    <li><a href="#rag-vs-微调-vs-长上下文到底选哪个">RAG vs 微调 vs 长上下文：到底选哪个？</a></li>
+    <li><a href="#rag的四个核心指标">RAG的四个核心指标</a></li>
+    <li><a href="#80的rag项目问题出在哪里">80%的RAG项目问题出在哪里？</a></li>
+    <li><a href="#下篇预告">下篇预告</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月22日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>你有没有遇到过这种情况：让大模型回答公司内部文档的问题，它要么编答案，要么说&quot;我不清楚&quot;？你花了几万块买的GPT-4 API，结果在业务场景里跟个摆设一样。</p>
+<p>这就是大模型的两个致命缺陷：<strong>幻觉</strong>（一本正经胡说八道）和<strong>知识截止</strong>（不知道训练之后发生的事）。RAG（Retrieval-Augmented Generation，检索增强生成）就是来填这个坑的——先从你的文档里找到相关内容，再让模型基于这些内容回答，而不是凭记忆瞎编。</p>
+<p>RAG是目前AI落地最成熟的方案，没有之一。企业知识库、智能客服、法律助手、医疗问答……底层全是RAG。今天这篇我把RAG的核心原理、三代架构演进、跟微调和长上下文的对比一次讲清楚，帮你建立正确的认知框架。</p>
+<h2 id="rag到底在干什么一个比喻秒懂">RAG到底在干什么？一个比喻秒懂</h2>
+<p>把RAG想象成<strong>开卷考试</strong>：</p>
+<ul>
+<li>
+<p><strong>闭卷考试</strong>（纯LLM）：靠脑子里的记忆答题，记不清就编</p>
+</li>
+<li>
+<p><strong>开卷考试</strong>（RAG）：先翻资料找到相关内容，再基于资料作答</p>
+</li>
+</ul>
+<p>核心流程就四步：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;用户提问&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;↓&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;[1. 检索]：从知识库里找到跟问题最相关的文档片段&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;↓&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;[2. 增强]：把检索到的内容塞进提示词，跟问题一起给模型&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;↓&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;[3. 生成]：模型基于检索内容生成回答&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;↓&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;[4. 验证]：（可选）检查回答是否忠于检索内容&lt;/span&gt;&lt;br&gt;
+</code></pre><p>就这么简单。但&quot;简单&quot;和&quot;能用&quot;之间隔着十万八千里——检索不准、切分不对、模型不按文档回答……每个环节都能让你的RAG从&quot;智能助手&quot;变成&quot;人工智障&quot;。</p>
+<h2 id="三代rag架构演进从能跑到好用">三代RAG架构演进：从能跑到好用</h2>
+<p>RAG从2023年到现在，经历了三代演进。搞清楚它们的区别，你才知道自己该用哪一代。</p>
+<h3 id="第一代naive-rag能跑就行">第一代：Naive RAG（能跑就行）</h3>
+<p>最朴素的实现：切块→向量化→Top-K检索→拼Prompt→生成。</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;用户Query → 向量化 → 向量库检索Top-K → 拼接Prompt → LLM生成答案&lt;/span&gt;&lt;br&gt;
+</code></pre><p>典型技术栈：</p>
+<p>|
+组件</p>
+<p>|</p>
+<p>常用方案</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>文档解析</p>
+<p>|</p>
+<p>LangChain DocumentLoader</p>
+<p>|
+|</p>
+<p>分块</p>
+<p>|</p>
+<p>RecursiveCharacterTextSplitter（512字符）</p>
+<p>|
+|</p>
+<p>Embedding</p>
+<p>|</p>
+<p>text-embedding-ada-002</p>
+<p>|
+|</p>
+<p>向量库</p>
+<p>|</p>
+<p>FAISS / Chroma</p>
+<p>|
+|</p>
+<p>生成</p>
+<p>|</p>
+<p>GPT-3.5 / GPT-4</p>
+<p>|</p>
+<p><strong>致命问题：</strong></p>
+<ol>
+<li>
+<p><strong>固定分块破坏语义</strong>：按字符数切割，可能把一段完整的论述切成两半，检索到的chunk缺乏上下文</p>
+</li>
+<li>
+<p><strong>向量检索≠语义相关</strong>：向量相似度高不代表真正相关，&ldquo;苹果手机&quot;和&quot;水果商店&quot;向量可能很近</p>
+</li>
+<li>
+<p><strong>Top-K塞太多噪音</strong>：召回10条文档，可能只有2条有用，其余8条反而干扰模型</p>
+</li>
+<li>
+<p><strong>无法处理复杂问题</strong>：问&quot;对比A公司和B公司的Q4财报差异&quot;这种跨文档推理问题，单次检索根本搞不定</p>
+</li>
+</ol>
+<h3 id="第二代advanced-rag精度提升">第二代：Advanced RAG（精度提升）</h3>
+<p>在Naive RAG的三个环节分别加优化：</p>
+<p><strong>检索前优化（Pre-Retrieval）：</strong></p>
+<ul>
+<li>
+<p>查询改写：用户问&quot;怎么退货&rdquo;，改写成&quot;退换货流程 退货条件 退货步骤&quot;</p>
+</li>
+<li>
+<p>查询路由：判断问题该走知识库还是走搜索引擎</p>
+</li>
+<li>
+<p>HyDE：让模型先猜一个答案，用答案去检索（猜的答案比原始问题检索效果更好）</p>
+</li>
+</ul>
+<p><strong>检索中优化（Retrieval）：</strong></p>
+<ul>
+<li>
+<p>混合检索：向量检索+关键词检索（BM25），两路召回再融合</p>
+</li>
+<li>
+<p>细粒度检索：从文档级检索改为段落级、句子级</p>
+</li>
+</ul>
+<p><strong>检索后优化（Post-Retrieval）：</strong></p>
+<ul>
+<li>
+<p>Rerank重排序：用Cross-Encoder模型对检索结果精排</p>
+</li>
+<li>
+<p>上下文压缩：去掉检索结果中的冗余信息，减少Token浪费</p>
+</li>
+<li>
+<p>父文档检索：小块检索保精度，大块返回保语义</p>
+</li>
+</ul>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;用户Query → 查询改写 → 混合检索 → Rerank重排 → 上下文压缩 → LLM生成&lt;/span&gt;&lt;br&gt;
+</code></pre><p>Advanced RAG是目前<strong>生产环境最主流的架构</strong>。如果你做企业RAG，至少要上这一代。</p>
+<h3 id="第三代modularagentic-rag自主决策">第三代：Modular/Agentic RAG（自主决策）</h3>
+<p>前两代都是固定流程——检索几次、怎么检索都是写死的。第三代让Agent自己决定：</p>
+<ul>
+<li>
+<p><strong>要不要检索</strong>：简单问题直接答，复杂问题才检索</p>
+</li>
+<li>
+<p><strong>从哪里检索</strong>：知识库、数据库、API、搜索引擎，按需选择</p>
+</li>
+<li>
+<p><strong>检索几次</strong>：单次不够就多轮检索</p>
+</li>
+<li>
+<p><strong>检索结果够不够</strong>：不够就换个query再检</p>
+</li>
+<li>
+<p><strong>结果对不对</strong>：自己验证，不对就修正</p>
+</li>
+</ul>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;用户Query → 查询规划 → 动态路由 → 多步检索 → 结果融合 → 自我修正 → LLM生成&lt;/span&gt;&lt;br&gt;
+</code></pre><p>Agentic RAG是2025-2026年最受关注的方向，但说实话<strong>90%的Agentic RAG项目在生产中失败</strong>——不是技术不行，是太复杂了，出了问题你根本排查不过来。我建议先用Advanced RAG把基础打牢，再逐步引入Agent能力。</p>
+<h2 id="rag-vs-微调-vs-长上下文到底选哪个">RAG vs 微调 vs 长上下文：到底选哪个？</h2>
+<p>很多团队纠结这个问题，我给你一张对比表：</p>
+<p>|
+维度</p>
+<p>|</p>
+<p>RAG</p>
+<p>|</p>
+<p>微调</p>
+<p>|</p>
+<p>长上下文</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>知识更新</p>
+<p>|</p>
+<p>实时（插入即生效）</p>
+<p>|</p>
+<p>慢（需重新训练）</p>
+<p>|</p>
+<p>实时（但受长度限制）</p>
+<p>|
+|</p>
+<p>领域适应</p>
+<p>|</p>
+<p>低（建知识库即可）</p>
+<p>|</p>
+<p>高（标注+训练）</p>
+<p>|</p>
+<p>低（但Token成本高）</p>
+<p>|
+|</p>
+<p>幻觉控制</p>
+<p>|</p>
+<p>强（答案可溯源）</p>
+<p>|</p>
+<p>中（仍可能编造）</p>
+<p>|</p>
+<p>弱（越长越容易编）</p>
+<p>|
+|</p>
+<p>私有数据</p>
+<p>|</p>
+<p>可控（本地部署）</p>
+<p>|</p>
+<p>有泄露风险</p>
+<p>|</p>
+<p>有泄露风险</p>
+<p>|
+|</p>
+<p>推理成本</p>
+<p>|</p>
+<p>低（轻量模型即可）</p>
+<p>|</p>
+<p>中（需专用模型）</p>
+<p>|</p>
+<p>极高（长上下文极耗算力）</p>
+<p>|
+|</p>
+<p>实现复杂度</p>
+<p>|</p>
+<p>中</p>
+<p>|</p>
+<p>高</p>
+<p>|</p>
+<p>低</p>
+<p>|</p>
+<p><strong>我的建议：</strong></p>
+<ul>
+<li>
+<p><strong>知识密集型场景</strong>（客服、法律、医疗）：RAG是首选，没有之一</p>
+</li>
+<li>
+<p><strong>风格/格式定制</strong>（特定写作风格、输出格式）：微调</p>
+</li>
+<li>
+<p><strong>简单问答</strong>（上下文不太长）：长上下文够用，不用上RAG</p>
+</li>
+<li>
+<p><strong>复杂场景</strong>：RAG+微调组合拳——微调让模型学会&quot;怎么回答&quot;，RAG让模型知道&quot;回答什么&quot;</p>
+</li>
+</ul>
+<p>千万别搞混了：<strong>微调改的是模型的行为模式，RAG补的是模型的知识盲区</strong>。</p>
+<h2 id="rag的四个核心指标">RAG的四个核心指标</h2>
+<p>评估RAG效果，盯住这四个：</p>
+<ol>
+<li>
+<p><strong>召回率（Recall）</strong>：该找到的文档，找全了没有？漏检=回答缺信息</p>
+</li>
+<li>
+<p><strong>精确率（Precision）</strong>：找到的文档，有多少是真正相关的？误检=干扰模型</p>
+</li>
+<li>
+<p><strong>忠实度（Faithfulness）</strong>：模型的回答是否忠于检索到的文档？不忠于=模型在编</p>
+</li>
+<li>
+<p><strong>回答相关性（Answer Relevancy）</strong>：回答是否直接解决用户的问题？答非所问=白搭</p>
+</li>
+</ol>
+<p>这四个指标分别对应RAG的四个环节：</p>
+<p>|
+环节</p>
+<p>|</p>
+<p>对应指标</p>
+<p>|</p>
+<p>出问题怎么办</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>切分</p>
+<p>|</p>
+<p>召回率</p>
+<p>|</p>
+<p>调整chunk_size、换分块策略</p>
+<p>|
+|</p>
+<p>检索</p>
+<p>|</p>
+<p>召回率+精确率</p>
+<p>|</p>
+<p>换Embedding、加混合检索、Rerank</p>
+<p>|
+|</p>
+<p>生成</p>
+<p>|</p>
+<p>忠实度</p>
+<p>|</p>
+<p>改提示词、换模型</p>
+<p>|
+|</p>
+<p>整体</p>
+<p>|</p>
+<p>回答相关性</p>
+<p>|</p>
+<p>改查询改写、优化检索策略</p>
+<p>|</p>
+<p>发现问题别瞎调，先定位是哪个环节的锅，再针对性优化。</p>
+<h2 id="80的rag项目问题出在哪里">80%的RAG项目问题出在哪里？</h2>
+<p>我帮十几个团队review过RAG系统，问题分布基本是这样的：</p>
+<p><strong>40%的问题出在文档处理</strong>：切分粒度不对、PDF解析丢表格、元数据没提取。这些是&quot;地基&quot;问题，地基没打好，上面再怎么优化都是空中楼阁。</p>
+<p><strong>30%的问题出在检索策略</strong>：纯向量检索不够用、没有Rerank、query没做改写。这些是&quot;管道&quot;问题，东西在那里但你找不到。</p>
+<p><strong>20%的问题出在提示词</strong>：没告诉模型&quot;只基于检索内容回答&quot;、没限制模型编造、没要求标注来源。这些是&quot;最后一公里&quot;问题。</p>
+<p><strong>10%的问题出在模型选择</strong>：模型能力不够（用太小的模型做复杂推理）或模型太大（简单问答用GPT-4纯属浪费）。</p>
+<p>所以我的优化优先级永远是：<strong>先改文档处理→再调检索策略→再优化提示词→最后换模型</strong>。反过来做是很多团队效率低下的根源。</p>
+<h2 id="下篇预告">下篇预告</h2>
+<p>下一篇我专门讲RAG中文档处理和切分策略——这是整个RAG的地基，也是最容易出问题的地方。我会对比6种切分方式、讲PDF/Word/Markdown的解析技巧、给出不同场景的chunk_size推荐值。地基打好了，后面的检索和生成才有意义。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/">https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260822/%E4%B8%87%E5%AD%97%E8%AF%A6%E8%A7%A3AI-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">万字详解：AI Agent 系统架构设计</a></li>
+        
+        <li><a href="/ai002/post/20260822/%E4%BD%A0%E7%9A%84RAG%E7%B3%BB%E7%BB%9F%E5%88%B0%E5%BA%95%E5%A5%BD%E4%B8%8D%E5%A5%BD4%E4%B8%AA%E6%8C%87%E6%A0%87%E8%AF%B4%E6%B8%85%E6%A5%9A/">你的RAG系统到底好不好？4个指标说清楚</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-15-%E4%B8%87%E6%98%9F%E7%94%9F%E6%80%81%E4%BB%8E%E7%99%BE%E8%8A%B1%E9%BD%90%E6%94%BE%E8%B7%A8%E5%85%A5%E5%B7%A5%E4%B8%9A%E5%8C%96%E9%83%A8%E7%BD%B2_Agent_cumora_Skill/">DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-Cordis-%E6%95%99%E7%A8%8B%E4%BB%8E%E9%9B%B6%E5%88%B0%E6%8E%A5%E5%85%A5%E7%9C%9F%E5%AE%9E-harness_cordis%E6%8F%92%E4%BB%B6-CSDN%E5%8D%9A%E5%AE%A2/">DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+                <li><a href='/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D'>提示词</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Agent-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E4%B8%8ELangChain-%E5%AE%9E%E8%B7%B5/" title="Agent 记忆系统：架构、设计与LangChain 实践">Agent 记忆系统：架构、设计与LangChain 实践</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Java%E5%BC%80%E5%8F%91%E8%80%85%E6%80%8E%E4%B9%88%E5%81%9ARAGSpring-AI%E5%92%8CLangChain4j%E5%8F%8C%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/" title="Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比">Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/JetBrains-AI%E8%B4%A6%E5%8D%95%E6%AF%8F%E6%9C%88%E7%83%A7%E6%8E%89%E6%95%B0%E7%99%BE%E4%B8%87%E7%BE%8E%E5%85%83%E9%A6%96%E6%89%B9%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E6%8E%AA%E6%96%BD%E5%87%BA%E7%82%89/" title="JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉">JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/MQTT-%E5%8F%AA%E6%98%AF%E5%85%A5%E5%8F%A3AI-Agent-%E6%97%B6%E4%BB%A3IoT-%E5%B9%B3%E5%8F%B0%E8%A6%81%E6%B2%89%E6%B7%80%E8%BF%99%E4%BA%94%E7%B1%BB%E8%B5%84%E4%BA%A7/" title="MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产">MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Multi-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E5%B7%A5%E7%A8%8B%E6%9D%83%E8%A1%A1%E4%B8%8ELangGraph-%E5%AE%9E%E7%8E%B0/" title="Multi-Agent 系统：架构设计、工程权衡与LangGraph 实现">Multi-Agent 系统：架构设计、工程权衡与LangGraph 实现</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%96%87%E6%A1%A3%E5%A4%84%E7%90%86%E4%B8%8E%E5%88%87%E5%88%86%E7%AD%96%E7%95%A56%E7%A7%8D%E5%88%86%E5%9D%97%E6%96%B9%E5%BC%8F%E5%AF%B9%E6%AF%9480_%E7%9A%84%E6%A3%80%E7%B4%A2%E9%97%AE%E9%A2%98%E4%BB%8E%E8%BF%99%E9%87%8C%E8%A7%A3%E5%86%B3/" title="RAG文档处理与切分策略：6种分块方式对比，80_的检索问题从这里解决">RAG文档处理与切分策略：6种分块方式对比，80_的检索问题从这里解决</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/" title="RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑">RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Spring-AI-2.0-%E5%8D%87%E7%BA%A7%E5%8D%B3%E7%BC%96%E8%AF%91%E6%8A%A5%E9%94%999-%E4%B8%AA%E7%A0%B4%E5%9D%8F%E6%80%A7%E5%8F%98%E6%9B%B4%E9%80%90%E4%B8%AA%E6%8B%86%E8%A7%A3%E9%99%84%E5%AE%8C%E6%95%B4%E8%BF%81%E7%A7%BB%E4%BB%A3%E7%A0%81/" title="Spring AI 2.0 升级即编译报错？9 个破坏性变更逐个拆解，附完整迁移代码">Spring AI 2.0 升级即编译报错？9 个破坏性变更逐个拆解，附完整迁移代码</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Spring-AI-2.0-%E6%AD%A3%E5%BC%8F%E8%90%BD%E5%9C%B0JAVA%E7%A8%8B%E5%BA%8F%E5%91%98%E8%BD%AC%E5%9E%8BAI%E7%9A%84%E6%9C%80%E4%BD%B3%E9%80%89%E6%8B%A9/" title="Spring AI 2.0 正式落地，JAVA程序员转型AI的最佳选择">Spring AI 2.0 正式落地，JAVA程序员转型AI的最佳选择</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/%E4%B8%87%E5%AD%97%E8%AF%A6%E8%A7%A3AI-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" title="万字详解：AI Agent 系统架构设计">万字详解：AI Agent 系统架构设计</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

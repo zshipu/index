@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>你的RAG系统到底好不好？4个指标说清楚 | 知识铺的博客</title>
+    <meta property="og:title" content="你的RAG系统到底好不好？4个指标说清楚 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="你有没有过这种经历：改了切分策略，感觉检索效果好了一点但说不上来好多少；换了个Embedding模型，有些问题答得更好了但有些变差了；上线之后用户反馈&amp;quot;感觉不如以前了&amp;quot;，但你看代码什么都没改。 这就是没有评估体系的典型症状——优化全凭感觉，改了不知道好了没有，出">
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260822/%E4%BD%A0%E7%9A%84RAG%E7%B3%BB%E7%BB%9F%E5%88%B0%E5%BA%95%E5%A5%BD%E4%B8%8D%E5%A5%BD4%E4%B8%AA%E6%8C%87%E6%A0%87%E8%AF%B4%E6%B8%85%E6%A5%9A/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260822/%E4%BD%A0%E7%9A%84RAG%E7%B3%BB%E7%BB%9F%E5%88%B0%E5%BA%95%E5%A5%BD%E4%B8%8D%E5%A5%BD4%E4%B8%AA%E6%8C%87%E6%A0%87%E8%AF%B4%E6%B8%85%E6%A5%9A/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#为什么需要专门的rag评估">为什么需要专门的RAG评估？</a></li>
+    <li><a href="#ragasrag评估的标准工具">RAGAS：RAG评估的标准工具</a>
+      <ul>
+        <li><a href="#四个核心指标">四个核心指标</a></li>
+        <li><a href="#评估数据集">评估数据集</a></li>
+        <li><a href="#运行评估">运行评估</a></li>
+        <li><a href="#解读评估结果">解读评估结果</a></li>
+      </ul>
+    </li>
+    <li><a href="#构建黄金测试集评估的地基">构建黄金测试集：评估的地基</a>
+      <ul>
+        <li><a href="#测试集构建方法">测试集构建方法</a></li>
+      </ul>
+    </li>
+    <li><a href="#ab测试量化对比不同配置">A/B测试：量化对比不同配置</a></li>
+    <li><a href="#bad-case分析定位谁拖了后腿">Bad Case分析：定位&quot;谁拖了后腿&quot;</a></li>
+    <li><a href="#自动化评估流水线">自动化评估流水线</a></li>
+    <li><a href="#我的使用建议">我的使用建议</a></li>
+    <li><a href="#本篇要点">本篇要点</a></li>
+    <li><a href="#rag优化速查checklist">RAG优化速查checklist</a></li>
+    <li><a href="#下篇预告">下篇预告</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">你的RAG系统到底好不好？4个指标说清楚</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月22日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>你有没有过这种经历：改了切分策略，感觉检索效果好了一点但说不上来好多少；换了个Embedding模型，有些问题答得更好了但有些变差了；上线之后用户反馈&quot;感觉不如以前了&quot;，但你看代码什么都没改。</p>
+<p>这就是没有评估体系的典型症状——<strong>优化全凭感觉，改了不知道好了没有，出了问题不知道哪里的问题。</strong></p>
+<p>RAG评估的本质就是给系统做&quot;CT检查&quot;——不是看整体&quot;感觉好不好&quot;，而是逐环节扫描，精确到&quot;检索的召回率是多少&quot;&ldquo;生成的忠实度是多少&quot;&ldquo;哪个环节拉了后腿&rdquo;。有了这些数据，优化才有方向。</p>
+<h2 id="为什么需要专门的rag评估">为什么需要专门的RAG评估？</h2>
+<p>传统的NLP评估指标（BLEU、ROUGE）不适合RAG，因为RAG不是简单的文本生成，而是检索+增强+生成的复合系统。你需要知道的不只是&quot;答案好不好&rdquo;，还有：</p>
+<ul>
+<li>
+<p>检索到的文档跟问题相关吗？（上下文精确度）</p>
+</li>
+<li>
+<p>检索到的文档全吗？有没有漏掉关键信息？（上下文召回率）</p>
+</li>
+<li>
+<p>模型的回答忠于检索到的文档吗？有没有编造？（忠实度）</p>
+</li>
+<li>
+<p>回答直接解决了用户的问题吗？（回答相关性）</p>
+</li>
+</ul>
+<p>这四个指标分别对应RAG的不同环节，哪个环节出问题就优化哪个。</p>
+<h2 id="ragasrag评估的标准工具">RAGAS：RAG评估的标准工具</h2>
+<p>RAGAS（RAG Assessment）是目前最主流的RAG评估框架，开源免费，提供标准化的评估指标。</p>
+<h3 id="四个核心指标">四个核心指标</h3>
+<p><strong>1. Context Precision（上下文精确度）</strong></p>
+<p>检索到的文档中，有多少是真正相关的？</p>
+<ul>
+<li>
+<p>高分：检索到5个文档，5个都跟问题相关</p>
+</li>
+<li>
+<p>低分：检索到5个文档，只有1个相关，其余4个是噪音</p>
+</li>
+</ul>
+<p><strong>2. Context Recall（上下文召回率）</strong></p>
+<p>回答问题所需的信息，检索到了吗？</p>
+<ul>
+<li>
+<p>高分：标准答案中的所有关键信息都能在检索结果中找到</p>
+</li>
+<li>
+<p>低分：标准答案中的重要信息检索结果里没有</p>
+</li>
+</ul>
+<p><strong>3. Faithfulness（忠实度）</strong></p>
+<p>模型的回答是否忠实于检索到的文档？</p>
+<ul>
+<li>
+<p>高分：回答中的每个论断都能在检索结果中找到依据</p>
+</li>
+<li>
+<p>低分：模型编造了检索结果中没有的信息</p>
+</li>
+</ul>
+<p><strong>4. Answer Relevancy（回答相关性）</strong></p>
+<p>回答是否直接解决了用户的问题？</p>
+<ul>
+<li>
+<p>高分：回答紧扣问题，不跑题</p>
+</li>
+<li>
+<p>低分：答非所问，或回答了很多无关内容</p>
+</li>
+</ul>
+<h3 id="评估数据集">评估数据集</h3>
+<p>评估需要四个字段的数据：</p>
+<pre tabindex="0"><code>&lt;span leaf=&#34;&#34;&gt;eval_data = {&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;公司年假政策是什么？&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;如何申请差旅报销？&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; ],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;contexts&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [ &amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 检索到的文档（自动获取或手动标注）&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; [&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;公司年假政策：入职满1年可享5天带薪年假...&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;年假申请需提前3天在OA系统提交...&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; [&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;差旅报销流程：1. 填写报销单 2. 附上发票 3. 提交审批...&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; ],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [ &amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# RAG系统的实际回答&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;入职满1年可享5天带薪年假，需提前3天申请。&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;填写报销单并附上发票后提交审批。&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; ],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [ &amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 标准答案（人工标注）&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;入职满1年可享5天带薪年假，需提前3天在OA系统提交申请。&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;填写差旅报销单，附上原始发票，提交至直属上级审批。&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; ],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;}&lt;/span&gt;&lt;br&gt;
+</code></pre><h3 id="运行评估">运行评估</h3>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;evaluate&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas.metrics&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;(&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; context_precision,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; context_recall,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; faithfulness,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; answer_relevancy,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;datasets&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;Dataset&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 构建评估数据集&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;eval_dataset = Dataset.from_dict(eval_data)&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 运行评估&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;result = evaluate(&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; eval_dataset,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; metrics=[context_precision, context_recall, faithfulness, answer_relevancy],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;print(result)&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 输出示例：&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# {&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# &amp;nbsp; &#39;context_precision&#39;: 0.78,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# &amp;nbsp; &#39;context_recall&#39;: 0.65,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# &amp;nbsp; &#39;faithfulness&#39;: 0.85,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# &amp;nbsp; &#39;answer_relevancy&#39;: 0.72,&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# }&lt;/span&gt;&lt;/span&gt;&lt;br&gt;
+</code></pre><h3 id="解读评估结果">解读评估结果</h3>
+<p>|
+指标低</p>
+<p>|</p>
+<p>说明</p>
+<p>|</p>
+<p>优化方向</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Context Precision低</p>
+<p>|</p>
+<p>检索噪音多</p>
+<p>|</p>
+<p>加Rerank、调相似度阈值、优化chunk</p>
+<p>|
+|</p>
+<p>Context Recall低</p>
+<p>|</p>
+<p>检索遗漏多</p>
+<p>|</p>
+<p>换Embedding、加混合检索、查询改写</p>
+<p>|
+|</p>
+<p>Faithfulness低</p>
+<p>|</p>
+<p>模型在编</p>
+<p>|</p>
+<p>改提示词、换模型、加来源标注要求</p>
+<p>|
+|</p>
+<p>Answer Relevancy低</p>
+<p>|</p>
+<p>答非所问</p>
+<p>|</p>
+<p>改查询理解、提示词加约束</p>
+<p>|</p>
+<h2 id="构建黄金测试集评估的地基">构建黄金测试集：评估的地基</h2>
+<p>评估结果的可靠性取决于测试集的质量。随便找几个问题测一下，结论不靠谱。</p>
+<h3 id="测试集构建方法">测试集构建方法</h3>
+<p><strong>方法1：人工标注（最可靠）</strong></p>
+<p>从真实用户日志中抽取50-100个问题，人工标注标准答案：</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 从日志中抽取真实问题&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;real_queries = [&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;年假可以跨年累积吗？&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;出差补贴标准是多少？&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;试用期多长时间？&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# ...50-100个&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;]&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 人工标注标准答案&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;ground_truths = [&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;年假不可跨年累积，当年未使用的年假在12月31日自动清零。&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;出差补贴分为住宿、交通、餐饮三项...&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;试用期根据合同期限不同...&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;]&lt;/span&gt;&lt;br&gt;
+</code></pre><p><strong>方法2：LLM生成（快速但有偏差）</strong></p>
+<p>用模型基于文档生成问答对：</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas.testset.generator&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;TestsetGenerator&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas.testset.evolutions&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;simple, reasoning, multi_context&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;generator = TestsetGenerator.from_langchain(model)&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 基于文档自动生成测试集&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;testset = generator.generate_with_langchain_docs(&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; documents=docs,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; test_size=&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;50&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;, &amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 生成50个测试用例&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; distributions={simple:&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0.5&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;, reasoning:&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0.3&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;, multi_context:&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0.2&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;},&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 50%简单问题 + 30%推理问题 + 20%多文档问题&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;
+</code></pre><h2 id="ab测试量化对比不同配置">A/B测试：量化对比不同配置</h2>
+<p>改了配置到底好了还是差了？不能凭感觉，要A/B测试：</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;def&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;run_ab_test&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;(config_a_name, config_a_retriever,&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; config_b_name, config_b_retriever,&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; test_dataset)&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&#34;&#34;A/B测试：对比两种检索配置的RAGAS分数&#34;&#34;&#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;def&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;run_rag&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;(retriever, question)&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; docs = retriever.invoke(question)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; context =&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;\n&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;.join([d.page_content&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;d&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;docs])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; prompt =&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;f&#34;基于以下内容回答问题：\n&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{context}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;\n\n问题：&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{question}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;return&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;model.invoke(prompt).content, [d.page_content&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;d&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;docs]&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; results_a = {&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;contexts&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: []}&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; results_b = {&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;contexts&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: [],&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: []}&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;item&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;test_dataset:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# Config A&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; answer_a, contexts_a = run_rag(config_a_retriever, item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_a[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_a[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;contexts&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(contexts_a)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_a[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(answer_a)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_a[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# Config B&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; answer_b, contexts_b = run_rag(config_b_retriever, item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_b[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_b[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;contexts&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(contexts_b)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_b[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(answer_b)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; results_b[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;].append(item[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;ground_truth&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 评估&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; score_a = evaluate(Dataset.from_dict(results_a), metrics=[...])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; score_b = evaluate(Dataset.from_dict(results_b), metrics=[...])&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; print(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;f&#34;Config A (&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{config_a_name}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;):&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{score_a}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; print(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;f&#34;Config B (&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{config_b_name}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;):&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{score_b}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;
+</code></pre><p><strong>实测案例</strong>：对比纯向量检索 vs 混合检索+Rerank</p>
+<p>|
+指标</p>
+<p>|</p>
+<p>纯向量</p>
+<p>|</p>
+<p>混合+Rerank</p>
+<p>|</p>
+<p>提升</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Context Precision</p>
+<p>|</p>
+<p>0.72</p>
+<p>|</p>
+<p>0.88</p>
+<p>|</p>
+<p>+22%</p>
+<p>|
+|</p>
+<p>Context Recall</p>
+<p>|</p>
+<p>0.68</p>
+<p>|</p>
+<p>0.82</p>
+<p>|</p>
+<p>+21%</p>
+<p>|
+|</p>
+<p>Faithfulness</p>
+<p>|</p>
+<p>0.83</p>
+<p>|</p>
+<p>0.86</p>
+<p>|</p>
+<p>+4%</p>
+<p>|
+|</p>
+<p>Answer Relevancy</p>
+<p>|</p>
+<p>0.71</p>
+<p>|</p>
+<p>0.79</p>
+<p>|</p>
+<p>+11%</p>
+<p>|</p>
+<h2 id="bad-case分析定位谁拖了后腿">Bad Case分析：定位&quot;谁拖了后腿&quot;</h2>
+<p>整体分数只能告诉你&quot;好不好&quot;，Bad Case分析能告诉你&quot;为什么不好&quot;。</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;def&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;bad_case_analysis&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;(eval_results, test_dataset, threshold=&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0.5&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&#34;&#34;分析得分低的测试用例，定位瓶颈&#34;&#34;&#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; bad_cases = []&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;i, scores&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;enumerate(eval_results):&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;any(v &amp;lt; threshold&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;v&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores.values()):&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; case = {&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: test_dataset[i][&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;question&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: test_dataset[i][&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;scores&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;: scores,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;diagnosis&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; }&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 诊断&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;context_precision&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] &amp;lt; threshold:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; case[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;diagnosis&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] +=&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;🔍 检索噪音多（Context Precision低）→ 优化检索/Rerank &#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;context_recall&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] &amp;lt; threshold:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; case[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;diagnosis&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] +=&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;📭 检索遗漏（Context Recall低）→ 优化Embedding/查询改写 &#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;faithfulness&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] &amp;lt; threshold:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; case[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;diagnosis&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] +=&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;🤥 模型编造（Faithfulness低）→ 优化提示词/换模型 &#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;answer_relevancy&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] &amp;lt; threshold:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; case[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;diagnosis&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] +=&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;↗️ 答非所问（Answer Relevancy低）→ 优化查询理解 &#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; bad_cases.append(case)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;return&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;bad_cases&lt;/span&gt;&lt;br&gt;
+</code></pre><p><strong>这是RAG调优最有效的方法</strong>：找到低分case→定位是哪个环节→针对性优化→重新评估→看分数有没有涨。</p>
+<p>Java类比：这就像你用JUnit做单元测试——先跑一遍覆盖率报告，找到覆盖率最低的类，针对性补测试用例，再跑一遍看覆盖率涨了没。RAGAS评估就是RAG的JaCoCo+JUnit。</p>
+<h2 id="自动化评估流水线">自动化评估流水线</h2>
+<p>把评估集成到CI/CD中，每次改代码自动跑评估：</p>
+<pre tabindex="0"><code>&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# eval_pipeline.py&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;json&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;evaluate&lt;/span&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;from&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;ragas.metrics&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;import&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;context_precision, context_recall, faithfulness, answer_relevancy&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;def&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;run_evaluation&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;()&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 1. 加载测试集&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; testset = json.load(open(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;golden_testset.json&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;))&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 2. 运行RAG获取回答&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; results = run_rag_on_testset(testset)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 3. 运行RAGAS评估&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; scores = evaluate(&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; Dataset.from_dict(results),&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; metrics=[context_precision, context_recall, faithfulness, answer_relevancy],&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; )&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 4. 与基线对比&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; baseline = json.load(open(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;baseline_scores.json&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;))&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; print(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;=== RAG评估报告 ===&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;for&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;metric, score&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;in&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores.items():&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; diff = score - baseline.get(metric,&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; arrow =&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;↑&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;diff &amp;gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;else&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;↓&#34;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; print(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;f&#34;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{metric}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{score:&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;.3&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;f}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{arrow}&lt;/span&gt;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;{abs(diff):&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;.3&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;f}&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 5. 分数低于阈值则告警&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;scores[&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;faithfulness&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;] &amp;lt;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;0.7&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; &amp;nbsp; &amp;nbsp; print(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;⚠️ Faithfulness低于0.7，模型可能在编造答案！&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;)&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp;&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;# 6. 保存新基线&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; json.dump(dict(scores), open(&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;baseline_scores.json&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;,&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;w&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;))&lt;/span&gt;&lt;br&gt;&lt;br&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;if&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp;__name__ ==&amp;nbsp;&lt;/span&gt;&lt;span&gt;&lt;span leaf=&#34;&#34;&gt;&#34;__main__&#34;&lt;/span&gt;&lt;/span&gt;&lt;span leaf=&#34;&#34;&gt;:&lt;/span&gt;&lt;br&gt;&lt;span leaf=&#34;&#34;&gt;&amp;nbsp; &amp;nbsp; run_evaluation()&lt;/span&gt;&lt;br&gt;
+</code></pre><p><strong>每次改了RAG配置后跑一遍这个脚本，5分钟就能知道改好了还是改坏了。</strong></p>
+<h2 id="我的使用建议">我的使用建议</h2>
+<ol>
+<li>
+<p><strong>先建测试集再优化</strong>。没有测试集的优化就是盲人摸象。50个测试用例就够起步了。</p>
+</li>
+<li>
+<p><strong>先跑基线分数</strong>。在优化之前先跑一遍评估，记录基线。后面所有改动都跟基线对比。</p>
+</li>
+<li>
+<p><strong>每次只改一个变量</strong>。同时改切分+Embedding+Rerank，你永远不知道哪个改动有效。</p>
+</li>
+<li>
+<p><strong>关注Bad Case多于平均分</strong>。平均分80%但有几个0分的Bad Case，可能比平均分75%但所有case都及格更危险。</p>
+</li>
+<li>
+<p><strong>Faithfulness是最重要的指标</strong>。模型编造答案比找不到答案更可怕——用户可能基于错误信息做决策。</p>
+</li>
+</ol>
+<h2 id="本篇要点">本篇要点</h2>
+<p>|
+要点</p>
+<p>|</p>
+<p>说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>四个核心指标</p>
+<p>|</p>
+<p>Context Precision/Recall + Faithfulness/Answer Relevancy</p>
+<p>|
+|</p>
+<p>RAGAS框架</p>
+<p>|</p>
+<p>开源RAG评估工具，自动化跑分</p>
+<p>|
+|</p>
+<p>黄金测试集</p>
+<p>|</p>
+<p>50-100个真实问题+人工标注答案</p>
+<p>|
+|</p>
+<p>A/B测试</p>
+<p>|</p>
+<p>每次只改一个变量，对比前后分数</p>
+<p>|
+|</p>
+<p>Bad Case分析</p>
+<p>|</p>
+<p>找低分case→定位瓶颈→针对性优化</p>
+<p>|
+|</p>
+<p>自动化流水线</p>
+<p>|</p>
+<p>集成到CI/CD，改了就跑评估</p>
+<p>|
+|</p>
+<p>最重要指标</p>
+<p>|</p>
+<p>Faithfulness &gt; Recall &gt; Precision &gt; Relevancy</p>
+<p>|</p>
+<h2 id="rag优化速查checklist">RAG优化速查checklist</h2>
+<p>|
+症状</p>
+<p>|</p>
+<p>可能原因</p>
+<p>|</p>
+<p>优先尝试</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Recall低</p>
+<p>|</p>
+<p>chunk太大/Embedding差/Top-K太小</p>
+<p>|</p>
+<p>调小chunk → 换BGE-m3 → 加BM25 → 调大K</p>
+<p>|
+|</p>
+<p>Precision低</p>
+<p>|</p>
+<p>没Rerank/Top-K太大/无过滤</p>
+<p>|</p>
+<p>加Rerank → 降K → 加元数据过滤</p>
+<p>|
+|</p>
+<p>Faithfulness低</p>
+<p>|</p>
+<p>Prompt没约束/模型太弱/温度高</p>
+<p>|</p>
+<p>加&quot;仅基于上下文&quot;约束 → temperature=0 → 换模型</p>
+<p>|
+|</p>
+<p>Relevancy低</p>
+<p>|</p>
+<p>查询理解差/检索到无关</p>
+<p>|</p>
+<p>查询改写 → 检查切分 → 换Prompt模板</p>
+<p>|
+|</p>
+<p>改了没效果</p>
+<p>|</p>
+<p>没有评估体系</p>
+<p>|</p>
+<p>先建50个测试用例，跑基线再调</p>
+<p>|</p>
+<h2 id="下篇预告">下篇预告</h2>
+<p>最后一篇讲RAG的生产部署——增量索引策略、监控告警搭建、成本控制、多租户架构。把RAG从&quot;能跑&quot;变成&quot;线上稳定运行&quot;。</p>
+<hr>
+<p><strong>你有在做RAG评估吗？用什么工具？测试集怎么建的？评论区分享下经验。</strong></p>
+<p><strong>觉得有用就点个在看，下一篇讲RAG生产部署——上线一周就翻车的事我见过太多了。</strong></p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260822/%E4%BD%A0%E7%9A%84RAG%E7%B3%BB%E7%BB%9F%E5%88%B0%E5%BA%95%E5%A5%BD%E4%B8%8D%E5%A5%BD4%E4%B8%AA%E6%8C%87%E6%A0%87%E8%AF%B4%E6%B8%85%E6%A5%9A/">https://index.zshipu.com/ai002/post/20260822/%E4%BD%A0%E7%9A%84RAG%E7%B3%BB%E7%BB%9F%E5%88%B0%E5%BA%95%E5%A5%BD%E4%B8%8D%E5%A5%BD4%E4%B8%AA%E6%8C%87%E6%A0%87%E8%AF%B4%E6%B8%85%E6%A5%9A/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/">RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑</a></li>
+        
+        <li><a href="/ai002/post/20260822/%E4%B8%87%E5%AD%97%E8%AF%A6%E8%A7%A3AI-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">万字详解：AI Agent 系统架构设计</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-15-%E4%B8%87%E6%98%9F%E7%94%9F%E6%80%81%E4%BB%8E%E7%99%BE%E8%8A%B1%E9%BD%90%E6%94%BE%E8%B7%A8%E5%85%A5%E5%B7%A5%E4%B8%9A%E5%8C%96%E9%83%A8%E7%BD%B2_Agent_cumora_Skill/">DeepSeek Harness 15 万星：生态从「百花齐放」跨入「工业化部署」_Agent_cumora_Skill</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-Cordis-%E6%95%99%E7%A8%8B%E4%BB%8E%E9%9B%B6%E5%88%B0%E6%8E%A5%E5%85%A5%E7%9C%9F%E5%AE%9E-harness_cordis%E6%8F%92%E4%BB%B6-CSDN%E5%8D%9A%E5%AE%A2/">DeepSeek Harness Cordis 教程：从零到接入真实 harness_cordis插件-CSDN博客</a></li>
+        
+        <li><a href="/ai002/post/20260818/DeepSeek-Harness-%E6%B7%B1%E5%BA%A6%E6%9E%B6%E6%9E%84%E5%85%A8%E8%A7%A3%E6%9E%90_deepseek-harness-%E8%A7%A3%E6%9E%90-CSDN%E5%8D%9A%E5%AE%A2/">DeepSeek Harness 深度架构全解析_deepseek harness 解析-CSDN博客</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+                <li><a href='/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D'>提示词</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Agent-%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E4%B8%8ELangChain-%E5%AE%9E%E8%B7%B5/" title="Agent 记忆系统：架构、设计与LangChain 实践">Agent 记忆系统：架构、设计与LangChain 实践</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Java%E5%BC%80%E5%8F%91%E8%80%85%E6%80%8E%E4%B9%88%E5%81%9ARAGSpring-AI%E5%92%8CLangChain4j%E5%8F%8C%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/" title="Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比">Java开发者怎么做RAG：Spring AI和LangChain4j双框架对比</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/JetBrains-AI%E8%B4%A6%E5%8D%95%E6%AF%8F%E6%9C%88%E7%83%A7%E6%8E%89%E6%95%B0%E7%99%BE%E4%B8%87%E7%BE%8E%E5%85%83%E9%A6%96%E6%89%B9%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6%E6%8E%AA%E6%96%BD%E5%87%BA%E7%82%89/" title="JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉">JetBrains AI账单每月烧掉数百万美元，首批成本控制措施出炉</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/MQTT-%E5%8F%AA%E6%98%AF%E5%85%A5%E5%8F%A3AI-Agent-%E6%97%B6%E4%BB%A3IoT-%E5%B9%B3%E5%8F%B0%E8%A6%81%E6%B2%89%E6%B7%80%E8%BF%99%E4%BA%94%E7%B1%BB%E8%B5%84%E4%BA%A7/" title="MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产">MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Multi-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E5%B7%A5%E7%A8%8B%E6%9D%83%E8%A1%A1%E4%B8%8ELangGraph-%E5%AE%9E%E7%8E%B0/" title="Multi-Agent 系统：架构设计、工程权衡与LangGraph 实现">Multi-Agent 系统：架构设计、工程权衡与LangGraph 实现</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%96%87%E6%A1%A3%E5%A4%84%E7%90%86%E4%B8%8E%E5%88%87%E5%88%86%E7%AD%96%E7%95%A56%E7%A7%8D%E5%88%86%E5%9D%97%E6%96%B9%E5%BC%8F%E5%AF%B9%E6%AF%9480_%E7%9A%84%E6%A3%80%E7%B4%A2%E9%97%AE%E9%A2%98%E4%BB%8E%E8%BF%99%E9%87%8C%E8%A7%A3%E5%86%B3/" title="RAG文档处理与切分策略：6种分块方式对比，80_的检索问题从这里解决">RAG文档处理与切分策略：6种分块方式对比，80_的检索问题从这里解决</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/RAG%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90%E5%85%A8%E8%A7%A3%E6%9E%90%E4%BB%8ENaive%E5%88%B0Advanced%E6%90%9E%E6%87%82%E7%9F%A5%E8%AF%86%E5%BA%93%E9%97%AE%E7%AD%94%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91/" title="RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑">RAG检索增强生成全解析：从Naive到Advanced，搞懂知识库问答的核心逻辑</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Spring-AI-2.0-%E5%8D%87%E7%BA%A7%E5%8D%B3%E7%BC%96%E8%AF%91%E6%8A%A5%E9%94%999-%E4%B8%AA%E7%A0%B4%E5%9D%8F%E6%80%A7%E5%8F%98%E6%9B%B4%E9%80%90%E4%B8%AA%E6%8B%86%E8%A7%A3%E9%99%84%E5%AE%8C%E6%95%B4%E8%BF%81%E7%A7%BB%E4%BB%A3%E7%A0%81/" title="Spring AI 2.0 升级即编译报错？9 个破坏性变更逐个拆解，附完整迁移代码">Spring AI 2.0 升级即编译报错？9 个破坏性变更逐个拆解，附完整迁移代码</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/Spring-AI-2.0-%E6%AD%A3%E5%BC%8F%E8%90%BD%E5%9C%B0JAVA%E7%A8%8B%E5%BA%8F%E5%91%98%E8%BD%AC%E5%9E%8BAI%E7%9A%84%E6%9C%80%E4%BD%B3%E9%80%89%E6%8B%A9/" title="Spring AI 2.0 正式落地，JAVA程序员转型AI的最佳选择">Spring AI 2.0 正式落地，JAVA程序员转型AI的最佳选择</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260822/%E4%B8%87%E5%AD%97%E8%AF%A6%E8%A7%A3AI-Agent-%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" title="万字详解：AI Agent 系统架构设计">万字详解：AI Agent 系统架构设计</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
