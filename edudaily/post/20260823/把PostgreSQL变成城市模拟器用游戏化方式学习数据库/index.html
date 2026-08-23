@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>把PostgreSQL变成城市模拟器：用游戏化方式学习数据库 | 知识铺的博客</title>
+    <meta property="og:title" content="把PostgreSQL变成城市模拟器：用游戏化方式学习数据库 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-23T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-23T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="一个名为“PostgreSQL City Simulator”的开源项目，将复杂的数据库概念转化为一座可交互的城市：表是街区，行是居民，查询是交通系统。这个项目在GitHub上迅速走红，短短两周内获得超过5000颗星，让无数开发者惊呼“原来数据库可以这样学”。 从命令行到城市：一个反直觉的教">
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/edudaily/post/20260823/%E6%8A%8APostgreSQL%E5%8F%98%E6%88%90%E5%9F%8E%E5%B8%82%E6%A8%A1%E6%8B%9F%E5%99%A8%E7%94%A8%E6%B8%B8%E6%88%8F%E5%8C%96%E6%96%B9%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%95%B0%E6%8D%AE%E5%BA%93/">
+    <link rel="canonical" href="https://index.zshipu.com/edudaily/post/20260823/%E6%8A%8APostgreSQL%E5%8F%98%E6%88%90%E5%9F%8E%E5%B8%82%E6%A8%A1%E6%8B%9F%E5%99%A8%E7%94%A8%E6%B8%B8%E6%88%8F%E5%8C%96%E6%96%B9%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%95%B0%E6%8D%AE%E5%BA%93/" />
+    <link rel="shortcut icon" href='/edudaily/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/edudaily/css/normalize.css'>
+    <link rel="stylesheet" href='/edudaily/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+    
+    <script data-ad-client="ca-pub-2874221941555456" async
+        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/edudaily/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/edudaily/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/edudaily/" title="优学日常">优学日常</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/edudaily/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/edudaily/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#从命令行到城市一个反直觉的教学实验">从命令行到城市：一个反直觉的教学实验</a></li>
+    <li><a href="#城市如何运转表行与查询的视觉化映射">城市如何运转：表、行与查询的视觉化映射</a></li>
+    <li><a href="#技术实现用threejs和postgresql构建交互式3d世界">技术实现：用Three.js和PostgreSQL构建交互式3D世界</a></li>
+    <li><a href="#不只是玩具对数据库教学和开发者社区的启示">不只是玩具：对数据库教学和开发者社区的启示</a></li>
+    <li><a href="#从城市模拟器到更多可能可视化教学工具的趋势">从城市模拟器到更多可能：可视化教学工具的趋势</a></li>
+    <li><a href="#局限与未来模拟器无法替代的深度">局限与未来：模拟器无法替代的深度</a></li>
+    <li><a href="#参考来源">参考来源</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">把PostgreSQL变成城市模拟器：用游戏化方式学习数据库</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月23日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="把PostgreSQL变成城市模拟器：用游戏化方式学习数据库" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-23/3e0d55d7f12a6949.jpg" />   
+    </p>
+<p>一个名为“PostgreSQL City Simulator”的开源项目，将复杂的数据库概念转化为一座可交互的城市：表是街区，行是居民，查询是交通系统。这个项目在GitHub上迅速走红，短短两周内获得超过5000颗星，让无数开发者惊呼“原来数据库可以这样学”。</p>
+<h2 id="从命令行到城市一个反直觉的教学实验">从命令行到城市：一个反直觉的教学实验</h2>
+<p>传统上，学习PostgreSQL意味着面对黑底白字的终端，敲出<code>SELECT * FROM users WHERE age &gt; 30;</code>，然后盯着返回的表格发呆。对于初学者来说，SQL的执行逻辑——数据如何被扫描、过滤、连接——完全是黑盒。PostgreSQL City Simulator的创造者显然厌倦了这种枯燥的方式，他决定把数据库“画”出来。</p>
+<p>这个项目的核心创意是：将数据库的物理结构映射为一座城市。表是街区，行是居民，索引是交通标志，查询则是穿梭于街道的车辆。这种类比并非随意为之，而是基于数据库底层实现的真实逻辑。例如，全表扫描就像一辆公交车在街区里挨家挨户敲门，而索引查找则像直接导航到目标地址。这种反直觉的映射，恰恰利用了人类对空间和运动的直觉，将抽象的算法过程转化为可观察的物理现象。</p>
+<p>项目在GitHub上发布后，迅速引发热议。开发者们纷纷在社交媒体上分享自己的体验，有人感叹“终于明白为什么索引能加速查询了”，也有人表示“如果当年学数据库时看到这个，我可能不会挂科”。这种反响表明，游戏化教学在技术领域有着巨大的潜力，尤其是当它触及到学习者的痛点时。</p>
+<h2 id="城市如何运转表行与查询的视觉化映射">城市如何运转：表、行与查询的视觉化映射</h2>
+<p>在PostgreSQL City Simulator中，每个数据库表都被渲染为一个独立的街区，街区的边界清晰，内部排列着整齐的房屋。每一行数据就是一座房屋，房屋的外观（颜色、大小）根据字段值变化，例如，年龄字段可能决定房屋的高度，姓名首字母决定颜色。这种设计让用户一眼就能看出数据的分布特征，比如年龄集中在哪个区间，或者某个字段是否有大量重复值。</p>
+<p>查询的执行被模拟为车辆的运动。当你输入一条SQL语句，比如<code>SELECT * FROM users WHERE age &gt; 30</code>，你会看到一辆辆小车从街区入口出发，沿着街道逐户检查，符合条件的人会被“接上车”，最终驶向出口。这个过程直观地展示了全表扫描的代价：车辆必须遍历每一户，时间与行数成正比。而如果你在<code>age</code>字段上创建了索引，车辆则会直接驶向符合条件的房屋，跳过无关区域，速度明显提升。</p>
+<p>更精妙的是，连接（JOIN）操作被表现为两辆车的相遇。例如，<code>users</code>和<code>orders</code>表之间的内连接，会有一辆来自用户街区的车和一辆来自订单街区的车，在某个交叉路口交换乘客，只有匹配的行才会被带上。这种视觉化让用户理解了连接的本质——匹配键的相等比较，以及嵌套循环连接和哈希连接的区别。通过观察车辆的运动轨迹，用户能直观感受到不同连接算法的性能差异。</p>
+<h2 id="技术实现用threejs和postgresql构建交互式3d世界">技术实现：用Three.js和PostgreSQL构建交互式3D世界</h2>
+<p>PostgreSQL City Simulator并非简单的静态图表，而是一个实时交互的3D世界。项目前端使用Three.js进行3D渲染，构建出带有光照、阴影和动画的城市场景。后端则直接连接真实的PostgreSQL数据库，通过WebSocket与前端保持实时同步。这意味着，你在界面上看到的城市状态，就是数据库中真实的数据状态。</p>
+<p>当用户执行查询时，前端将SQL发送到后端，后端解析并执行，同时将执行计划（EXPLAIN）的信息返回。前端根据执行计划，模拟车辆的运动路径。例如，如果执行计划显示“Seq Scan”，车辆就会逐户访问；如果显示“Index Scan”，车辆就会沿着索引路径直达。这种设计不仅展示了查询结果，还展示了查询过程，让用户理解数据库优化器是如何决策的。</p>
+<p>技术栈的选择也体现了项目的用心。Three.js提供了强大的3D能力，使得城市看起来生动有趣；WebSocket保证了低延迟的交互，让用户的操作即时反馈；而直接使用真实PostgreSQL，则确保了模拟的准确性——这不是一个玩具，而是一个真实数据库的镜像。项目还支持用户自定义数据库连接，你可以将自己的数据库导入，看看你的数据长什么样。</p>
+<h2 id="不只是玩具对数据库教学和开发者社区的启示">不只是玩具：对数据库教学和开发者社区的启示</h2>
+<p>PostgreSQL City Simulator的火爆，折射出传统技术文档和教程的不足。文档通常以文字和静态图表为主，难以传达动态的执行过程；视频教程虽然生动，但缺乏交互性，用户只能被动观看。而模拟器提供了“做中学”的体验，用户可以通过修改查询、创建索引，立即看到效果，这种即时反馈是学习的关键。</p>
+<p>游戏化学习在复杂技术领域的潜力被低估了。很多人认为数据库是严肃的工程领域，不适合游戏化。但模拟器证明，只要设计得当，游戏化不仅能降低入门门槛，还能加深对底层原理的理解。它让学习者从“记住语法”转向“理解机制”，这正是从新手到专家的关键跨越。</p>
+<p>对开发者社区而言，这个项目也是一个成功的开源案例。它证明了个人开发者可以通过创意和技术，创造出影响广泛的学习工具。项目的GitHub仓库不仅提供了代码，还鼓励社区贡献，比如添加新的可视化效果、支持更多数据库特性。这种开放协作的模式，让项目能够持续进化。</p>
+<h2 id="从城市模拟器到更多可能可视化教学工具的趋势">从城市模拟器到更多可能：可视化教学工具的趋势</h2>
+<p>PostgreSQL City Simulator并非孤例。近年来，出现了多个类似的可视化教学项目，它们共同推动着技术教育方式的变革。例如，SQL Murder Mystery是一个交互式游戏，玩家通过编写SQL查询来侦破一桩谋杀案，在解谜过程中学习SQL语法和逻辑；Regex Crossword则将正则表达式与填字游戏结合，让玩家在网格中匹配模式，掌握正则的用法。</p>
+<p>这些工具的共同特点是：将抽象概念转化为具体场景，利用游戏机制（如目标、挑战、反馈）激发学习动机，并提供即时反馈。它们不是替代传统教学，而是作为补充，帮助学习者在动手实践中建立直觉。随着Web技术（如WebGL、WebAssembly）的进步，这类工具的表现力和交互性将越来越强，未来可能出现更复杂的模拟，比如分布式数据库、网络协议等。</p>
+<p>技术教育的趋势正在从“阅读文档”转向“体验系统”。模拟器让学习者成为“操作者”，而不是“旁观者”。这种转变有助于培养解决问题的能力，而不仅仅是记忆知识。对于企业和教育机构来说，投资这类工具，或许能显著提升培训效果。</p>
+<h2 id="局限与未来模拟器无法替代的深度">局限与未来：模拟器无法替代的深度</h2>
+<p>尽管PostgreSQL City Simulator令人印象深刻，但它也有明显的局限。首先，它目前只覆盖了数据库的基础操作，如SELECT、INSERT、UPDATE、DELETE，以及索引和连接。高级特性，如事务隔离级别、锁机制、窗口函数、递归查询等，尚未可视化。这些概念同样抽象，但模拟的复杂度会成倍增加。</p>
+<p>其次，模拟器可能误导对性能优化的理解。在现实中，查询性能受多种因素影响，如数据分布、硬件配置、并发负载等。模拟器简化了这些因素，让用户误以为“索引总是好的”或“全表扫描总是坏的”。实际上，优化器会根据统计信息选择最佳计划，有时全表扫描反而更快。因此，模拟器适合入门，但深入优化仍需结合真实场景和工具（如EXPLAIN ANALYZE）。</p>
+<p>未来，项目可以考虑增加更高级的可视化，比如事务的并发控制（用多辆车争抢同一房屋来模拟锁），或者查询计划的详细步骤（用动画展示排序、聚合等操作）。同时，社区可以贡献更多数据库的支持，如MySQL、SQLite。开发者也可以参与贡献，无论是代码、文档还是创意，都能让这个城市更加繁荣。</p>
+<p>总之，PostgreSQL City Simulator是一个成功的教学实验，它证明了游戏化学习在复杂技术领域的价值。虽然它无法替代深入的理论学习，但它为初学者打开了一扇门，让数据库不再神秘。</p>
+<h2 id="参考来源">参考来源</h2>
+<ul>
+<li><a href="https://zshipu.com/t/?url=https://www.infoq.cn/article/umVdo2GaEyONQLWNmPZ9?utm_source=rss&amp;utm_medium=article">PostgreSQL 太难懂？有人把它做成了城市模拟器</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/edudaily/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/edudaily/post/20260823/%E6%8A%8APostgreSQL%E5%8F%98%E6%88%90%E5%9F%8E%E5%B8%82%E6%A8%A1%E6%8B%9F%E5%99%A8%E7%94%A8%E6%B8%B8%E6%88%8F%E5%8C%96%E6%96%B9%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%95%B0%E6%8D%AE%E5%BA%93/">https://index.zshipu.com/edudaily/post/20260823/%E6%8A%8APostgreSQL%E5%8F%98%E6%88%90%E5%9F%8E%E5%B8%82%E6%A8%A1%E6%8B%9F%E5%99%A8%E7%94%A8%E6%B8%B8%E6%88%8F%E5%8C%96%E6%96%B9%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%95%B0%E6%8D%AE%E5%BA%93/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/edudaily/post/20260822/%E9%9F%A6%E4%B8%9C%E5%A5%95%E5%87%BA%E5%B0%8F%E5%AD%A6%E6%95%B0%E5%AD%A6%E7%BB%83%E4%B9%A0%E5%86%8C%E5%A4%A9%E6%89%8D%E7%9A%84%E6%95%B0%E5%AD%A6%E8%A7%82%E4%B8%8E%E5%85%AC%E4%BC%97%E6%9C%9F%E5%BE%85%E4%B9%8B%E9%97%B4%E7%9A%84%E8%90%BD%E5%B7%AE/">韦东奕出小学数学练习册：天才的数学观与公众期待之间的落差</a></li>
+        
+        <li><a href="/edudaily/post/20260821/%E4%B8%80%E8%B5%B7%E6%95%99%E8%82%B2%E5%8F%91%E5%B8%83%E6%95%99%E5%B8%88%E6%99%BA%E8%83%BD%E4%BD%93AI%E5%A6%82%E4%BD%95%E6%88%90%E4%B8%BA%E8%80%81%E5%B8%88%E7%9A%84%E5%90%8C%E8%A1%8C%E8%80%85/">一起教育发布教师智能体，AI如何成为老师的同行者</a></li>
+        
+        <li><a href="/edudaily/post/20260821/%E5%88%9D%E7%BA%A7%E5%B2%97%E4%BD%8D%E6%B6%88%E5%A4%B1%E9%AB%98%E7%BA%A7%E4%BA%BA%E6%89%8D%E6%96%AD%E5%B1%82%E4%B8%8B%E4%B8%80%E4%BB%A3%E9%AB%98%E7%BA%A7%E5%B7%A5%E7%A8%8B%E5%B8%88%E4%BB%8E%E5%93%AA%E9%87%8C%E6%9D%A5/">初级岗位消失、高级人才断层：下一代高级工程师从哪里来？</a></li>
+        
+        <li><a href="/edudaily/post/20260820/%E4%B8%8A%E6%B5%B7%E5%8F%91%E5%B8%83%E6%95%99%E8%82%B2%E5%8D%81%E4%BA%94%E4%BA%94%E8%A7%84%E5%88%92%E8%81%9A%E7%84%A6%E7%AB%8B%E5%BE%B7%E6%A0%91%E4%BA%BA%E4%B8%8E%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">上海发布教育“十五五”规划，聚焦立德树人与数字化转型</a></li>
+        
+        <li><a href="/edudaily/post/20260820/%E5%9B%BD%E9%99%85%E6%95%99%E8%82%B2%E5%85%AC%E5%8F%B8%E4%BA%8F%E6%8D%9F%E5%8D%83%E4%B8%87%E9%80%80%E5%87%BA%E6%96%B0%E4%B8%89%E6%9D%BF%E8%BD%BB%E9%87%8F%E5%8C%96%E8%BF%90%E8%90%A5%E6%88%90%E5%87%BA%E8%B7%AF/">国际教育公司亏损千万退出新三板，轻量化运营成出路</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/edudaily/tags/PostgreSQL'>PostgreSQL</a></li>
+                
+                <li><a href='/edudaily/tags/Three.js'>Three.js</a></li>
+                
+                <li><a href='/edudaily/tags/%E5%8F%AF%E8%A7%86%E5%8C%96%E6%95%99%E5%AD%A6'>可视化教学</a></li>
+                
+                <li><a href='/edudaily/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE'>开源项目</a></li>
+                
+                <li><a href='/edudaily/tags/%E6%95%99%E5%AD%A6'>教学</a></li>
+                
+                <li><a href='/edudaily/tags/%E6%B8%B8%E6%88%8F%E5%8C%96%E5%AD%A6%E4%B9%A0'>游戏化学习</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/edudaily/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/edudaily/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/edudaily/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/edudaily/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260823/AI-Agent%E5%85%A5%E9%97%A8%E5%AE%9E%E6%88%98%E7%AC%AC9%E7%AF%87Spring-AI-Alibaba%E7%9F%AD%E6%97%B6%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E5%85%A5%E9%97%A8--%E7%BB%99AI%E8%A3%85%E4%B8%8A%E5%A4%A7%E8%84%91%E7%9A%AE%E5%B1%82/" title="AI Agent入门实战第9篇，Spring AI Alibaba短时记忆系统入门--给AI装上“大脑皮层”">AI Agent入门实战第9篇，Spring AI Alibaba短时记忆系统入门--给AI装上“大脑皮层”</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260823/%E6%8A%8APostgreSQL%E5%8F%98%E6%88%90%E5%9F%8E%E5%B8%82%E6%A8%A1%E6%8B%9F%E5%99%A8%E7%94%A8%E6%B8%B8%E6%88%8F%E5%8C%96%E6%96%B9%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%95%B0%E6%8D%AE%E5%BA%93/" title="把PostgreSQL变成城市模拟器：用游戏化方式学习数据库">把PostgreSQL变成城市模拟器：用游戏化方式学习数据库</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260822/%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%E6%9E%84%E5%BB%BA%E5%B7%A5%E4%B8%9A%E7%BA%A7%E7%89%A9%E8%81%94%E7%BD%91IoT%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E9%A9%B1%E5%8A%A8%E4%BC%81%E4%B8%9A%E7%94%9F%E4%BA%A7%E7%AE%A1%E7%90%86%E5%90%91%E6%99%BA%E8%83%BD%E5%8C%96%E8%BD%AC%E5%9E%8B/" title="深度解析：构建工业级物联网(IoT)系统架构，驱动企业生产管理向智能化转型">深度解析：构建工业级物联网(IoT)系统架构，驱动企业生产管理向智能化转型</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260822/%E9%9F%A6%E4%B8%9C%E5%A5%95%E5%87%BA%E5%B0%8F%E5%AD%A6%E6%95%B0%E5%AD%A6%E7%BB%83%E4%B9%A0%E5%86%8C%E5%A4%A9%E6%89%8D%E7%9A%84%E6%95%B0%E5%AD%A6%E8%A7%82%E4%B8%8E%E5%85%AC%E4%BC%97%E6%9C%9F%E5%BE%85%E4%B9%8B%E9%97%B4%E7%9A%84%E8%90%BD%E5%B7%AE/" title="韦东奕出小学数学练习册：天才的数学观与公众期待之间的落差">韦东奕出小学数学练习册：天才的数学观与公众期待之间的落差</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260821/%E4%B8%80%E8%B5%B7%E6%95%99%E8%82%B2%E5%8F%91%E5%B8%83%E6%95%99%E5%B8%88%E6%99%BA%E8%83%BD%E4%BD%93AI%E5%A6%82%E4%BD%95%E6%88%90%E4%B8%BA%E8%80%81%E5%B8%88%E7%9A%84%E5%90%8C%E8%A1%8C%E8%80%85/" title="一起教育发布教师智能体，AI如何成为老师的同行者">一起教育发布教师智能体，AI如何成为老师的同行者</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260821/%E5%88%9D%E7%BA%A7%E5%B2%97%E4%BD%8D%E6%B6%88%E5%A4%B1%E9%AB%98%E7%BA%A7%E4%BA%BA%E6%89%8D%E6%96%AD%E5%B1%82%E4%B8%8B%E4%B8%80%E4%BB%A3%E9%AB%98%E7%BA%A7%E5%B7%A5%E7%A8%8B%E5%B8%88%E4%BB%8E%E5%93%AA%E9%87%8C%E6%9D%A5/" title="初级岗位消失、高级人才断层：下一代高级工程师从哪里来？">初级岗位消失、高级人才断层：下一代高级工程师从哪里来？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260820/%E4%B8%8A%E6%B5%B7%E5%8F%91%E5%B8%83%E6%95%99%E8%82%B2%E5%8D%81%E4%BA%94%E4%BA%94%E8%A7%84%E5%88%92%E8%81%9A%E7%84%A6%E7%AB%8B%E5%BE%B7%E6%A0%91%E4%BA%BA%E4%B8%8E%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/" title="上海发布教育“十五五”规划，聚焦立德树人与数字化转型">上海发布教育“十五五”规划，聚焦立德树人与数字化转型</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260820/%E5%9B%BD%E9%99%85%E6%95%99%E8%82%B2%E5%85%AC%E5%8F%B8%E4%BA%8F%E6%8D%9F%E5%8D%83%E4%B8%87%E9%80%80%E5%87%BA%E6%96%B0%E4%B8%89%E6%9D%BF%E8%BD%BB%E9%87%8F%E5%8C%96%E8%BF%90%E8%90%A5%E6%88%90%E5%87%BA%E8%B7%AF/" title="国际教育公司亏损千万退出新三板，轻量化运营成出路">国际教育公司亏损千万退出新三板，轻量化运营成出路</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260820/%E8%AE%AF%E9%A3%9E%E6%98%9F%E5%85%89%E4%BA%AE%E7%9B%B8%E5%85%A8%E7%90%83%E6%99%BA%E6%85%A7%E6%95%99%E8%82%B2%E5%A4%A7%E4%BC%9AAI%E5%A6%82%E4%BD%95%E6%88%90%E4%B8%BA%E6%95%99%E5%B8%88%E7%9A%84%E5%BE%97%E5%8A%9B%E5%8A%A9%E6%89%8B/" title="讯飞星光亮相全球智慧教育大会，AI如何成为教师的得力助手">讯飞星光亮相全球智慧教育大会，AI如何成为教师的得力助手</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/edudaily/post/20260819/2026%E5%85%A8%E7%90%83%E6%99%BA%E6%85%A7%E6%95%99%E8%82%B2%E5%A4%A7%E4%BC%9A%E5%BC%80%E5%B9%95AI%E5%A6%82%E4%BD%95%E9%87%8D%E5%A1%91%E6%95%99%E8%82%B2%E6%9C%AA%E6%9D%A5/" title="2026全球智慧教育大会开幕，AI如何重塑教育未来">2026全球智慧教育大会开幕，AI如何重塑教育未来</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/edudaily/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/edudaily/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/edudaily/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/AI%E5%86%B3%E7%AD%96/">AI决策</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/AI%E5%B7%A5%E5%85%B7/">AI工具</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/AI%E6%95%99%E8%82%B2/">AI教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/Alpha-Beta%E5%89%AA%E6%9E%9D/">Alpha-Beta剪枝</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/Google-Gemini/">Google Gemini</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/Minimax/">Minimax</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/PostgreSQL/">PostgreSQL</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/Three.js/">Three.js</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%B8%8A%E6%B5%B7%E6%95%99%E8%82%B2/">上海教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%B8%AA%E6%80%A7%E5%8C%96%E6%99%BA%E8%83%BD%E4%BD%93/">个性化智能体</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%BA%8F%E6%8D%9F/">亏损</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%BA%91%E5%8E%9F%E7%94%9F/">云原生</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%BA%A4%E4%BA%92%E5%BC%8F%E5%AD%A6%E4%B9%A0/">交互式学习</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E4%BA%BA%E6%89%8D%E6%96%AD%E5%B1%82/">人才断层</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%85%A8%E7%90%83%E5%A4%A7%E4%BC%9A/">全球大会</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%85%A8%E7%90%83%E6%99%BA%E6%85%A7%E6%95%99%E8%82%B2%E5%A4%A7%E4%BC%9A/">全球智慧教育大会</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%88%9D%E7%BA%A7%E5%B2%97%E4%BD%8D/">初级岗位</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%8D%81%E4%BA%94%E4%BA%94%E8%A7%84%E5%88%92/">十五五规划</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%8F%AF%E6%8C%81%E7%BB%AD%E5%8F%91%E5%B1%95/">可持续发展</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%8F%AF%E8%A7%86%E5%8C%96/">可视化</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%8F%AF%E8%A7%86%E5%8C%96%E6%95%99%E5%AD%A6/">可视化教学</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%9B%BD%E9%99%85%E6%95%99%E8%82%B2/">国际教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%A4%87%E8%AF%BE/">备课</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%A4%A9%E6%89%8D/">天才</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%B0%8F%E5%AD%A6%E6%95%B0%E5%AD%A6/">小学数学</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">开源项目</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%8A%80%E6%9C%AF%E8%B6%8B%E5%8A%BF/">技术趋势</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E5%AD%A6/">教学</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E5%AD%A6%E5%88%9B%E6%96%B0/">教学创新</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E5%B8%88/">教师</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E5%B8%88%E6%88%90%E9%95%BF/">教师成长</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E5%B8%88%E9%98%9F%E4%BC%8D/">教师队伍</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E8%82%B2/">教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E8%82%B2%E5%85%AC%E5%B9%B3/">教育公平</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E8%82%B2%E7%A7%91%E6%8A%80/">教育科技</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E8%BE%85/">教辅</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%99%E8%BE%85%E4%B9%A6/">教辅书</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%B0%E5%AD%97%E5%8C%96%E8%BD%AC%E5%9E%8B/">数字化转型</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%B0%E5%AD%A6%E6%95%99%E8%82%B2/">数学教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%95%B0%E6%8D%AE%E9%9A%90%E7%A7%81/">数据隐私</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%96%B0%E4%B8%89%E6%9D%BF/">新三板</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%99%BA%E6%85%A7%E6%95%99%E8%82%B2/">智慧教育</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E6%B8%B8%E6%88%8F%E5%8C%96%E5%AD%A6%E4%B9%A0/">游戏化学习</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E7%AB%8B%E5%BE%B7%E6%A0%91%E4%BA%BA/">立德树人</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%80%83%E8%AF%95/">考试</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%81%8C%E4%B8%9A%E5%8F%91%E5%B1%95/">职业发展</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%AE%AF%E9%A3%9E%E6%98%9F%E5%85%89/">讯飞星光</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%AE%BA%E6%96%87/">论文</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%AF%BE%E5%A0%82/">课堂</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E8%BD%BB%E9%87%8F%E5%8C%96%E8%BF%90%E8%90%A5/">轻量化运营</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E9%9F%A6%E4%B8%9C%E5%A5%95/">韦东奕</a>
+    
+    <a href="https://index.zshipu.com/edudaily/tags/%E9%AB%98%E7%BA%A7%E5%B7%A5%E7%A8%8B%E5%B8%88/">高级工程师</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/edudaily/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
