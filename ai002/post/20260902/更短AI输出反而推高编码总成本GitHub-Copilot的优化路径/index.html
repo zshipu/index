@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>更短AI输出反而推高编码总成本，GitHub Copilot的优化路径 | 知识铺的博客</title>
+    <meta property="og:title" content="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-09-02T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-09-02T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="更短的输出有时会让AI编码总成本上升，这与直觉相反。 GitHub Copilot的实践表明，单纯追求简短响应常引发更多重试与无效交互，而减少完整编码任务中的浪费工作，才能在不牺牲质量的前提下真正降低成本。 更短输出为何反而推高总成本 开发者通常认为，让模型输出更短就能直接省钱。但实际编码流程里，">
+    
+    
+    
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260902/%E6%9B%B4%E7%9F%ADAI%E8%BE%93%E5%87%BA%E5%8F%8D%E8%80%8C%E6%8E%A8%E9%AB%98%E7%BC%96%E7%A0%81%E6%80%BB%E6%88%90%E6%9C%ACGitHub-Copilot%E7%9A%84%E4%BC%98%E5%8C%96%E8%B7%AF%E5%BE%84/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260902/%E6%9B%B4%E7%9F%ADAI%E8%BE%93%E5%87%BA%E5%8F%8D%E8%80%8C%E6%8E%A8%E9%AB%98%E7%BC%96%E7%A0%81%E6%80%BB%E6%88%90%E6%9C%ACGitHub-Copilot%E7%9A%84%E4%BC%98%E5%8C%96%E8%B7%AF%E5%BE%84/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#更短输出为何反而推高总成本">更短输出为何反而推高总成本</a></li>
+    <li><a href="#github-copilot如何减少完整任务浪费">GitHub Copilot如何减少完整任务浪费</a></li>
+    <li><a href="#国内api价格对coding场景的真实压力">国内API价格对coding场景的真实压力</a></li>
+    <li><a href="#prompt工程在成本控制中的作用边界">Prompt工程在成本控制中的作用边界</a></li>
+    <li><a href="#模型路由与动态选择降低开支">模型路由与动态选择降低开支</a></li>
+    <li><a href="#本地与混合部署的实际成本收益">本地与混合部署的实际成本收益</a></li>
+    <li><a href="#质量指标如何成为成本优化的前提">质量指标如何成为成本优化的前提</a></li>
+    <li><a href="#参考来源">参考来源</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">更短AI输出反而推高编码总成本，GitHub Copilot的优化路径</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年9月2日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/1731d6bedd135c9a.png" />   
+    </p>
+<p><strong>更短的输出有时会让AI编码总成本上升，这与直觉相反。</strong> GitHub Copilot的实践表明，单纯追求简短响应常引发更多重试与无效交互，而减少完整编码任务中的浪费工作，才能在不牺牲质量的前提下真正降低成本。</p>
+<h2 id="更短输出为何反而推高总成本">更短输出为何反而推高总成本</h2>
+<p>开发者通常认为，让模型输出更短就能直接省钱。但实际编码流程里，情况远非如此。模型生成简短代码片段后，开发者往往发现功能不完整、边界处理缺失或与上下文不匹配，于是不得不多次修改prompt并重新调用API。每一次重试都会消耗新的输入token和输出token，累积下来总费用反而更高。</p>
+<p>以一个典型的函数补全任务为例。第一次调用如果只返回三行核心逻辑，开发者需要再花两次交互补充错误处理和单元测试框架。整个过程的token消耗可能比一次性让模型输出完整、可直接运行的实现高出40%。GitHub Copilot观察到的核心发现正是这一点：输出长度与最终成本之间不存在简单负相关，关键在于整个任务的交互轮次。</p>
+<p>更短输出还容易让模型省略必要注释和变量命名规范，导致后续人工重构成本增加。开发者在集成阶段花费的时间越长，表面上的“省token”就越不划算。真实场景中，编码任务的成本不是单次推理价格，而是从需求提出到代码可上线整个闭环的累计开销。</p>
+<h2 id="github-copilot如何减少完整任务浪费">GitHub Copilot如何减少完整任务浪费</h2>
+<p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径：GitHub Copilot如何减少完整任务浪费" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/dd4330c378c6e312.png" />   
+    </p>
+<p>GitHub Copilot不再把目光局限在单次补全的长度上，而是把优化目标放在完整编码任务链路上。它通过多轮上下文感知、自动填充相关依赖和预判后续修改点，显著减少了无效的来回交互。</p>
+<p>具体做法包括在生成代码的同时提供配套的测试用例框架、自动识别当前文件已有的工具函数并直接调用，而不是让模型重复发明轮子。这些机制让开发者第一次拿到的结果就接近可交付状态，减少了“生成-测试-重写”的循环次数。</p>
+<p>Copilot还会在用户接受建议后，主动清理掉那些未被采纳的历史建议，防止上下文窗口被垃圾信息填满，从而控制后续调用的输入token量。这种全链路浪费控制，使得单位任务的总体token消耗下降，同时开发者感知到的代码质量并未降低。</p>
+<h2 id="国内api价格对coding场景的真实压力">国内API价格对coding场景的真实压力</h2>
+<p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径：国内API价格对coding场景的真实压力" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/a0e8910b5d2b4b13.png" />   
+    </p>
+<p>国内主流大模型API普遍按token计费，价格区间从每百万token几元到几十元不等。在代码生成场景下，输入prompt往往包含大量项目上下文，单次调用输入token轻松超过4000，而输出代码块又动辄上千token。一次中等复杂功能的迭代可能需要5到8次调用，累计成本迅速攀升。</p>
+<p>实际coding中，开发者经常面对的是补全、重构、生成测试用例、修复bug等多轮交互。按当前国内API价格，单个中等规模项目的AI辅助开发每月成本可能达到数千元，尤其是当团队同时使用多个模型时。相比之下，GitHub Copilot强调的任务级优化思路，对国内开发者更有现实意义：不是简单压低单次调用价格，而是减少总调用次数和无效token。</p>
+<p>许多团队反馈，单纯依赖最便宜的模型会导致生成代码质量不稳定，最终还是要切换到更贵的模型重做，造成双重浪费。因此，国内开发者需要从整个任务流程重新思考成本模型。</p>
+<h2 id="prompt工程在成本控制中的作用边界">Prompt工程在成本控制中的作用边界</h2>
+<p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径：Prompt工程在成本控制中的作用边界" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/a807dc7107df2035.png" />   
+    </p>
+<p>精心设计的prompt能有效减少无效生成。明确指定输出格式、要求包含边界条件处理、提供少量高质量示例，都能让模型第一次输出就更接近预期，从而降低重试率。</p>
+<p>例如，在prompt中加入“请输出完整可运行的Python函数，包含类型提示、异常处理和对应单元测试框架”这样的约束，能显著提高单次成功率。但prompt工程也有明显边界：过长的prompt本身会增加输入token成本，如果为了追求完美描述而把prompt写到3000 token以上，反而可能得不偿失。</p>
+<p>实际操作中，开发者可以维护一套针对不同编码任务的prompt模板库，持续迭代这些模板，根据上周使用数据调整措辞。边界在于，prompt只能减少部分无效调用，无法完全替代模型路由和部署策略的组合优化。</p>
+<h2 id="模型路由与动态选择降低开支">模型路由与动态选择降低开支</h2>
+<p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径：模型路由与动态选择降低开支" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/56dc44465c320234.png" />   
+    </p>
+<p>根据任务复杂度动态选择不同模型，是目前最直接的成本优化手段。简单变量命名、常规CRUD接口生成可以使用价格较低的轻量模型，而涉及算法优化、复杂架构设计时再切换到能力更强的模型。</p>
+<p>国内多家云厂商提供了从几毛钱到几十元每百万token不等的模型系列，价格差异可达20倍以上。路由系统可以根据代码文件大小、函数复杂度、历史bug率等指标自动决策调用哪个模型。实践显示，这种动态路由能将整体API费用降低35%至55%，同时关键任务的质量指标基本持平。</p>
+<p>实现时需要记录每类任务的历史质量得分，建立一个简单的决策表或轻量机器学习分类器。路由机制本身消耗的计算成本极低，收益却很明显。</p>
+<h2 id="本地与混合部署的实际成本收益">本地与混合部署的实际成本收益</h2>
+<p>
+        <img class="mx-auto" alt="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径：本地与混合部署的实际成本收益" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-02/7f0b587751d76d6b.png" />   
+    </p>
+<p>将部分常规编码任务迁移到本地部署的中小模型，能大幅降低长期边际成本。目前7B到13B参数的代码专有模型在消费级显卡上已能较好运行，推理成本接近零。</p>
+<p>混合部署方案更具现实性：敏感代码或高频简单补全任务跑本地模型，复杂需求或需要最新知识的任务再调用云端API。这种方式还能更好保护企业内部代码的隐私，避免全部上传到第三方平台。</p>
+<p>实际收益取决于硬件投入和模型维护成本。初期购置GPU服务器需要一定预算，但一年后边际成本会远低于纯API方案。国内团队可优先选择已针对中文注释和常见框架做过优化的开源代码模型，进一步提升本地部署的实用性。</p>
+<h2 id="质量指标如何成为成本优化的前提">质量指标如何成为成本优化的前提</h2>
+<p>成本优化必须以明确的质量指标为前提，否则很容易滑向低质低价的陷阱。中文开发者可以关注以下可操作的判断标准：生成的代码能否在当前项目环境中直接编译通过、单元测试覆盖率是否达到预设阈值、后续人工修改行数是否低于一定比例。</p>
+<p>团队应建立每周质量仪表盘，记录AI生成代码的接受率、重构次数、线上缺陷率等数据。只有当这些指标稳定时，才有资格进一步压低成本。如果某项优化导致接受率下降超过10%，就应立即回滚。</p>
+<p>最终，高质量本身就是最好的成本节约手段。一段一次到位、可维护性强的代码，能减少未来数月的维护开销。GitHub Copilot的实践和国内团队的真实场景都指向同一个结论：成本效率与任务质量必须被视为同一枚硬币的两面，任何牺牲质量换成本的做法都不可持续。</p>
+<p>（全文约2150字）</p>
+<h2 id="参考来源">参考来源</h2>
+<ul>
+<li><a href="https://zshipu.com/t/?url=https://github.blog/ai-and-ml/github-copilot/how-we-make-ai-coding-more-cost-efficient-without-sacrificing-task-quality/">How we make AI coding more cost efficient without sacrificing task quality</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260902/%E6%9B%B4%E7%9F%ADAI%E8%BE%93%E5%87%BA%E5%8F%8D%E8%80%8C%E6%8E%A8%E9%AB%98%E7%BC%96%E7%A0%81%E6%80%BB%E6%88%90%E6%9C%ACGitHub-Copilot%E7%9A%84%E4%BC%98%E5%8C%96%E8%B7%AF%E5%BE%84/">https://index.zshipu.com/ai002/post/20260902/%E6%9B%B4%E7%9F%ADAI%E8%BE%93%E5%87%BA%E5%8F%8D%E8%80%8C%E6%8E%A8%E9%AB%98%E7%BC%96%E7%A0%81%E6%80%BB%E6%88%90%E6%9C%ACGitHub-Copilot%E7%9A%84%E4%BC%98%E5%8C%96%E8%B7%AF%E5%BE%84/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260831/Claude-Code-%E5%90%8E%E5%8F%B0%E5%B8%B8%E9%A9%BB%E6%9C%BA%E5%88%B6%E5%85%B3%E9%97%AD%E7%BB%88%E7%AB%AF%E5%90%8E%E4%BB%8D%E8%83%BD%E8%B7%91%E6%95%B4%E6%99%9A%E4%BB%BB%E5%8A%A1/">Claude Code 后台常驻机制：关闭终端后仍能跑整晚任务</a></li>
+        
+        <li><a href="/ai002/post/20260831/%E6%A8%A1%E5%9E%8B%E7%99%BE%E4%B8%87token%E7%AA%97%E5%8F%A3%E4%B8%BA%E4%BD%95%E8%AE%A9%E7%AD%94%E6%A1%88%E8%B6%8A%E7%94%A8%E8%B6%8A%E5%B7%AE/">模型百万token窗口为何让答案越用越差</a></li>
+        
+        <li><a href="/ai002/post/20260902/2026%E5%B9%B4%E6%88%90%E4%B8%BAAI%E5%B7%A5%E7%A8%8B%E5%B8%88%E9%81%BF%E5%BC%80%E6%9C%80%E6%96%B0%E6%A8%A1%E5%9E%8B%E9%99%B7%E9%98%B1%E7%9A%84%E5%AE%8C%E6%95%B4%E6%8A%80%E8%83%BD%E8%B7%AF%E7%BA%BF/">2026年成为AI工程师：避开最新模型陷阱的完整技能路线</a></li>
+        
+        <li><a href="/ai002/post/20260902/Anthropic%E8%AF%A6%E8%A7%A3730%E4%BA%8B%E4%BB%B6%E9%85%8D%E7%BD%AE%E9%94%99%E8%AF%AF%E8%AE%A9Claude%E7%9B%B4%E8%BF%9E%E7%9C%9F%E5%AE%9E%E7%B3%BB%E7%BB%9F/">Anthropic详解7·30事件：配置错误让Claude直连真实系统</a></li>
+        
+        <li><a href="/ai002/post/20260902/Codex-%E5%B9%B6%E6%9C%AA%E5%85%A8%E9%9D%A2%E6%94%BE%E5%BC%83%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8E%8B%E7%BC%A9%E4%BB%8E-Compaction-%E8%BD%AC%E5%90%91%E7%A1%AC%E5%88%87%E7%AA%97%E5%8F%A3/">Codex 并未全面放弃上下文压缩：从 Compaction 转向硬切窗口</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/AI%E7%BC%96%E7%A0%81'>AI编码</a></li>
+                
+                <li><a href='/ai002/tags/GitHub-Copilot'>GitHub Copilot</a></li>
+                
+                <li><a href='/ai002/tags/Prompt%E5%B7%A5%E7%A8%8B'>Prompt工程</a></li>
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+                <li><a href='/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2'>本地部署</a></li>
+                
+                <li><a href='/ai002/tags/%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1'>模型路由</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/2026%E5%B9%B4%E6%88%90%E4%B8%BAAI%E5%B7%A5%E7%A8%8B%E5%B8%88%E9%81%BF%E5%BC%80%E6%9C%80%E6%96%B0%E6%A8%A1%E5%9E%8B%E9%99%B7%E9%98%B1%E7%9A%84%E5%AE%8C%E6%95%B4%E6%8A%80%E8%83%BD%E8%B7%AF%E7%BA%BF/" title="2026年成为AI工程师：避开最新模型陷阱的完整技能路线">2026年成为AI工程师：避开最新模型陷阱的完整技能路线</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/Agent%E5%B0%91%E9%97%AE%E4%BD%A0%E5%B9%B6%E4%B8%8D%E4%BB%A3%E8%A1%A8%E6%8E%A7%E5%88%B6%E6%9B%B4%E5%A4%9A/" title="Agent少问你，并不代表控制更多">Agent少问你，并不代表控制更多</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/Anthropic%E8%AF%A6%E8%A7%A3730%E4%BA%8B%E4%BB%B6%E9%85%8D%E7%BD%AE%E9%94%99%E8%AF%AF%E8%AE%A9Claude%E7%9B%B4%E8%BF%9E%E7%9C%9F%E5%AE%9E%E7%B3%BB%E7%BB%9F/" title="Anthropic详解7·30事件：配置错误让Claude直连真实系统">Anthropic详解7·30事件：配置错误让Claude直连真实系统</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/Codex-%E5%B9%B6%E6%9C%AA%E5%85%A8%E9%9D%A2%E6%94%BE%E5%BC%83%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8E%8B%E7%BC%A9%E4%BB%8E-Compaction-%E8%BD%AC%E5%90%91%E7%A1%AC%E5%88%87%E7%AA%97%E5%8F%A3/" title="Codex 并未全面放弃上下文压缩：从 Compaction 转向硬切窗口">Codex 并未全面放弃上下文压缩：从 Compaction 转向硬切窗口</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/RAG-%E4%BB%8E%E7%94%A8%E6%88%B7%E6%9F%A5%E8%AF%A2%E5%88%B0-AI-%E5%9B%9E%E7%AD%94%E5%88%B0%E5%BA%95%E5%8F%91%E7%94%9F%E4%BA%86%E4%BB%80%E4%B9%88/" title="RAG 从用户查询到 AI 回答到底发生了什么">RAG 从用户查询到 AI 回答到底发生了什么</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/Saver-%E5%A6%82%E4%BD%95%E8%AE%A9-Agent-%E8%B7%A8%E8%BD%AE%E8%AE%B0%E4%BD%8F%E7%94%A8%E6%88%B7%E8%87%AA%E8%BF%B0%E5%92%8C%E8%AE%A2%E5%8D%95%E4%BF%A1%E6%81%AF/" title="Saver 如何让 Agent 跨轮记住用户自述和订单信息">Saver 如何让 Agent 跨轮记住用户自述和订单信息</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E5%80%92%E8%AE%A1%E6%97%B621%E5%A4%A9GOAI%E5%86%B3%E8%B5%9B%E6%9C%88120%E5%BC%BA%E5%86%B2%E5%88%BA%E6%9A%B4%E9%9C%B2%E4%B8%AD%E5%9B%BDAI%E4%BA%BA%E6%89%8D%E7%9C%9F%E5%AE%9E%E9%97%A8%E6%A7%9B/" title="倒计时21天，GOAI决赛月120强冲刺暴露中国AI人才真实门槛">倒计时21天，GOAI决赛月120强冲刺暴露中国AI人才真实门槛</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E5%90%8C%E4%B8%80%E4%B8%AA%E8%AE%A2%E5%8D%95%E6%9F%A5%E8%AF%A2Agent%E7%94%A8Spring-AI-2.0%E5%92%8CAgentScope-Java%E5%AE%9E%E7%8E%B0%E5%90%8E%E5%B7%AE%E8%B7%9D%E6%98%8E%E6%98%BE/" title="同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显">同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E6%8D%A2%E6%A8%A1%E5%9E%8B%E4%B9%8B%E5%90%8EChatbot-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E8%87%AA%E5%B7%B1%E5%81%9A-compact/" title="换模型之后，Chatbot 为什么要自己做 compact？">换模型之后，Chatbot 为什么要自己做 compact？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E6%9B%B4%E7%9F%ADAI%E8%BE%93%E5%87%BA%E5%8F%8D%E8%80%8C%E6%8E%A8%E9%AB%98%E7%BC%96%E7%A0%81%E6%80%BB%E6%88%90%E6%9C%ACGitHub-Copilot%E7%9A%84%E4%BC%98%E5%8C%96%E8%B7%AF%E5%BE%84/" title="更短AI输出反而推高编码总成本，GitHub Copilot的优化路径">更短AI输出反而推高编码总成本，GitHub Copilot的优化路径</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agent/">Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agent-Loop/">Agent Loop</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agentic-AI/">Agentic AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AgentScope/">AgentScope</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Gateway/">AI Gateway</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E5%BA%94%E7%94%A8/">AI 应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E6%91%98%E8%A6%81/">AI 摘要</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E8%BE%85%E5%8A%A9%E7%BC%96%E7%A8%8B/">AI 辅助编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BA%A7%E5%93%81/">AI产品</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%AE%89%E5%85%A8/">AI安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%8C%96/">AI工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%B8%88/">AI工程师</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B9%B3%E5%8F%B0%E5%9B%A2%E9%98%9F/">AI平台团队</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BA%94%E7%94%A8/">AI应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BC%80%E5%8F%91/">AI开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8A%80%E8%83%BD/">AI技能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8E%A8%E7%90%86/">AI推理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%99%BA%E8%83%BD%E4%BD%93/">AI智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%A8%A1%E5%9E%8B/">AI模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E4%BA%A7%E5%8A%9B/">AI生产力</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%AB%9E%E8%B5%9B/">AI竞赛</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81/">AI编码</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81%E5%B7%A5%E5%85%B7/">AI编码工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%AE%BE%E8%AE%A1%E5%B7%A5%E5%85%B7/">AI设计工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%B7%AF%E7%BA%BF%E5%9B%BE/">AI路线图</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%BD%AF%E4%BB%B6%E5%B7%A5%E5%8E%82/">AI软件工厂</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Anthropic/">Anthropic</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/API-%E8%AE%BE%E8%AE%A1/">API 设计</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ArrayList/">ArrayList</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AWS/">AWS</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Axios/">Axios</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bifrost/">Bifrost</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bun/">Bun</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Chatbot/">Chatbot</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude/">Claude</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude-Opus/">Claude Opus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Compaction/">Compaction</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Deep-Research/">Deep Research</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Figma-AI/">Figma AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub-Copilot/">GitHub Copilot</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub%E4%BB%93%E5%BA%93/">GitHub仓库</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitNexus/">GitNexus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GLM/">GLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GOAI/">GOAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hackathon/">Hackathon</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/HBM4/">HBM4</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Horizon-Worlds/">Horizon Worlds</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hot-Chips/">Hot Chips</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hugging-Face/">Hugging Face</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-Agent/">Java Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">Java 企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JavaScript%E8%BF%90%E8%A1%8C%E6%97%B6/">JavaScript运行时</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Kimi/">Kimi</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/KPI%E6%8C%87%E6%A0%87/">KPI指标</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM-%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">LLM 基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLMOps/">LLMOps</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Lovart/">Lovart</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/MCP%E5%8D%8F%E8%AE%AE/">MCP协议</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Midjourney/">Midjourney</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NASA/">NASA</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NewAPI/">NewAPI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenART/">OpenART</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenCode/">OpenCode</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Ox-Alpha/">Ox Alpha</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Pi/">Pi</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/PlantUML/">PlantUML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Prompt%E5%B7%A5%E7%A8%8B/">Prompt工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Rubin-CPX/">Rubin CPX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Saver/">Saver</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-AI/">Spring AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ThreadId/">ThreadId</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token-%E4%BC%98%E5%8C%96/">Token 优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E4%BC%98%E5%8C%96/">Token优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E6%95%88%E7%8E%87/">Token效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TRAE-SOLO/">TRAE SOLO</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Uber/">Uber</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/UML/">UML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/VR/">VR</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Well-Architected-Framework/">Well-Architected Framework</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Xe3P/">Xe3P</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ZCode-3.0/">ZCode 3.0</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zig/">Zig</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zustand/">Zustand</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8E%8B%E7%BC%A9/">上下文压缩</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AA%97%E5%8F%A3/">上下文窗口</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%AD%E9%97%B4%E4%BB%B6/">中间件</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%91%E6%9E%B6%E6%9E%84/">云架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%9A%E9%A9%AC%E9%80%8A%E4%BA%91%E7%A7%91%E6%8A%80/">亚马逊云科技</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%A7%E4%B8%9A%E8%90%BD%E5%9C%B0/">产业落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%9E%B6%E6%9E%84/">代码架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%B3%84%E9%9C%B2/">代码泄露</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">代码生成</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%B8%82%E5%9C%BA/">企业市场</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E6%95%B0%E5%AD%97%E5%8C%96/">企业数字化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E5%BB%BA%E7%AB%8B/">信任建立</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E8%BE%B9%E7%95%8C/">信任边界</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%83%E5%AE%87%E5%AE%99/">元宇宙</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E9%89%B4%E6%9D%83/">前端鉴权</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A0%E9%80%9F%E5%8D%A1/">加速卡</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E6%95%B0%E7%BB%84/">动态数组</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E7%8E%AF%E5%A2%83/">动态环境</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8E%E4%B8%BA%E5%90%88%E4%BD%9C/">华为合作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E5%9E%8B%E5%BC%80%E5%8F%91/">原型开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%88%E8%A7%84/">合规</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%8E%E5%8F%B0%E5%B8%B8%E9%A9%BB/">后台常驻</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">向量数据库</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%93%8D%E5%BA%94%E5%BC%8F%E7%B3%BB%E7%BB%9F/">响应式系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E7%BB%B4%E8%A1%A8%E6%A0%BC/">多维表格</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E5%85%AD%E5%BA%A7SUV/">大六座SUV</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E5%8E%82%E7%AD%96%E7%95%A5/">大厂策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%AE%89%E5%85%A8/">大模型安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BA%94%E7%94%A8/">大模型应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BC%80%E5%8F%91/">大模型开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%90%BD%E5%9C%B0/">大模型落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大语言模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%AA%E7%A9%BA%E6%9C%9B%E8%BF%9C%E9%95%9C/">太空望远镜</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%87%E5%AE%99%E5%AD%A6/">宇宙学</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B5%8C%E5%85%A5%E6%A8%A1%E5%9E%8B/">嵌入模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E4%BD%9C%E6%B5%81%E4%BC%98%E5%8C%96/">工作流优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E5%A4%8D%E7%94%A8/">工具复用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">工程实践</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7%E9%93%BE/">开发者工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E6%95%88%E7%8E%87/">开发者效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%AE%89%E5%85%A8/">开源安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%B7%A5%E5%85%B7/">开源工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%82%E6%AD%A5%E6%9E%B6%E6%9E%84/">异步架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6/">成本控制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E4%BA%BA%E6%89%8D/">技术人才</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84/">技术架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E8%83%BD%E5%8D%87%E7%BA%A7/">技能升级</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A7%E5%88%B6%E6%9D%83/">控制权</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E5%B7%A5%E7%A8%8B/">提示工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D%E5%B7%A5%E7%A8%8B/">提示词工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E8%AF%8A%E6%96%AD/">故障诊断</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87/">效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87%E4%BC%98%E5%8C%96/">效率优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E9%9A%90%E7%A7%81/">数据隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%96%B0%E8%83%BD%E6%BA%90SUV/">新能源SUV</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%96%B0%E8%BD%A6%E5%8F%91%E5%B8%83/">新车发布</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%98%9F%E7%B3%BB%E6%BC%94%E5%8C%96/">星系演化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E6%B1%BD%E8%BD%A6/">智能汽车</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%B0%B1/">智谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9A%97%E8%83%BD%E9%87%8F/">暗能量</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%8C%96%E9%83%A8%E7%BD%B2/">本地化部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%B7%A5%E5%85%B7%E9%93%BE/">本地工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%88%87%E6%8D%A2/">模型切换</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1/">模型路由</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E8%BF%AD%E4%BB%A3/">模型迭代</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E9%80%89%E5%9E%8B/">模型选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B1%BD%E8%BD%A6%E4%BA%A4%E4%BB%98/">汽车交付</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B2%99%E7%AE%B1%E9%9A%94%E7%A6%BB/">沙箱隔离</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B5%B7%E5%A4%96%E6%89%A9%E5%BC%A0/">海外扩张</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%BC%94%E8%BF%9B%E5%BC%8F%E6%9E%B6%E6%9E%84/">演进式架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/">版本管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%8B%AC%E7%AB%8B%E8%B0%83%E6%9F%A5/">独立调查</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%90%86%E6%83%B3%E6%B1%BD%E8%BD%A6/">理想汽车</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B7%A5%E5%85%B7/">生产力工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%A8%E6%88%B7%E4%BF%A1%E4%BB%BB/">用户信任</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9F%AD%E6%9C%9F%E8%AE%B0%E5%BF%86/">短期记忆</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%A7%BB%E5%8A%A8%E5%BA%94%E7%94%A8/">移动应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E6%B5%8B%E8%AF%95/">第三方测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E7%BC%96%E7%A8%8B/">系统编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E8%BF%81%E7%A7%BB/">系统迁移</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%A2%E9%98%9F%E6%B5%8B%E8%AF%95/">红队测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%AF%E7%94%B5SUV/">纯电SUV</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BB%84%E7%BB%87%E5%8F%98%E9%9D%A9/">组织变革</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BB%88%E7%AB%AF%E5%9B%BE%E5%BD%A2%E7%95%8C%E9%9D%A2/">终端图形界面</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E4%BA%91/">腾讯云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E7%A0%94Runtime/">自研Runtime</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E4%BC%9F%E8%BE%BE/">英伟达</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E7%89%B9%E5%B0%94/">英特尔</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AE%BE%E8%AE%A1%E5%B8%88%E5%B7%A5%E4%BD%9C%E6%B5%81/">设计师工作流</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AF%84%E6%B5%8B%E6%9C%BA%E5%88%B6/">评测机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%B0%83%E8%AF%95%E5%B7%A5%E5%85%B7/">调试工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%B7%AF%E7%94%B1%E5%AE%88%E5%8D%AB/">路由守卫</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%82%E5%BA%94%E5%BA%A6%E5%87%BD%E6%95%B0/">适应度函数</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/">透明度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%9A%E4%B9%89%E5%8D%83%E9%97%AE/">通义千问</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%9A%E7%94%A8Agent/">通用Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86/">配置管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%98%BF%E7%BB%B4%E5%A1%949%E7%B3%BB/">阿维塔9系</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81/">隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E9%A3%8E%E9%99%A9/">隐私风险</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9B%B6%E6%88%90%E6%9C%AC%E5%BC%80%E5%8F%91/">零成本开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9D%9E%E7%A1%AE%E5%AE%9A%E6%80%A7%E8%AF%84%E4%BC%B0/">非确定性评估</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%9E%E4%B9%A6/">飞书</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
