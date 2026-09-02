@@ -1,0 +1,1602 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>AI智能体平台深度拆解（一）：当LangGraph遇上Spring AI——我们如何打造企业级AI流程编排引擎？ | 知识铺的博客</title>
+    <meta property="og:title" content="AI智能体平台深度拆解（一）：当LangGraph遇上Spring AI——我们如何打造企业级AI流程编排引擎？ - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-22T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="6大Agent协作模式 &#43; 原生MCP集成 &#43; User-in-the-Loop，从&amp;quot;对话&amp;quot;到&amp;quot;执行&amp;quot;只差一个流程 💡 不想看长篇文字？ 文中所有功能均可在在线演示环境中亲身体验 → 电脑端打开地址立即体验：https://ai.qztechcloud.co">
+    
+    
+    
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260822/AI%E6%99%BA%E8%83%BD%E4%BD%93%E5%B9%B3%E5%8F%B0%E6%B7%B1%E5%BA%A6%E6%8B%86%E8%A7%A3%E4%B8%80%E5%BD%93LangGraph%E9%81%87%E4%B8%8ASpring-AI%E6%88%91%E4%BB%AC%E5%A6%82%E4%BD%95%E6%89%93%E9%80%A0%E4%BC%81%E4%B8%9A%E7%BA%A7AI%E6%B5%81%E7%A8%8B%E7%BC%96%E6%8E%92%E5%BC%95%E6%93%8E/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260822/AI%E6%99%BA%E8%83%BD%E4%BD%93%E5%B9%B3%E5%8F%B0%E6%B7%B1%E5%BA%A6%E6%8B%86%E8%A7%A3%E4%B8%80%E5%BD%93LangGraph%E9%81%87%E4%B8%8ASpring-AI%E6%88%91%E4%BB%AC%E5%A6%82%E4%BD%95%E6%89%93%E9%80%A0%E4%BC%81%E4%B8%9A%E7%BA%A7AI%E6%B5%81%E7%A8%8B%E7%BC%96%E6%8E%92%E5%BC%95%E6%93%8E/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#一开篇ai智能体走到今天缺的不是脑子是四肢">一、开篇：AI智能体走到今天，缺的不是&quot;脑子&quot;，是&quot;四肢&quot;</a></li>
+    <li><a href="#二技术底座为什么我们选择langgraph--spring-ai--reactflow">二、技术底座：为什么我们选择LangGraph + Spring AI + ReactFlow</a>
+      <ul>
+        <li><a href="#21-调度层langgraph--让ai流程有状态可回溯">2.1 调度层：LangGraph —— 让AI流程&quot;有状态、可回溯&quot;</a></li>
+        <li><a href="#22-处理层spring-ai--统一模型接入与处理框架">2.2 处理层：Spring AI —— 统一模型接入与处理框架</a></li>
+        <li><a href="#23-前端层react--reactflow--可视化编排--运行时观测">2.3 前端层：React + ReactFlow —— 可视化编排 + 运行时观测</a></li>
+      </ul>
+    </li>
+    <li><a href="#三节点能力全景一套完整的智能体功能组件库">三、节点能力全景：一套完整的&quot;智能体功能组件库&quot;</a>
+      <ul>
+        <li><a href="#31-输入类节点--让流程听得见看得懂">3.1 输入类节点 —— 让流程&quot;听得见、看得懂&quot;</a></li>
+        <li><a href="#32-ai处理类节点--让流程会思考能创造">3.2 AI处理类节点 —— 让流程&quot;会思考、能创造&quot;</a></li>
+        <li><a href="#33-数据处理类节点--让流程会整理能转换">3.3 数据处理类节点 —— 让流程&quot;会整理、能转换&quot;</a></li>
+        <li><a href="#34-流程控制类节点--让流程会决策能协同">3.4 流程控制类节点 —— 让流程&quot;会决策、能协同&quot;</a></li>
+        <li><a href="#35-人机交互类节点--让流程会求助能协同">3.5 人机交互类节点 —— 让流程&quot;会求助、能协同&quot;</a></li>
+        <li><a href="#36-数据操作类节点--让流程能落地会存储">3.6 数据操作类节点 —— 让流程&quot;能落地、会存储&quot;</a></li>
+        <li><a href="#37-消息与集成类节点--让流程会通知能扩展">3.7 消息与集成类节点 —— 让流程&quot;会通知、能扩展&quot;</a></li>
+      </ul>
+    </li>
+    <li><a href="#四核心亮点三个人无我有的能力">四、核心亮点：三个&quot;人无我有&quot;的能力</a>
+      <ul>
+        <li><a href="#41-原生mcp集成让模型和数据源在流程层原生对话">4.1 原生MCP集成——让&quot;模型&quot;和&quot;数据源&quot;在流程层原生对话</a></li>
+        <li><a href="#42-六大agent协作模式从单兵作战到集团军协同">4.2 六大Agent协作模式——从&quot;单兵作战&quot;到&quot;集团军协同&quot;</a></li>
+        <li><a href="#43-user-in-the-loopai决策不了的时候优雅地求助用户">4.3 User-in-the-Loop——AI决策不了的时候，优雅地&quot;求助&quot;用户</a></li>
+      </ul>
+    </li>
+    <li><a href="#五真实流程速览三个例子三种侧重点">五、真实流程速览：三个例子，三种侧重点</a>
+      <ul>
+        <li><a href="#流程一智能客服对话流程--rag--提示词工程">流程一：智能客服对话流程 —— RAG + 提示词工程</a></li>
+        <li><a href="#流程二视频生成流程--ai结构化输出--人机协同确认">流程二：视频生成流程 —— AI结构化输出 + 人机协同确认</a></li>
+        <li><a href="#流程三appbuilder流程--多agent协作即将上线">流程三：AppBuilder流程 —— 多Agent协作（即将上线）</a></li>
+      </ul>
+    </li>
+    <li><a href="#六部署与接入两种模式覆盖全场景">六、部署与接入：两种模式，覆盖全场景</a></li>
+    <li><a href="#七结语流程引擎是智能体的骨架但我们远不止于此">七、结语：流程引擎是智能体的&quot;骨架&rdquo;，但我们远不止于此</a></li>
+    <li><a href="#在线演示">在线演示</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">AI智能体平台深度拆解（一）：当LangGraph遇上Spring AI——我们如何打造企业级AI流程编排引擎？</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月22日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <blockquote>
+<p>6大Agent协作模式 + 原生MCP集成 + User-in-the-Loop，从&quot;对话&quot;到&quot;执行&quot;只差一个流程</p>
+</blockquote>
+<blockquote>
+<p>💡 <strong>不想看长篇文字？</strong> 文中所有功能均可在在线演示环境中亲身体验 → 电脑端打开地址立即体验：<a href="https://zshipu.com/t/?url=https://ai.qztechcloud.com/flow-builder">https://ai.qztechcloud.com/flow-builder</a></p>
+</blockquote>
+<h2 id="一开篇ai智能体走到今天缺的不是脑子是四肢">一、开篇：AI智能体走到今天，缺的不是&quot;脑子&quot;，是&quot;四肢&quot;</h2>
+<p>过去两年，几乎所有企业都尝试过让AI&quot;干活&quot;。</p>
+<p>从ChatGPT的惊艳亮相，到各类对话机器人的遍地开花，大家很快发现一个尴尬的现实：<strong>AI在对话框里无所不能，一碰到真实业务就寸步难行。</strong></p>
+<p>原因很简单——真实业务从来都不是&quot;你问我答&quot;。</p>
+<p>一个完整的业务场景，往往需要经历<strong>数据获取 → 逻辑判断 → 模型推理 → 人工复核 → 系统写入</strong>等一系列长尾步骤。而传统的&quot;一问一答&quot;式AI，只能完成其中孤立的一环。</p>
+<p><strong>AI智能体要真正落地，必须拥有&quot;流程思维&quot;。</strong></p>
+<p>这也正是我们今天要介绍的核心模块——<strong>AI流程引擎</strong>的使命：它决定了智能体的&quot;执行力&quot;，是连接&quot;大脑&quot;（模型）与&quot;四肢&quot;（业务系统）的关键骨架。</p>
+<p>我们的AI流程引擎，从一开始就不是在做一张&quot;高级流程图&quot;，而是在构建一个<strong>企业级的AI智能体编排与执行操作系统</strong>。</p>
+<p>下面，我们从技术架构开始，逐步拆解。</p>
+<h2 id="二技术底座为什么我们选择langgraph--spring-ai--reactflow">二、技术底座：为什么我们选择LangGraph + Spring AI + ReactFlow</h2>
+<p>在决定技术选型之前，我们反复问自己一个问题：<strong>市面上已经有那么多工作流引擎，为什么还要再造一个？</strong></p>
+<p>答案是——传统工作流引擎（如Activiti、Camunda）是为&quot;确定性流程&quot;设计的，每一步做什么、谁来做、做完去哪，都是人在设计阶段就定死的。但<strong>AI流程是&quot;不确定性流程&quot;</strong>——模型输出的结果不确定，下一步走哪个分支不确定，甚至需要让AI自己决定调用哪个工具。</p>
+<p>这套逻辑，传统引擎无法支撑。</p>
+<p>所以我们从底层重新设计，确定了三层的技术架构：</p>
+<h3 id="21-调度层langgraph--让ai流程有状态可回溯">2.1 调度层：LangGraph —— 让AI流程&quot;有状态、可回溯&quot;</h3>
+<p>LangGraph是LangChain生态中专门用于构建<strong>有状态、多角色</strong>AI应用的工作流框架。</p>
+<p>在我们的架构中，LangGraph承担了最核心的<strong>流程调度</strong>职责：</p>
+<ul>
+<li>
+<p><strong>状态管理</strong>：每个流程实例都有一个全局状态（State），所有节点共享读写，天然支持&quot;上下文记忆&quot;</p>
+</li>
+<li>
+<p><strong>节点路由</strong>：根据LLM的推理结果或条件表达式，动态决定下一个执行节点</p>
+</li>
+<li>
+<p><strong>多Agent协作</strong>：监督者模式、编排器模式、并行分发等复杂协作模式，都是基于LangGraph的&quot;条件边&quot;和&quot;并行边&quot;实现的</p>
+</li>
+</ul>
+<p><strong>一句话总结</strong>：LangGraph让我们的流程引擎具备了&quot;智能路由&quot;能力，而非死板&quot;预制路径&quot;。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/c84ade1cfa5bf52a.webp" />   
+    </p>
+<h3 id="22-处理层spring-ai--统一模型接入与处理框架">2.2 处理层：Spring AI —— 统一模型接入与处理框架</h3>
+<p>Spring AI提供了统一的AI模型接入抽象层，我们的所有AI类节点（LLM调用、意图识别、文生图、TTS等）都构建在Spring AI之上。</p>
+<p>其核心价值在于：</p>
+<ul>
+<li>
+<p><strong>模型无关性</strong>：同样一个LLM节点，可以在配置中无缝切换GPT-4、Claude、通义千问或本地模型，无需修改流程定义</p>
+</li>
+<li>
+<p><strong>流式响应</strong>：配合 <strong>SSE（Server-Sent Events）+ Flux</strong> 技术，实现AI响应的实时流式推送，用户端能&quot;逐字看到&quot;AI的思考过程，而非等待完整响应</p>
+</li>
+</ul>
+<h3 id="23-前端层react--reactflow--可视化编排--运行时观测">2.3 前端层：React + ReactFlow —— 可视化编排 + 运行时观测</h3>
+<p>前端采用React + ReactFlow技术栈，实现了真正的<strong>可视化流程编排</strong>：</p>
+<ul>
+<li>
+<p><strong>拖拽即构建</strong>：从左侧节点库拖拽任意类型的处理器到画布，连线即建立执行依赖</p>
+</li>
+<li>
+<p><strong>所见即所得</strong>：每个节点可独立配置输入/输出Schema、模型参数、提示词、MCP服务等</p>
+</li>
+<li>
+<p><strong>导入/导出</strong>：流程定义支持JSON格式的导入导出，便于版本管理和跨环境迁移</p>
+</li>
+<li>
+<p><strong>实时测试</strong>：在画布上直接点击&quot;运行&quot;，填入测试数据，即可看到流程的完整执行轨迹</p>
+</li>
+<li>
+<p><strong>运行数据可观测</strong>：每个节点的输入、输出、耗时、状态都可追溯，真正做到&quot;白盒&quot;运行</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/04ae7a99fcb3a199.png" />   
+    </p>
+<h2 id="三节点能力全景一套完整的智能体功能组件库">三、节点能力全景：一套完整的&quot;智能体功能组件库&quot;</h2>
+<p>我们的AI流程引擎目前内置了 <strong>17大类、60+个</strong> 处理器节点，覆盖从数据输入到AI处理、从流程控制到人机交互的全链路。</p>
+<h3 id="31-输入类节点--让流程听得见看得懂">3.1 输入类节点 —— 让流程&quot;听得见、看得懂&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>意图识别</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>基于规则+LLM+向量三重引擎的混合意图识别，支持多意图输出、置信度分级</p>
+<p>|
+| <strong>关键词过滤</strong> |</p>
+<p>基于预设关键词的敏感词/内容过滤</p>
+<p>|
+| <strong>向量查询</strong> |</p>
+<p>执行向量相似性搜索，适用于RAG语义检索场景</p>
+<p>|
+| <strong>网络搜索</strong> |</p>
+<p>基于MCP协议实现联网搜索，支持缓存和表格/JSON等多种输出格式</p>
+<p>|
+| <strong>HTTP请求</strong> |</p>
+<p>通用的RESTful API调用，支持各种请求方法和鉴权</p>
+<p>|</p>
+<h3 id="32-ai处理类节点--让流程会思考能创造">3.2 AI处理类节点 —— 让流程&quot;会思考、能创造&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AI大模型（LLM）</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>核心LLM调用节点，支持流式/异步、多模型切换、提示词模板</p>
+<p>|
+| <strong>MCP Server</strong> |</p>
+<p>原生MCP协议服务调用，让流程直接对接遵循MCP标准的工具和数据源</p>
+<p>|
+| <strong>AI图片生成</strong> |</p>
+<p>文生图，支持多种风格、尺寸和水印配置</p>
+<p>|
+| <strong>AI视频生成</strong> |</p>
+<p>文生视频/图生视频，支持Sora等主流模型</p>
+<p>|
+| <strong>AI音频生成</strong> |</p>
+<p>文生音乐/音效，支持多种风格和乐器</p>
+<p>|
+| <strong>文本转语音（TTS）</strong> |</p>
+<p>文本转自然语音，支持多音色、语速语调调节</p>
+<p>|
+| <strong>视频合成</strong> |</p>
+<p>多片段合成完整视频，支持转场效果和字幕</p>
+<p>|
+| <strong>音频增强</strong> |</p>
+<p>降噪、清晰化、音量均衡等音频优化处理</p>
+<p>|</p>
+<h3 id="33-数据处理类节点--让流程会整理能转换">3.3 数据处理类节点 —— 让流程&quot;会整理、能转换&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>格式转换</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>JSON/XML/CSV/YAML等结构化数据互转</p>
+<p>|
+| <strong>字段映射</strong> |</p>
+<p>字段名/结构转换，支持嵌套字段和批量映射规则</p>
+<p>|
+| <strong>数据清洗</strong> |</p>
+<p>处理空值/重复/异常值，支持自定义清洗规则</p>
+<p>|
+| <strong>数据聚合</strong> |</p>
+<p>多源数据合并/分组/统计，支持自定义聚合函数</p>
+<p>|
+| <strong>模板渲染</strong> |</p>
+<p>基于Handlebars等模板引擎动态生成文本/HTML/报表</p>
+<p>|</p>
+<h3 id="34-流程控制类节点--让流程会决策能协同">3.4 流程控制类节点 —— 让流程&quot;会决策、能协同&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>条件分支</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>根据条件表达式决定流程走向，支持多分支和默认路径</p>
+<p>|
+| <strong>循环控制</strong> |</p>
+<p>对数据集进行forEach/while/repeat循环处理</p>
+<p>|
+| <strong>并行处理</strong> |</p>
+<p>将列表项并行分发到多个分支执行，支持结果合并</p>
+<p>|
+| <strong>监督者模式（Supervisor）</strong> |</p>
+<p>监督者Agent循环决策，动态调度Worker执行，直到任务完成</p>
+<p>|
+| <strong>编排器模式（Orchestrator）</strong> |</p>
+<p>编排器Agent一次性分析任务，路由到对应Worker执行</p>
+<p>|
+| <strong>子流程</strong> |</p>
+<p>调用并执行另一个已定义的流程作为子流程</p>
+<p>|
+| <strong>延迟等待</strong> |</p>
+<p>暂停流程指定时间或直到条件满足</p>
+<p>|
+| <strong>流程中断</strong> |</p>
+<p>强制终止流程，支持错误码和终止消息</p>
+<p>|</p>
+<h3 id="35-人机交互类节点--让流程会求助能协同">3.5 人机交互类节点 —— 让流程&quot;会求助、能协同&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>信息卡片</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>展示普通信息通知</p>
+<p>|
+| <strong>图表卡片</strong> |</p>
+<p>展示数据图表（折线/柱状/饼图等）</p>
+<p>|
+| <strong>结果卡片</strong> |</p>
+<p>展示任务执行结果（成功/警告/错误）</p>
+<p>|
+| <strong>列表卡片</strong> |</p>
+<p>展示结构化数据列表</p>
+<p>|
+| <strong>审批卡片</strong> |</p>
+<p>等待用户通过/拒绝，用于高风险操作确认</p>
+<p>|
+| <strong>表单卡片</strong> |</p>
+<p>等待用户填写结构化表单数据</p>
+<p>|
+| <strong>选项卡片</strong> |</p>
+<p>等待用户从预设选项中选择</p>
+<p>|
+| <strong>确认卡片</strong> |</p>
+<p>简单的是/否确认，用于危险操作二次确认</p>
+<p>|
+| <strong>等待用户操作</strong> |</p>
+<p>暂停流程执行，等待用户交互后继续</p>
+<p>|</p>
+<h3 id="36-数据操作类节点--让流程能落地会存储">3.6 数据操作类节点 —— 让流程&quot;能落地、会存储&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>添加数据</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>数据源的插入操作</p>
+<p>|
+| <strong>查询数据</strong> |</p>
+<p>数据源的复杂查询操作</p>
+<p>|
+| <strong>更新数据</strong> |</p>
+<p>数据源的更新操作</p>
+<p>|
+| <strong>删除数据</strong> |</p>
+<p>数据源的删除操作（软/硬删除）</p>
+<p>|</p>
+<h3 id="37-消息与集成类节点--让流程会通知能扩展">3.7 消息与集成类节点 —— 让流程&quot;会通知、能扩展&quot;</h3>
+<p>|
+节点类型</p>
+<p>|</p>
+<p>功能说明</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>发射消息</strong></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>发送消息到接收方</p>
+<p>|
+| <strong>消息组装</strong> |</p>
+<p>更新和修改现有消息内容</p>
+<p>|
+| <strong>Skill执行器</strong> |</p>
+<p>执行Java本地/OpenClaw/工作流/Python/HTTP等多种Skill（后续专文详解）</p>
+<p>|</p>
+<h2 id="四核心亮点三个人无我有的能力">四、核心亮点：三个&quot;人无我有&quot;的能力</h2>
+<h3 id="41-原生mcp集成让模型和数据源在流程层原生对话">4.1 原生MCP集成——让&quot;模型&quot;和&quot;数据源&quot;在流程层原生对话</h3>
+<p>MCP（Model Context Protocol）是当前AI领域最受关注的热门协议，它标准化了AI模型与外部工具/数据源的交互方式。</p>
+<p>我们的流程引擎对MCP的支持有两个层面：</p>
+<ul>
+<li>
+<p><strong>独立MCP Server节点</strong>：在流程中直接配置MCP端点、工具名称和参数，调用符合MCP标准的外部服务</p>
+</li>
+<li>
+<p><strong>LLM节点内嵌MCP</strong>：在LLM节点的配置中，可以直接绑定MCP工具列表，让模型自主决策何时调用哪个工具，实现真正的&quot;Function Calling&quot;级别的智能路由</p>
+</li>
+</ul>
+<p>这意味着，<strong>你不用在流程画布上手动编排每一个API调用，只需要告诉模型&quot;你能用哪些工具&quot;，模型自己会判断什么时候该用</strong>。</p>
+<p>比如我们内置的<strong>网络搜索节点</strong>，正是基于MCP协议实现的——它调用符合MCP标准的搜索服务，流程内一行额外代码都不用写。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/cff648cc95b030f1.webp" />   
+    </p>
+<h3 id="42-六大agent协作模式从单兵作战到集团军协同">4.2 六大Agent协作模式——从&quot;单兵作战&quot;到&quot;集团军协同&quot;</h3>
+<p>基于LangGraph的底层能力，我们原生支持六种Agent协作模式：</p>
+<p>|
+模式</p>
+<p>|</p>
+<p>适用场景</p>
+<p>|</p>
+<p>核心机制</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>条件分支</strong></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>根据阈值/置信度走不同路径</p>
+<p>|</p>
+<p>条件表达式路由</p>
+<p>|
+| <strong>循环</strong> |</p>
+<p>批量处理数据列表</p>
+<p>|</p>
+<p>forEach/while/repeat</p>
+<p>|
+| <strong>并行</strong> |</p>
+<p>多任务同时执行，结果合并</p>
+<p>|</p>
+<p>并行分发 + 多策略合并</p>
+<p>|
+| <strong>监督者模式</strong> |</p>
+<p>复杂任务需要多轮&quot;思考-执行-反思&quot;</p>
+<p>|</p>
+<p>Supervisor循环决策，动态调度Worker</p>
+<p>|
+| <strong>编排器模式</strong> |</p>
+<p>一次性任务分解，路由到对应Worker</p>
+<p>|</p>
+<p>Orchestrator一次性分析 + 精准路由</p>
+<p>|
+| <strong>子流程</strong> |</p>
+<p>复用已有流程，模块化构建</p>
+<p>|</p>
+<p>流程嵌套调用</p>
+<p>|</p>
+<p>这六种模式覆盖了从&quot;简单RAG问答&quot;到&quot;复杂多Agent协同&quot;的全部场景。</p>
+<blockquote>
+<p><strong>真实流程佐证</strong>：我们基于监督者模式构建的 <strong>AppBuilder流程</strong>（从一句话需求自动推导应用架构→详细设计→生成低代码平台Schema），正是多Agent协作的典型实践。该流程包含4个子流程（需求提取→架构推导→详细设计→Schema生成），由监督者Agent根据当前状态循环决策下一步调用哪个Worker，实现了&quot;需求→可执行应用&quot;的端到端自动化。<em>（该流程即将上线，敬请期待）</em></p>
+</blockquote>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/7e15086f011e2b6e.webp" />   
+    </p>
+<h3 id="43-user-in-the-loopai决策不了的时候优雅地求助用户">4.3 User-in-the-Loop——AI决策不了的时候，优雅地&quot;求助&quot;用户</h3>
+<p>AI不是万能的。</p>
+<p>当模型置信度低于阈值、当需要人工审批、当需要用户补充信息时，流程不应该&quot;硬着头皮往下走&quot;。</p>
+<p>我们的流程引擎内置了 <strong>8种人机交互节点</strong>（审批卡片、表单卡片、选项卡片、确认卡片、等待用户操作等），可以在流程的任意节点插入&quot;人工介入点&quot;：</p>
+<ul>
+<li>
+<p><strong>审批场景</strong>：高风险操作（如数据删除、大额交易）自动生成审批卡片，等待管理者通过/驳回</p>
+</li>
+<li>
+<p><strong>信息补全</strong>：AI识别到信息不足时，自动弹出表单卡片，让用户补充关键字段</p>
+</li>
+<li>
+<p><strong>低置信度转人工</strong>：意图识别置信度低于阈值时，自动路由到人工处理节点</p>
+</li>
+</ul>
+<p><strong>这就是我们所说的&quot;人机协同&quot;</strong> ——不是AI替代人，也不是人指挥AI，而是AI和人各自做最擅长的事，在流程层面无缝衔接。</p>
+<blockquote>
+<p><strong>真实流程佐证</strong>：在我们的<strong>视频生成流程</strong>中，AI大模型节点会根据用户的一句话描述，自动生成包含项目元数据、分镜素材、口播脚本、音频配置的完整视频制作JSON规范；随后流程暂停，弹出<strong>确认卡片</strong>等待用户审批；用户确认后，流程自动进入<strong>视频项目组装</strong>节点，将规范文件交由视频编辑器执行。AI负责&quot;规划&quot;，人负责&quot;决策&quot;，各司其职。</p>
+</blockquote>
+<h2 id="五真实流程速览三个例子三种侧重点">五、真实流程速览：三个例子，三种侧重点</h2>
+<p>以上所有能力不是写在PPT上的概念，而是已经在真实流程中跑通的交付物。</p>
+<p>下面是三个基于本平台构建的真实流程示例，它们分别代表了不同的应用场景和技术侧重点。</p>
+<blockquote>
+<p><strong>【配图建议 <a href="">#5</a>】三个流程全景缩略图</strong></p>
+<p><em>位置：第五章开头</em></p>
+<p><strong>系统截图</strong>：以缩略图/卡片形式展示三个流程在画布上的全景</p>
+<ul>
+<li>
+<p>卡片1：智能客服对话流程（节点数较少，线性结构，展示简洁性）</p>
+</li>
+<li>
+<p>卡片2：视频生成流程（中间包含确认卡片阻断点，展示人机协同）</p>
+</li>
+<li>
+<p>卡片3：AppBuilder流程（包含监督者节点 + 4个子流程嵌套，展示复杂度）</p>
+</li>
+<li>
+<p>三个流程并排展示，形成&quot;从简单到复杂&quot;的视觉梯度</p>
+</li>
+</ul>
+<p><strong>建议</strong>：截取三个流程画布的缩略俯视图，标注&quot;入门级&quot;、&ldquo;进阶级&rdquo;、&ldquo;专家级&rdquo;</p>
+</blockquote>
+<h3 id="流程一智能客服对话流程--rag--提示词工程">流程一：智能客服对话流程 —— RAG + 提示词工程</h3>
+<blockquote>
+<p><strong>一句话定位</strong>：基于产品手册的智能售前顾问</p>
+</blockquote>
+<p>这是一个典型的RAG（检索增强生成）应用场景。流程从用户输入的问题开始，首先调用<strong>向量查询</strong>节点，在已导入的产品手册知识库中检索最相关的文档片段；检索结果连同用户原始问题一并送入<strong>AI大模型</strong>节点，由模型基于系统提示词（内置了售前顾问的三种回答模式和风格约束）生成专业回复；最后通过<strong>消息组装</strong>节点将回复内容推送给用户端。</p>
+<p>整个流程中，向量查询的阈值（0.3）和TopK（5）决定了检索的召回精度，而提示词中的&quot;场景匹配模式&quot;&ldquo;引导式介绍模式&quot;&ldquo;对比决策模式&quot;三种回答模板，则确保了AI回复的专业性和一致性。</p>
+<ul>
+<li>
+<p><strong>节点链</strong>：开始 → 向量查询 → AI大模型 → 消息组装 → 结束</p>
+</li>
+<li>
+<p><strong>核心能力</strong>：RAG检索增强 + 提示词工程 + 事件流式推送</p>
+</li>
+<li>
+<p><strong>配置要点</strong>：向量查询阈值0.3、TopK=5、指定知识库文档ID；LLM节点系统提示词含三种回答模式</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/9ca4e8f11b09aea4.png" />   
+    </p>
+<h3 id="流程二视频生成流程--ai结构化输出--人机协同确认">流程二：视频生成流程 —— AI结构化输出 + 人机协同确认</h3>
+<blockquote>
+<p><strong>一句话定位</strong>：一句话生成视频制作项目文件</p>
+</blockquote>
+<p>这是一个&quot;AI打工，人把关&quot;的典型场景。用户只需输入一句话描述（如&quot;做一个产品宣传视频&rdquo;），流程启动后，<strong>AI大模型</strong>节点会根据预设的复杂JSON Schema，自动生成包含项目元数据、分镜素材（封面图+4张功能展示图+3个视频片段）、口播脚本、背景音乐、动画参数、转场效果等完整规范的视频制作项目文件。</p>
+<p>但AI生成的内容不一定完美——所以流程在LLM节点之后插入了<strong>格式转换</strong>节点（将LLM输出的JSON字符串解析为对象），然后弹出<strong>确认卡片</strong>，流程在此暂停，等待用户审批。用户确认无误后，流程继续执行<strong>视频项目组装</strong>节点，将项目文件交付给视频编辑器执行。</p>
+<p>如果用户觉得AI生成的方案不合适，可以拒绝并让AI重新生成。<strong>AI负责规划，人负责决策</strong>。</p>
+<ul>
+<li>
+<p><strong>节点链</strong>：开始 → AI大模型（结构化输出）→ 格式转换 → 消息组装 → 确认卡片 → 视频项目组装 → 消息组装 → 结果卡片 → 结束</p>
+</li>
+<li>
+<p><strong>核心能力</strong>：LLM结构化输出 + 人机协同确认 + 项目文件产出</p>
+</li>
+<li>
+<p><strong>配置要点</strong>：LLM节点按JSON Schema约束输出、确认卡片阻断流程等待用户操作、视频项目组装节点产出可被视频编辑器直接打开的项目文件</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/4c3042fed64bcf20.webp" />   
+    </p>
+<h3 id="流程三appbuilder流程--多agent协作即将上线">流程三：AppBuilder流程 —— 多Agent协作（即将上线）</h3>
+<blockquote>
+<p><strong>一句话定位</strong>：从自然语言需求到可执行应用Schema的端到端自动化</p>
+</blockquote>
+<p>这是最能体现平台&quot;多Agent协作&quot;深度的流程，目前即将上线。</p>
+<p>流程从用户的自然语言需求描述（或PRD文档）开始，首先经过<strong>意图识别</strong>节点，判断用户意图属于&quot;新建应用（有文档）&ldquo;&ldquo;新建应用（无文档）&ldquo;&ldquo;变更请求&quot;&ldquo;确认&quot;&ldquo;拒绝&quot;&ldquo;咨询&quot;中的哪一类，并输出置信度。</p>
+<p>确认新建意图后，流程进入<strong>监督者模式</strong>节点。该节点内部包含4个子流程（需求提取→架构推导→详细设计→Schema生成），每个子流程自身又是一个完整的AI流程——包含LLM调用、格式转换、确认卡片等节点。监督者Agent会根据当前全局状态（requirements、architecture、pageDesigns、schema）循环决策下一步调用哪个Worker，直到Schema生成完成。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/4182350b084eeb6c.png" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/63758a2d00b57e19.webp" />   
+    </p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/bc4b1bc4e3363188.png" />   
+    </p>
+<p>整个过程中，每个子流程完成后都会等待用户确认再进入下一步，实现了**&ldquo;多Agent协同 + 人在回路&rdquo;**的完美结合。</p>
+<ul>
+<li>
+<p><strong>节点链</strong>：开始 → 意图识别 → 监督者模式（内含4个子流程）→ 结束</p>
+</li>
+<li>
+<p><strong>核心能力</strong>：多Agent协作 + 复杂任务分解 + 状态管理 + 意图识别前置</p>
+</li>
+<li>
+<p><strong>配置要点</strong>：监督者模式含4个Worker（需求提取/架构推导/详细设计/Schema生成），各Worker通过全局状态变量传递数据</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/7bec583ac88f91e0.webp" />   
+    </p>
+<p><strong>三个流程覆盖了从&quot;简单RAG问答&quot;到&quot;AI规划+人把关&rdquo;，再到&quot;多Agent复杂协同&quot;的全场景梯度。</strong></p>
+<p>这三个流程的具体拆解——包括设计思路、节点配置详解、运行数据解读——我们将在后续文章中逐一展开，敬请关注。</p>
+<h2 id="六部署与接入两种模式覆盖全场景">六、部署与接入：两种模式，覆盖全场景</h2>
+<p>企业级产品，绕不开&quot;怎么部署&quot;这个问题。</p>
+<p>我们的AI流程引擎支持两种部署模式，覆盖从初创团队到大型企业的全部需求：</p>
+<p>|
+模式</p>
+<p>|</p>
+<p>适用场景</p>
+<p>|</p>
+<p>特点</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SaaS模式</strong></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>中小团队快速验证、初创企业降本增效</p>
+<p>|</p>
+<p>开箱即用，无需运维，按量付费，分钟级上线</p>
+<p>|
+| <strong>私有化部署</strong> |</p>
+<p>金融/政务/大型企业等高安全要求场景</p>
+<p>|</p>
+<p>全量代码交付、内网部署、数据不出域、支持信创环境</p>
+<p>|</p>
+<p><strong>两种模式共享同一套流程定义规范</strong>——您在SaaS环境下调试好的流程，导出的JSON定义可以直接导入私有化环境运行，迁移成本几乎为零。</p>
+<p>此外，私有化部署模式下，平台支持作为<strong>企业中台</strong>统一提供AI编排能力，供各业务线在线接入，实现流程、模型、权限的集中治理。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-08-22/0d92ea1d12911eeb.webp" />   
+    </p>
+<h2 id="七结语流程引擎是智能体的骨架但我们远不止于此">七、结语：流程引擎是智能体的&quot;骨架&rdquo;，但我们远不止于此</h2>
+<p>以上就是我们AI智能体平台核心模块之一——<strong>AI流程引擎</strong>的全景介绍。</p>
+<p>60+个节点类型、6种Agent协作模式、原生MCP集成、User-in-the-Loop、SaaS+私有化双模部署……所有这些努力，只为了回答一个问题：</p>
+<p><strong>如何让AI真正&quot;干成事&rdquo;，而不是&quot;只会说&rdquo;。</strong></p>
+<p>流程引擎构建了智能体的&quot;骨架&rdquo;——它定义了AI能走哪些路、遇到岔路口怎么选、遇到走不通的路怎么求助。但光有骨架还不够，一个完整的智能体还需要：</p>
+<ul>
+<li>
+<p><strong>大脑</strong>：模型LLM管理，统管所有AI模型的接入、路由与调度</p>
+</li>
+<li>
+<p><strong>神经</strong>：MCP服务管理，让模型与外部世界的连接标准化、可治理</p>
+</li>
+<li>
+<p><strong>记忆</strong>：提示词管理，让每个场景的&quot;沟通方式&quot;可沉淀、可复用</p>
+</li>
+<li>
+<p><strong>四肢延伸</strong>：Skill执行器，让流程能调用Java/Python/HTTP等多种形态的企业存量能力</p>
+</li>
+</ul>
+<p>这些，都会在后续的文章中逐一拆解。</p>
+<p><strong>下一期预告</strong>：《提示词管理——如何让AI的&quot;沟通方式&quot;不再靠口口相传？》</p>
+<h2 id="在线演示">在线演示</h2>
+<p>以上所有功能均可在在线演示环境中亲身体验。无需注册，点击下方链接即可试用本文提到的智能客服对话流程和视频生成流程：</p>
+<p>👉 <a href="https://zshipu.com/t/?url=https://ai.qztechcloud.com/flow-builder/">https://ai.qztechcloud.com/flow-builder/</a></p>
+<p><em>（演示环境包含智能客服、视频生成两个完整流程，您可以直接输入测试数据，实时查看流程执行轨迹和节点运行日志。）</em></p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260822/AI%E6%99%BA%E8%83%BD%E4%BD%93%E5%B9%B3%E5%8F%B0%E6%B7%B1%E5%BA%A6%E6%8B%86%E8%A7%A3%E4%B8%80%E5%BD%93LangGraph%E9%81%87%E4%B8%8ASpring-AI%E6%88%91%E4%BB%AC%E5%A6%82%E4%BD%95%E6%89%93%E9%80%A0%E4%BC%81%E4%B8%9A%E7%BA%A7AI%E6%B5%81%E7%A8%8B%E7%BC%96%E6%8E%92%E5%BC%95%E6%93%8E/">https://index.zshipu.com/ai002/post/20260822/AI%E6%99%BA%E8%83%BD%E4%BD%93%E5%B9%B3%E5%8F%B0%E6%B7%B1%E5%BA%A6%E6%8B%86%E8%A7%A3%E4%B8%80%E5%BD%93LangGraph%E9%81%87%E4%B8%8ASpring-AI%E6%88%91%E4%BB%AC%E5%A6%82%E4%BD%95%E6%89%93%E9%80%A0%E4%BC%81%E4%B8%9A%E7%BA%A7AI%E6%B5%81%E7%A8%8B%E7%BC%96%E6%8E%92%E5%BC%95%E6%93%8E/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260817/RAG-3.0-%E6%9D%A5%E4%BA%86%E5%91%8A%E5%88%AB%E4%BC%A0%E7%BB%9F%E7%9F%A5%E8%AF%86%E5%BA%93%E4%BC%81%E4%B8%9A-AI-%E6%AD%A3%E5%9C%A8%E5%85%A8%E9%9D%A2%E8%BD%AC%E5%90%91%E7%9F%A5%E8%AF%86%E6%99%BA%E8%83%BD%E4%BD%93-%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/">RAG 3.0 来了：告别传统知识库，企业 AI 正在全面转向“知识智能体”！ - 今日头条</a></li>
+        
+        <li><a href="/ai002/post/20260816/%E5%88%AB%E5%86%8D%E6%8A%8A-Codex-%E5%BD%93%E8%81%8A%E5%A4%A9%E6%9C%BA%E5%99%A8%E4%BA%BA%E4%BB%8E%E5%AE%89%E8%A3%85%E5%88%B0%E7%9C%9F%E6%AD%A3%E5%B9%B2%E6%B4%BB%E4%B8%80%E7%AF%87%E8%AE%B2%E9%80%8F/">别再把 Codex 当聊天机器人：从安装到真正干活，一篇讲透</a></li>
+        
+        <li><a href="/ai002/post/20260822/Agentic-Engineering%E6%8A%80%E6%9C%AF%E8%A7%A3%E6%9E%90%E4%BB%8E%E5%8D%95Agent%E5%88%B0%E5%A4%9AAgent%E5%8D%8F%E4%BD%9C%E7%9A%84%E8%8C%83%E5%BC%8F%E6%BC%94%E5%8F%98/">Agentic Engineering技术解析：从单Agent到多Agent协作的范式演变</a></li>
+        
+        <li><a href="/ai002/post/20260822/Agent%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E5%85%A8%E6%99%AF%E5%9B%BELLMMemorySkillMCPRAGPrompt-%E5%88%B0%E5%BA%95%E6%98%AF%E4%BB%80%E4%B9%88/">Agent核心概念全景图：LLM、Memory、Skill、MCP、RAG、Prompt 到底是什么？</a></li>
+        
+        <li><a href="/ai002/post/20260822/MQTT-%E5%8F%AA%E6%98%AF%E5%85%A5%E5%8F%A3AI-Agent-%E6%97%B6%E4%BB%A3IoT-%E5%B9%B3%E5%8F%B0%E8%A6%81%E6%B2%89%E6%B7%80%E8%BF%99%E4%BA%94%E7%B1%BB%E8%B5%84%E4%BA%A7/">MQTT 只是入口：AI Agent 时代，IoT 平台要沉淀这五类资产</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/mcp'>mcp</a></li>
+                
+                <li><a href='/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D'>提示词</a></li>
+                
+                <li><a href='/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93'>智能体</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/2026%E5%B9%B4%E6%88%90%E4%B8%BAAI%E5%B7%A5%E7%A8%8B%E5%B8%88%E9%81%BF%E5%BC%80%E6%9C%80%E6%96%B0%E6%A8%A1%E5%9E%8B%E9%99%B7%E9%98%B1%E7%9A%84%E5%AE%8C%E6%95%B4%E6%8A%80%E8%83%BD%E8%B7%AF%E7%BA%BF/" title="2026年成为AI工程师：避开最新模型陷阱的完整技能路线">2026年成为AI工程师：避开最新模型陷阱的完整技能路线</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E5%90%8C%E4%B8%80%E4%B8%AA%E8%AE%A2%E5%8D%95%E6%9F%A5%E8%AF%A2Agent%E7%94%A8Spring-AI-2.0%E5%92%8CAgentScope-Java%E5%AE%9E%E7%8E%B0%E5%90%8E%E5%B7%AE%E8%B7%9D%E6%98%8E%E6%98%BE/" title="同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显">同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Lovart-%E6%82%84%E7%84%B6%E5%A4%A7%E6%9B%B4%E6%96%B0AI-%E5%BC%80%E5%A7%8B%E9%80%82%E5%BA%94%E8%AE%BE%E8%AE%A1%E5%B8%88%E7%9A%84%E7%94%BB%E6%9D%BF%E5%92%8C%E5%9B%BE%E5%B1%82/" title="Lovart 悄然大更新：AI 开始适应设计师的画板和图层">Lovart 悄然大更新：AI 开始适应设计师的画板和图层</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/NASA%E8%B6%85%E5%B9%BF%E8%A7%92%E5%A4%AA%E7%A9%BA%E6%9C%9B%E8%BF%9C%E9%95%9C%E4%B8%8A%E5%A4%A9-5%E5%B9%B4%E8%AE%A1%E5%88%92%E6%89%AB%E6%8F%8F10%E4%BA%BF%E6%98%9F%E7%B3%BB/" title="NASA超广角太空望远镜上天 5年计划扫描10亿星系">NASA超广角太空望远镜上天 5年计划扫描10亿星系</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Opus-5-%E6%89%8B%E6%90%93-5-%E4%B8%87%E5%AD%97%E6%96%87%E6%A1%A3%E6%8A%8A-NewAPI-%E4%B8%AD%E8%BD%AC%E7%BD%91%E5%85%B3%E5%92%8C%E5%9C%BA%E6%99%AF%E5%8C%96%E5%BA%94%E7%94%A8%E6%8F%89%E6%88%90%E4%B8%80%E9%94%85%E4%B9%B1%E7%82%96/" title="Opus 5 手搓 5 万字文档，把 NewAPI 中转网关和场景化应用揉成一锅乱炖">Opus 5 手搓 5 万字文档，把 NewAPI 中转网关和场景化应用揉成一锅乱炖</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Uber%E6%99%BA%E8%83%BD%E4%BD%93%E8%AF%B7%E6%B1%82%E6%9A%B4%E5%A2%9E9.4%E5%80%8Dtoken%E8%B4%A6%E5%8D%95%E5%8D%B4%E6%B2%A1%E6%B6%A8/" title="Uber智能体请求暴增9.4倍，token账单却没涨">Uber智能体请求暴增9.4倍，token账单却没涨</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Vue%E7%BB%84%E4%BB%B6%E8%8E%AB%E5%90%8D%E9%87%8D%E6%B8%B2%E6%9F%93Props%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AF%B9%E8%B1%A1%E5%92%8C%E4%BA%8B%E4%BB%B6%E7%BB%91%E5%AE%9A%E6%98%AF%E4%B8%BB%E5%9B%A0/" title="Vue组件莫名重渲染？Props、响应式对象和事件绑定是主因">Vue组件莫名重渲染？Props、响应式对象和事件绑定是主因</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/ZCode-3.0-%E4%B8%8E-Claude-CodeAI-%E4%BB%A3%E7%90%86%E7%BC%96%E7%A0%81%E6%9E%B6%E6%9E%84%E7%9A%84%E4%B8%A4%E7%A7%8D%E8%B7%AF%E5%BE%84/" title="ZCode 3.0 与 Claude Code：AI 代理编码架构的两种路径">ZCode 3.0 与 Claude Code：AI 代理编码架构的两种路径</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/%E4%B8%AD%E5%9B%BD%E7%94%A8%E6%88%B7%E7%94%A8Claude%E5%92%8CCursor%E6%97%B6%E5%8D%A1%E5%9C%A8%E5%93%AA%E5%A4%A7%E5%8E%82%E8%BD%AC%E5%90%91%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B8%82%E5%9C%BA/" title="中国用户用Claude和Cursor时卡在哪，大厂转向生产力市场">中国用户用Claude和Cursor时卡在哪，大厂转向生产力市场</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/%E4%BB%8E%E7%94%A8%E4%BA%86%E5%A4%9A%E5%B0%91AI%E5%88%B0Token%E6%95%88%E4%BC%81%E4%B8%9AAI%E6%8A%95%E5%85%A5%E8%AF%84%E4%BC%B0%E5%B0%BA%E5%AD%90%E5%B7%B2%E6%8D%A2/" title="从“用了多少AI”到“Token效”：企业AI投入评估尺子已换">从“用了多少AI”到“Token效”：企业AI投入评估尺子已换</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agent-Loop/">Agent Loop</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agentic-AI/">Agentic AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AgentScope/">AgentScope</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Gateway/">AI Gateway</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E5%BA%94%E7%94%A8/">AI 应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E6%91%98%E8%A6%81/">AI 摘要</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E8%BE%85%E5%8A%A9%E7%BC%96%E7%A8%8B/">AI 辅助编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BA%A7%E5%93%81/">AI产品</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%AE%89%E5%85%A8/">AI安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%8C%96/">AI工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%B8%88/">AI工程师</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B9%B3%E5%8F%B0%E5%9B%A2%E9%98%9F/">AI平台团队</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BA%94%E7%94%A8/">AI应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BC%80%E5%8F%91/">AI开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8A%80%E8%83%BD/">AI技能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8E%A8%E7%90%86/">AI推理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%99%BA%E8%83%BD%E4%BD%93/">AI智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%A8%A1%E5%9E%8B/">AI模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E4%BA%A7%E5%8A%9B/">AI生产力</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81/">AI编码</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81%E5%B7%A5%E5%85%B7/">AI编码工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%AE%BE%E8%AE%A1%E5%B7%A5%E5%85%B7/">AI设计工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%B7%AF%E7%BA%BF%E5%9B%BE/">AI路线图</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%BD%AF%E4%BB%B6%E5%B7%A5%E5%8E%82/">AI软件工厂</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/API-%E8%AE%BE%E8%AE%A1/">API 设计</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ArrayList/">ArrayList</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AWS/">AWS</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Axios/">Axios</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bifrost/">Bifrost</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bun/">Bun</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude/">Claude</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude-Opus/">Claude Opus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Deep-Research/">Deep Research</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Figma-AI/">Figma AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub%E4%BB%93%E5%BA%93/">GitHub仓库</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitNexus/">GitNexus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GLM/">GLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hackathon/">Hackathon</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/HBM4/">HBM4</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Horizon-Worlds/">Horizon Worlds</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hot-Chips/">Hot Chips</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hugging-Face/">Hugging Face</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-Agent/">Java Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">Java 企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JavaScript%E8%BF%90%E8%A1%8C%E6%97%B6/">JavaScript运行时</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/KPI%E6%8C%87%E6%A0%87/">KPI指标</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM-%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">LLM 基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLMOps/">LLMOps</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Lovart/">Lovart</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/MCP%E5%8D%8F%E8%AE%AE/">MCP协议</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Midjourney/">Midjourney</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NASA/">NASA</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NewAPI/">NewAPI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenART/">OpenART</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenCode/">OpenCode</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Ox-Alpha/">Ox Alpha</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Pi/">Pi</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/PlantUML/">PlantUML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Prompt%E5%B7%A5%E7%A8%8B/">Prompt工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Rubin-CPX/">Rubin CPX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-AI/">Spring AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E4%BC%98%E5%8C%96/">Token优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E6%95%88%E7%8E%87/">Token效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TRAE-SOLO/">TRAE SOLO</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Uber/">Uber</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/UML/">UML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/VR/">VR</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Well-Architected-Framework/">Well-Architected Framework</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Xe3P/">Xe3P</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ZCode-3.0/">ZCode 3.0</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zig/">Zig</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zustand/">Zustand</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AA%97%E5%8F%A3/">上下文窗口</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%AD%E9%97%B4%E4%BB%B6/">中间件</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%91%E6%9E%B6%E6%9E%84/">云架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%9A%E9%A9%AC%E9%80%8A%E4%BA%91%E7%A7%91%E6%8A%80/">亚马逊云科技</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%9E%B6%E6%9E%84/">代码架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%B3%84%E9%9C%B2/">代码泄露</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">代码生成</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%B8%82%E5%9C%BA/">企业市场</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E6%95%B0%E5%AD%97%E5%8C%96/">企业数字化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E5%BB%BA%E7%AB%8B/">信任建立</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E8%BE%B9%E7%95%8C/">信任边界</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%83%E5%AE%87%E5%AE%99/">元宇宙</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E9%89%B4%E6%9D%83/">前端鉴权</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A0%E9%80%9F%E5%8D%A1/">加速卡</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E6%95%B0%E7%BB%84/">动态数组</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E7%8E%AF%E5%A2%83/">动态环境</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E5%9E%8B%E5%BC%80%E5%8F%91/">原型开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%88%E8%A7%84/">合规</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%8E%E5%8F%B0%E5%B8%B8%E9%A9%BB/">后台常驻</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%93%8D%E5%BA%94%E5%BC%8F%E7%B3%BB%E7%BB%9F/">响应式系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E7%BB%B4%E8%A1%A8%E6%A0%BC/">多维表格</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E5%8E%82%E7%AD%96%E7%95%A5/">大厂策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BA%94%E7%94%A8/">大模型应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%90%BD%E5%9C%B0/">大模型落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%AA%E7%A9%BA%E6%9C%9B%E8%BF%9C%E9%95%9C/">太空望远镜</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%87%E5%AE%99%E5%AD%A6/">宇宙学</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B5%8C%E5%85%A5%E6%A8%A1%E5%9E%8B/">嵌入模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E5%A4%8D%E7%94%A8/">工具复用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">工程实践</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7%E9%93%BE/">开发者工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%AE%89%E5%85%A8/">开源安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%B7%A5%E5%85%B7/">开源工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%82%E6%AD%A5%E6%9E%B6%E6%9E%84/">异步架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6/">成本控制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84/">技术架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E8%83%BD%E5%8D%87%E7%BA%A7/">技能升级</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E5%B7%A5%E7%A8%8B/">提示工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87/">效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87%E4%BC%98%E5%8C%96/">效率优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E9%9A%90%E7%A7%81/">数据隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%96%B0%E8%BD%A6%E5%8F%91%E5%B8%83/">新车发布</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%98%9F%E7%B3%BB%E6%BC%94%E5%8C%96/">星系演化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%B0%B1/">智谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9A%97%E8%83%BD%E9%87%8F/">暗能量</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%8C%96%E9%83%A8%E7%BD%B2/">本地化部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%B7%A5%E5%85%B7%E9%93%BE/">本地工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%88%87%E6%8D%A2/">模型切换</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E8%BF%AD%E4%BB%A3/">模型迭代</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E9%80%89%E5%9E%8B/">模型选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B1%BD%E8%BD%A6%E4%BA%A4%E4%BB%98/">汽车交付</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B5%B7%E5%A4%96%E6%89%A9%E5%BC%A0/">海外扩张</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%BC%94%E8%BF%9B%E5%BC%8F%E6%9E%B6%E6%9E%84/">演进式架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/">版本管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%8B%AC%E7%AB%8B%E8%B0%83%E6%9F%A5/">独立调查</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%90%86%E6%83%B3%E6%B1%BD%E8%BD%A6/">理想汽车</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B7%A5%E5%85%B7/">生产力工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%A8%E6%88%B7%E4%BF%A1%E4%BB%BB/">用户信任</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%A7%BB%E5%8A%A8%E5%BA%94%E7%94%A8/">移动应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E6%B5%8B%E8%AF%95/">第三方测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E7%BC%96%E7%A8%8B/">系统编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E8%BF%81%E7%A7%BB/">系统迁移</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%A2%E9%98%9F%E6%B5%8B%E8%AF%95/">红队测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%AF%E7%94%B5SUV/">纯电SUV</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BB%88%E7%AB%AF%E5%9B%BE%E5%BD%A2%E7%95%8C%E9%9D%A2/">终端图形界面</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E4%BA%91/">腾讯云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E7%A0%94Runtime/">自研Runtime</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E4%BC%9F%E8%BE%BE/">英伟达</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E7%89%B9%E5%B0%94/">英特尔</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AE%BE%E8%AE%A1%E5%B8%88%E5%B7%A5%E4%BD%9C%E6%B5%81/">设计师工作流</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AF%84%E6%B5%8B%E6%9C%BA%E5%88%B6/">评测机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%B7%AF%E7%94%B1%E5%AE%88%E5%8D%AB/">路由守卫</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%82%E5%BA%94%E5%BA%A6%E5%87%BD%E6%95%B0/">适应度函数</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/">透明度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%9A%E7%94%A8Agent/">通用Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81/">隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9B%B6%E6%88%90%E6%9C%AC%E5%BC%80%E5%8F%91/">零成本开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9D%9E%E7%A1%AE%E5%AE%9A%E6%80%A7%E8%AF%84%E4%BC%B0/">非确定性评估</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%9E%E4%B9%A6/">飞书</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

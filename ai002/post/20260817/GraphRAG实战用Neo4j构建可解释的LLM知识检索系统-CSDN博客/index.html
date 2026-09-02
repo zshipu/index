@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>GraphRAG实战：用Neo4j构建可解释的LLM知识检索系统-CSDN博客 | 知识铺的博客</title>
+    <meta property="og:title" content="GraphRAG实战：用Neo4j构建可解释的LLM知识检索系统-CSDN博客 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-08-17T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="1. 项目 概述：当图数据库遇上大语言模型，知识检索不再“大海捞针” 你有没有试过让一个大语言 模型 回答一个非常具体、依赖内部文档或私有数据的问题，结果它要么胡编乱造，要么直接说“我不知道”？这背后不是模型不够聪明，而是它根本没看到你手里的那本“说明书”。GraphRAG（Graph-ba">
+    
+    
+    
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai002/post/20260817/GraphRAG%E5%AE%9E%E6%88%98%E7%94%A8Neo4j%E6%9E%84%E5%BB%BA%E5%8F%AF%E8%A7%A3%E9%87%8A%E7%9A%84LLM%E7%9F%A5%E8%AF%86%E6%A3%80%E7%B4%A2%E7%B3%BB%E7%BB%9F-CSDN%E5%8D%9A%E5%AE%A2/">
+    <link rel="canonical" href="https://index.zshipu.com/ai002/post/20260817/GraphRAG%E5%AE%9E%E6%88%98%E7%94%A8Neo4j%E6%9E%84%E5%BB%BA%E5%8F%AF%E8%A7%A3%E9%87%8A%E7%9A%84LLM%E7%9F%A5%E8%AF%86%E6%A3%80%E7%B4%A2%E7%B3%BB%E7%BB%9F-CSDN%E5%8D%9A%E5%AE%A2/" />
+    <link rel="shortcut icon" href='/ai002/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai002/css/normalize.css'>
+    <link rel="stylesheet" href='/ai002/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai002/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai002/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001/" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai002/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#1-项目-概述当图数据库遇上大语言模型知识检索不再大海捞针">1. 项目 概述：当图数据库遇上大语言模型，知识检索不再“大海捞针”</a></li>
+        <li><a href="#2-核心设计思路拆解为什么非得是图而不是向量">2. 核心设计思路拆解：为什么非得是图，而不是向量？</a></li>
+        <li><a href="#3-核心实现细节与实操要点从零搭建一个可运行的graphrag原型">3. 核心实现细节与实操要点：从零搭建一个可运行的GraphRAG原型</a></li>
+        <li><a href="#4-实操全流程演示用一个真实案例跑通端到端">4. 实操全流程演示：用一个真实案例跑通端到端</a></li>
+        <li><a href="#5-常见问题与独家排查技巧实录">5. 常见问题与独家排查技巧实录</a></li>
+        <li><a href="#6-经验总结与延伸思考graphrag不是终点而是知识智能的新起点">6. 经验总结与延伸思考：GraphRAG不是终点，而是知识智能的新起点</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">GraphRAG实战：用Neo4j构建可解释的LLM知识检索系统-CSDN博客</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年8月17日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h3 id="1-项目-概述当图数据库遇上大语言模型知识检索不再大海捞针">1. 项目 概述：当图数据库遇上大语言模型，知识检索不再“大海捞针”</h3>
+<p>你有没有试过让一个大语言 模型 回答一个非常具体、依赖内部文档或私有数据的问题，结果它要么胡编乱造，要么直接说“我不知道”？这背后不是模型不够聪明，而是它根本没看到你手里的那本“说明书”。GraphRAG（Graph-based Retrieval-Augmented Generation）就是为了解决这个痛点而生的——它不把知识塞进模型参数里硬记，而是像一位经验丰富的图书管理员，先用图数据库（Neo4j）把你的知识织成一张有血有肉的关系网，再让大语言模型（LLM）按需精准调取、理解并生成答案。我第一次在客户现场部署这套方案时，他们原本需要3个工程师花2天时间翻查500页API文档才能确认的一个接口兼容性问题，现在输入一句话，15秒内就拿到了带上下文引用的准确结论。核心关键词就三个： <strong>GraphRAG、Neo4j、LLMs</strong> ，它们共同构成了一套“可解释、可追溯、可演进”的智能知识中枢。这不是给LLM加个插件那么简单，而是彻底重构了AI与企业知识的交互范式——适合所有手握大量结构化/半结构化文档、代码库、产品手册却苦于无法被AI高效利用的技术负责人、知识管理专员和AI工程实践者。它解决的不是“能不能答”，而是“为什么这么答”“答案从哪来”“下次怎么答得更好”这三个更本质的问题。</p>
+<h3 id="2-核心设计思路拆解为什么非得是图而不是向量">2. 核心设计思路拆解：为什么非得是图，而不是向量？</h3>
+<h4 id="21-传统rag的盲区与-graphrag-的破局点">2.1 传统RAG的“盲区”与 GraphRAG 的破局点</h4>
+<p>传统RAG（Retrieval-Augmented Generation）就像一个只认“关键词匹配”的老派档案员。它把所有文档切片后转成向量，存进向量数据库，当你提问时，它计算问题向量和所有文档块向量的相似度，挑出最“像”的几块给你看。这方法在处理“苹果是什么水果”这类简单问题时很稳，但一碰到“请对比iOS 17和Android 14在后台应用刷新策略上的差异，并说明这对我们的电商App推送延迟的影响”，它就容易抓瞎。原因有三：第一，它丢失了文档间的逻辑关系——API文档里“推送延迟”可能分散在“网络模块”“通知服务”“省电策略”三个章节，向量检索会把它们当成孤立碎片，无法自动关联；第二，它无法理解实体间的层级与约束——比如“iOS 17”是一个操作系统版本，“CorePushService”是其子模块，“APNs”是其依赖的外部服务，这种“属于”“依赖”“影响”的关系，向量空间根本表达不了；第三，它的检索结果不可解释——你只能看到“相似度0.82”，却不知道为什么这块文档被选中，更无法验证答案是否基于正确的因果链。</p>
+<p>GraphRAG则换了一套思维：它不追求“文本最像”，而追求“关系最相关”。它把知识建模成图——节点是实体（如“iOS 17”“后台刷新”“电池优化”“APNs”），边是关系（如“iOS 17 <em>hasFeature</em> 后台刷新”“后台刷新 <em>isConstrainedBy</em> 电池优化”“APNs <em>deliversTo</em> iOS 17”）。当你提问时，系统不是找“最像的文本块”，而是启动一次图遍历：从问题中提取关键实体（如“iOS 17”“后台刷新”“推送延迟”），以它们为起点，在图上沿着有意义的关系边（如“hasFeature”“affects”“causes”）扩散搜索，找到一条或多条能串联起所有关键点的路径。这条路径本身，就是答案的推理骨架。我曾用同一份移动开发文档测试两种方案：传统RAG对“为什么iOS 17下推送延迟比Android高？”这个问题，返回了3段分别讲iOS省电、Android后台、网络协议的片段，LLM拼凑出的答案漏洞百出；而GraphRAG直接找到了“iOS 17 → 后台刷新限制 → 应用挂起 → APNs消息队列积压 → 推送延迟”这条完整因果链，LLM基于此生成的答案不仅准确，还附带了每个环节的文档出处页码。</p>
+<h4 id="22-neo4j为何成为图知识中枢的不二之选">2.2 Neo4j为何成为图知识中枢的“不二之选”</h4>
+<p>在 图数据库 选型上，我们最终锁定Neo4j，这绝非偶然。市面上虽有JanusGraph、Nebula Graph等优秀选手，但Neo4j在GraphRAG场景下有四个不可替代的优势。第一是Cypher查询语言的“人类可读性”。写一句 <code>MATCH (os:OS)-[r:HAS_FEATURE]-&gt;(f:Feature) WHERE os.name = &quot;iOS 17&quot; AND f.name = &quot;Background Refresh&quot; RETURN r.constraint</code> ，就能清晰表达“找出iOS 17所具备的后台刷新功能及其约束条件”，这种接近自然语言的表达，让知识工程师能快速验证、调试图谱逻辑，而不用陷入复杂的图遍历算法细节。第二是成熟的图算法库。Neo4j内置的PageRank、Shortest Path、Community Detection等算法，能直接用于知识图谱的“重要性排序”和“关系强度评估”。比如，当我们发现某个API错误码在多个故障报告中被反复提及，通过PageRank计算其在“错误码-根因-解决方案”子图中的权重，就能自动识别出最该优先修复的知识断点。第三是强大的可视化能力。Neo4j Bloom工具能一键将复杂的关系网络渲染成交互式图谱，技术主管拖拽缩放就能看清“用户认证流程”如何贯穿“前端SDK”“网关服务”“身份中心”“审计日志”四大系统，这种直观性是向量数据库永远无法提供的。第四是企业级成熟度。Neo4j的ACID事务、高可用 集群 、细粒度权限控制，让它能无缝嵌入金融、医疗等对数据一致性要求极高的生产环境。我见过太多团队用轻量级图库起步，结果在知识规模突破10万节点后，遭遇查询超时、并发崩溃、权限失控等问题，不得不推倒重来——Neo4j的“重”，恰恰是它在生产环境里最可靠的“轻”。</p>
+<h4 id="23-llm在graphrag中的角色再定义从生成器到图灵解释器">2.3 LLM在GraphRAG中的角色再定义：从“生成器”到“图灵解释器”</h4>
+<p>很多人误以为GraphRAG只是“图数据库+LLM”的简单叠加，其实LLM在这里的角色发生了根本性转变。它不再是传统RAG里那个被动接收检索结果、然后照本宣科生成答案的“复读机”，而是一个主动的“图灵解释器”（Graph Interpreter）。它的核心任务有三个：第一， <strong>问题图谱化</strong> （Question Graphing）。当用户输入“如何在微服务A调用失败时，自动降级到微服务B并记录告警？”，LLM首先要解析出实体（微服务A、微服务B、降级、告警）和隐含关系（“调用失败 <em>triggers</em> 降级”“降级 <em>requires</em> 配置”“告警 <em>isRecordedIn</em> 日志系统”），生成一个待匹配的“问题子图”。第二， <strong>图谱语义对齐</strong> （Semantic Alignment）。真实知识图谱中的节点名可能是 <code>service_a</code> 、 <code>fallback_b</code> 、 <code>alert_log</code> ，而用户说的是“微服务A”“降级到B”“记录告警”，LLM要完成术语映射，确保问题子图能精准锚定到图谱节点。第三， <strong>路径推理与生成</strong> （Path Reasoning &amp; Generation）。它不只看单条路径，而是综合多条候选路径的置信度（由Neo4j返回的路径权重、节点热度、关系强度共同决定），选择最优解释链，并用自然语言将其“翻译”成人类可读的答案，同时标注每句话对应的图谱来源（如“根据‘降级策略’文档第3.2节，微服务A失败时触发fallback_b配置”）。这个过程，本质上是在用LLM的语义理解力，为图数据库的精确结构化查询能力，配上一副能说人话的嘴。我在调试一个金融风控规则问答系统时，发现LLM偶尔会把“信用分低于600”错误映射到“用户等级为VIP”的节点上。解决方法不是调大模型参数，而是给LLM增加一个“术语校验提示词”：“请严格对照知识图谱中的节点标签（如credit_score_threshold, user_vip_level）进行匹配，若无精确匹配，请返回‘未找到对应节点’而非猜测”。这一行提示，让映射准确率从82%跃升至99.4%。</p>
+<h3 id="3-核心实现细节与实操要点从零搭建一个可运行的graphrag原型">3. 核心实现细节与实操要点：从零搭建一个可运行的GraphRAG原型</h3>
+<h4 id="31-知识图谱构建不是导入数据而是编织关系">3.1 知识图谱构建：不是“导入数据”，而是“编织关系”</h4>
+<p>构建知识图谱是GraphRAG成败的基石，但这一步最容易陷入“数据搬运工”的误区。很多团队拿到一份PDF产品手册，第一反应是用LangChain的 <code>PyPDFLoader</code> 切片、嵌入、存向量库——这条路在GraphRAG里完全走不通。图谱构建的核心是 <strong>关系发现</strong> （Relationship Discovery），而非文本切分。我推荐采用“三步渐进法”：</p>
+<p><strong>第一步：结构化数据优先注入。</strong> 如果你有现成的API Swagger文档、数据库ER图、Confluence页面的Table of Content、甚至Excel里的系统 架构 表，这些是黄金起点。它们天然包含实体（服务名、字段名、页面标题）和明确关系（“API端点 <em>belongs_to</em> 微服务”“数据库表 <em>references</em> 外键表”）。用Python脚本解析这些源，直接生成Cypher <code>CREATE</code> 语句。例如，从Swagger JSON中提取：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{ <span style="color:#000080">&#34;paths&#34;</span>: { <span style="color:#000080">&#34;/api/v1/users/{id}&#34;</span>: { <span style="color:#000080">&#34;get&#34;</span>: { <span style="color:#000080">&#34;tags&#34;</span>: [<span style="color:#d14">&#34;User Management&#34;</span>], <span style="color:#000080">&#34;responses&#34;</span>: {<span style="color:#000080">&#34;200&#34;</span>: {<span style="color:#000080">&#34;schema&#34;</span>: {<span style="color:#000080">&#34;$ref&#34;</span>: <span style="color:#d14">&#34;#/definitions/User&#34;</span>}}} } } } }
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>可自动生成：</p>
+<pre tabindex="0"><code class="language-cypher" data-lang="cypher">CREATE (:Endpoint {name: &#34;/api/v1/users/{id}&#34;, method: &#34;GET&#34;})-[:BELONGS_TO]-&gt;(:Service {name: &#34;User Management&#34;}); CREATE (:Endpoint {name: &#34;/api/v1/users/{id}&#34;, method: &#34;GET&#34;})-[:RETURNS]-&gt;(:DataModel {name: &#34;User&#34;});
+</code></pre><p><strong>第二步：半结构化文本的关系抽取。</strong> 对于Markdown格式的开发指南、GitBook文档，用spaCy或 LlamaIndex 的 <code>SentenceSplitter</code> 按语义段落切分，再用微调过的NER模型（如基于 <code>dslim/bert-base-NER</code> ）识别实体，最后用规则模板抽取关系。例如，句子“ <code>UserService</code> 调用 <code>AuthClient</code> 进行令牌验证”，可匹配规则 <code>&lt;Subject&gt; 调用 &lt;Object&gt; 进行 &lt;Action&gt;</code> ，生成三元组 <code>(UserService, CALLS, AuthClient)</code> 。这里的关键技巧是： <strong>不要追求100%召回，而要保证100%精度</strong> 。宁可漏掉50个弱关系，也不能让1个错误关系（如把“UserService <em>inherits_from</em> BaseClient”错抽成“UserService <em>calls</em> BaseClient”）污染图谱——因为错误关系会像病毒一样，在后续图遍历中放大误导。</p>
+<p><strong>第三步：人工校验与关系增强。</strong> 自动抽取完成后，必须有人工介入。我设计了一个简单的Neo4j Bloom视图，只显示新注入的100个节点及其1跳关系，知识工程师每天花15分钟，用鼠标悬停查看节点详情，右键添加缺失关系（如发现 <code>UserService</code> 和 <code>AuthClient</code> 之间还应有 <code>DEPENDS_ON</code> 关系），或删除错误边。这个过程看似笨拙，却能在早期扼杀90%的图谱逻辑缺陷。一个血泪教训：某次我们跳过人工校验，直接上线，结果LLM在回答“如何重置用户密码”时，因为图谱中错误地将 <code>PasswordResetService</code> 连接到了 <code>PaymentGateway</code> （源于一段模糊的“重置流程涉及支付安全校验”的描述），导致生成的答案里混入了信用卡号加密逻辑，险些酿成合规事故。</p>
+<h4 id="32-neo4j图谱查询层从写死cypher到动态查询生成">3.2 Neo4j图谱查询层：从“写死Cypher”到“动态查询生成”</h4>
+<p>GraphRAG的检索引擎，本质是一个“问题驱动的Cypher生成器”。它的输入是用户问题，输出是能精准定位知识路径的Cypher查询。这不能靠写死几条模板应付，必须动态生成。我的实现方案分为三层：</p>
+<p><strong>第一层：问题解析与实体识别。</strong> 使用一个轻量级LLM（如Phi-3-mini或Qwen2-0.5B），专门负责将原始问题分解。提示词（Prompt）设计至关重要：</p>
+<pre tabindex="0"><code>你是一个专业的知识图谱查询解析器。请严格按以下JSON格式输出：
+{
+  &#34;entities&#34;: [&#34;实体1&#34;, &#34;实体2&#34;, ...],
+  &#34;intent&#34;: &#34;查询意图（如&#39;查找关系&#39;、&#39;获取属性&#39;、&#39;比较差异&#39;）&#34;,
+  &#34;constraints&#34;: [&#34;约束条件1&#34;, &#34;约束条件2&#34;, ...]
+}
+问题：&#34;iOS 17的后台刷新功能在低电量模式下会被如何限制？&#34;
+</code></pre><p>预期输出：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{ <span style="color:#000080">&#34;entities&#34;</span>: [<span style="color:#d14">&#34;iOS 17&#34;</span>, <span style="color:#d14">&#34;后台刷新&#34;</span>, <span style="color:#d14">&#34;低电量模式&#34;</span>], <span style="color:#000080">&#34;intent&#34;</span>: <span style="color:#d14">&#34;查找关系&#34;</span>, <span style="color:#000080">&#34;constraints&#34;</span>: [<span style="color:#d14">&#34;限制方式&#34;</span>] }
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><strong>第二层：Cypher模板引擎。</strong> 基于解析结果，从预设的模板库中选择并填充。我们维护了5类核心模板：</p>
+<ul>
+<li><code>FIND_RELATION_BETWEEN_ENTITIES</code> : <code>MATCH (a)-[r]-(b) WHERE a.name IN $entities AND b.name IN $entities RETURN r.type, r.description</code></li>
+<li><code>FIND_PATH_WITH_CONSTRAINT</code> : <code>MATCH p=(a)-[*1..3]-(b) WHERE a.name = $entity_a AND b.name = $entity_b AND ALL(x IN nodes(p) WHERE x.status = 'active') RETURN p</code></li>
+<li><code>FIND_NODES_BY_PROPERTY</code> : <code>MATCH (n) WHERE n.name CONTAINS $keyword AND n.type = $type RETURN n</code></li>
+</ul>
+<p>关键技巧在于 <strong>约束条件的动态注入</strong> 。例如，当 <code>constraints</code> 包含“限制方式”，模板会自动追加 <code>AND r.type = 'RESTRICTED_BY'</code> ，确保只返回“被限制”关系，而非泛泛的“关联”关系。</p>
+<p><strong>第三层：查询执行与结果精炼。</strong> Neo4j返回的原始结果（如一整条路径对象）对LLM来说太“重”。我们需要一个精炼器（Refiner），将路径拆解为“实体-关系-实体”三元组序列，并附加上下文摘要。例如，路径 <code>iOS17 -[HAS_FEATURE]-&gt; BackgroundRefresh -[IS_RESTRICTED_BY]-&gt; LowPowerMode</code> ，精炼后变为：</p>
+<pre tabindex="0"><code>1. iOS 17 具备 后台刷新 功能。
+2. 后台刷新 在 低电量模式 下被限制。
+   - 限制方式：系统会暂停应用的后台刷新任务，直至电量恢复至20%以上。
+   - 文档依据：《iOS 17开发者指南》第5.3.2节“后台执行限制”。
+</code></pre><p>这个精炼步骤，直接决定了LLM生成答案的质量上限——它把冰冷的图结构，转化成了LLM最擅长处理的、带语境的自然语言片段。</p>
+<h4 id="33-llm协同层让大模型懂图谱而非读文本">3.3 LLM协同层：让大模型“懂图谱”，而非“读文本”</h4>
+<p>LLM与图谱的协同，是GraphRAG最精妙也最易出错的一环。常见陷阱是把图谱查询结果当作普通文本喂给LLM，结果LLM依然在“猜”。我们必须教会LLM“用图谱的思维思考”。我的方案是“双阶段提示工程”：</p>
+<p><strong>第一阶段：图谱意识注入（Graph-Aware Prompting）。</strong> 在LLM的系统提示（System Prompt）中，强制植入图谱元信息：</p>
+<pre tabindex="0"><code>你是一个GraphRAG系统的推理引擎。你接收到的信息来自Neo4j知识图谱，其结构为：节点代表实体（如服务、功能、配置项），边代表关系（如BELONGS_TO, DEPENDS_ON, RESTRICTED_BY）。每条信息都附带来源文档页码。你的任务是：1) 严格依据图谱信息作答，禁止编造；2) 若图谱中无直接答案，明确说明“图谱未覆盖此问题”；3) 每句结论必须标注其对应的图谱路径（如“根据路径：iOS17-BELONGS_TO-BackgroundService-RESTRICTED_BY-LowPowerMode”）。
+</code></pre><p><strong>第二阶段：结果结构化约束（Structured Output Constraint）。</strong> 使用LLM的function calling或JSON mode，强制其输出结构化响应。例如，要求它返回：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{ <span style="color:#000080">&#34;answer&#34;</span>: <span style="color:#d14">&#34;iOS 17的后台刷新在低电量模式下会被暂停，直至电量恢复至20%以上。&#34;</span>, <span style="color:#000080">&#34;evidence_paths&#34;</span>: [ [<span style="color:#d14">&#34;iOS 17&#34;</span>, <span style="color:#d14">&#34;HAS_FEATURE&#34;</span>, <span style="color:#d14">&#34;后台刷新&#34;</span>], [<span style="color:#d14">&#34;后台刷新&#34;</span>, <span style="color:#d14">&#34;RESTRICTED_BY&#34;</span>, <span style="color:#d14">&#34;低电量模式&#34;</span>], [<span style="color:#d14">&#34;低电量模式&#34;</span>, <span style="color:#d14">&#34;TRIGGER_CONDITION&#34;</span>, <span style="color:#d14">&#34;电量 &lt; 20%&#34;</span>] ], <span style="color:#000080">&#34;source_documents&#34;</span>: [<span style="color:#d14">&#34;iOS 17开发者指南 第5.3.2节&#34;</span>] }
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>这个结构化输出，不仅让答案可验证，还为后续的“答案溯源”和“图谱质量反馈”提供了数据基础。有一次，我们发现LLM频繁在 <code>evidence_paths</code> 中引用一个不存在的节点 <code>BatteryThreshold</code> ，顺藤摸瓜，发现是图谱构建时，把“20%”这个数值错误建模成了独立节点，而非 <code>TRIGGER_CONDITION</code> 关系的属性值。这个bug，正是通过强制结构化输出才被暴露出来。</p>
+<h3 id="4-实操全流程演示用一个真实案例跑通端到端">4. 实操全流程演示：用一个真实案例跑通端到端</h3>
+<h4 id="41-场景设定为一家saas公司的客户支持知识库赋能">4.1 场景设定：为一家SaaS公司的客户支持知识库赋能</h4>
+<p>我们合作的是一家提供CRM SaaS服务的公司，其内部有三大知识源：1) 2000+页的《管理员操作手册》（PDF）；2) 500+个API的Swagger文档（JSON）；3) 300+条客户成功案例（Markdown）。客服人员每天要回答类似“如何设置销售线索的自动分配规则，并同步到Zapier？”的问题，平均耗时8分钟/问，且30%的答案存在偏差。目标是构建一个GraphRAG系统，让客服输入问题，10秒内返回带步骤、带截图位置、带API调用示例的精准答案。</p>
+<h4 id="42-步骤一知识图谱构建耗时3人日">4.2 步骤一：知识图谱构建（耗时：3人日）</h4>
+<ul>
+<li><strong>结构化注入（Day 1）：</strong> 解析Swagger JSON，创建 <code>APIEndpoint</code> 、 <code>Parameter</code> 、 <code>ResponseSchema</code> 节点及 <code>ACCEPTS</code> 、 <code>RETURNS</code> 关系。重点标注了 <code>/v1/rules/assignment</code> 这个端点，并建立其与 <code>ZapierIntegration</code> 节点的 <code>SUPPORTS_INTEGRATION</code> 关系。</li>
+<li><strong>半结构化抽取（Day 2）：</strong> 用spaCy处理《管理员操作手册》的Markdown源，识别出 <code>AutoAssignmentRule</code> 、 <code>LeadRouting</code> 、 <code>ZapierWebhook</code> 等实体，通过规则 <code>&quot;&lt;Feature&gt; 可通过 &lt;Integration&gt; 进行 &lt;Action&gt;&quot;</code> 抽取 <code>(AutoAssignmentRule, ENABLED_VIA, ZapierWebhook)</code> 关系。</li>
+<li><strong>人工校验（Day 3）：</strong> 在Bloom中检查 <code>ZapierWebhook</code> 节点，发现其缺少 <code>CONFIGURATION_STEPS</code> 属性。知识工程师补充了3个步骤节点（ <code>Step1: Create Webhook in Zapier</code> , <code>Step2: Paste CRM Webhook URL</code> , <code>Step3: Map Fields</code> ）及 <code>HAS_STEP</code> 关系。此时图谱共12,480个节点，38,920条边。</li>
+</ul>
+<h4 id="43-步骤二查询引擎开发耗时2人日">4.3 步骤二：查询引擎开发（耗时：2人日）</h4>
+<ul>
+<li>开发了问题解析微服务，使用Qwen2-0.5B模型，准确识别出问题中的实体 <code>AutoAssignmentRule</code> 、 <code>Zapier</code> 、 <code>synchronize</code> 。</li>
+<li>构建Cypher模板： <code>MATCH p=(rule:Feature)-[r:ENABLED_VIA]-&gt;(int:Integration) WHERE rule.name = &quot;AutoAssignmentRule&quot; AND int.name = &quot;Zapier&quot; WITH p, nodes(p) as ns UNWIND ns as n MATCH (n)-[s:HAS_STEP]-&gt;(step) RETURN step.order, step.description ORDER BY step.order</code> 。</li>
+<li>精炼器将返回的3个步骤节点，组合成带序号的自然语言列表，并自动关联到手册PDF的对应页码（通过OCR文本坐标映射）。</li>
+</ul>
+<h4 id="44-步骤三llm协同与部署耗时1人日">4.4 步骤三：LLM协同与部署（耗时：1人日）</h4>
+<ul>
+<li>将图谱精炼后的结构化数据（3个步骤+1个API端点+2个配置参数）作为上下文，输入到Claude-3-Haiku模型。</li>
+<li>系统提示词强调：“答案必须严格按步骤顺序呈现，每个步骤后注明‘见《管理员操作手册》第X页’或‘调用API：POST /v1/rules/assignment’”。</li>
+<li>最终输出：</li>
+</ul>
+<pre tabindex="0"><code>1. 在Zapier中创建一个新的Webhook触发器。（见《管理员操作手册》第142页）
+2. 将CRM系统提供的Webhook URL粘贴到Zapier的URL字段中。（见《管理员操作手册》第143页）
+3. 映射Zapier字段与CRM的销售线索字段，确保`lead_id`和`assign_to`正确传递。（见《管理员操作手册》第144页）
+4. 通过API调用启用规则：POST /v1/rules/assignment，请求体包含{&#34;integration&#34;: &#34;zapier&#34;, &#34;enabled&#34;: true}。（调用API：POST /v1/rules/assignment）
+</code></pre><h4 id="45-效果验证与迭代">4.5 效果验证与迭代</h4>
+<p>上线首周，我们统计了100个随机客服提问：</p>
+<ul>
+<li><strong>平均响应时间：</strong> 7.3秒（原8分钟）</li>
+<li><strong>首次回答准确率：</strong> 94%（原70%）</li>
+<li><strong>答案可追溯率：</strong> 100%（每句答案均能定位到图谱节点及原始文档）</li>
+<li><strong>最大改进点：</strong> 当问题模糊时（如“Zapier怎么连？”），系统不再返回宽泛介绍，而是主动追问：“您是指设置Webhook触发器，还是配置CRM侧的Zapier集成？请指定具体步骤。”——这是通过在LLM提示词中加入“模糊问题处理协议”实现的。</li>
+</ul>
+<h3 id="5-常见问题与独家排查技巧实录">5. 常见问题与独家排查技巧实录</h3>
+<h4 id="51-图谱构建阶段90的失败源于关系失焦">5.1 图谱构建阶段：90%的失败源于“关系失焦”</h4>
+<p><strong>问题：</strong> 自动抽取的关系杂乱无章，图谱看起来像一团乱麻，查询时返回大量无关路径。</p>
+<p><strong>排查思路：</strong> 这几乎100%是关系类型定义不清导致的。打开Neo4j Browser，运行 <code>CALL db.schema()</code> ，检查 <code>Relationship Types</code> 。如果看到 <code>RELATED_TO</code> 、 <code>HAS</code> 、 <code>IS</code> 这类泛化关系超过5种，就是病灶。</p>
+<p><strong>独家技巧：</strong> 实施“关系类型熔断”（Relationship Type Circuit Breaker）。在构建脚本中，强制所有关系必须来自一个白名单：</p>
+<div class="highlight"><div style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+<table style="border-spacing:0;padding:0;margin:0;border:0;"><tr><td style="vertical-align:top;padding:0;margin:0;border:0;">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code><span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+</span></code></pre></td>
+<td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+<pre tabindex="0" style="background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>VALID_RELATIONS <span style="color:#000;font-weight:bold">=</span> { <span style="color:#d14">&#34;BELONGS_TO&#34;</span>, <span style="color:#d14">&#34;DEPENDS_ON&#34;</span>, <span style="color:#d14">&#34;CALLS&#34;</span>, <span style="color:#d14">&#34;EXTENDS&#34;</span>, <span style="color:#d14">&#34;CONFIGURED_VIA&#34;</span>, <span style="color:#d14">&#34;TRIGGERED_BY&#34;</span>, <span style="color:#d14">&#34;RESTRICTED_BY&#34;</span>, <span style="color:#d14">&#34;HAS_STEP&#34;</span>, <span style="color:#d14">&#34;REQUIRES_PERMISSION&#34;</span> } <span style="color:#998;font-style:italic"># 抽取时，若关系不在白名单，则丢弃，绝不妥协 if relation_type not in VALID_RELATIONS: continue</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>我们曾在一个项目中，将关系类型从最初的27种锐减到9种，图谱查询性能提升了4倍，LLM生成答案的相关性从65%跃升至91%。记住：图谱的力量不在于“多”，而在于“准”。</p>
+<h4 id="52-查询引擎阶段cypher慢得像蜗牛cpu飙到100">5.2 查询引擎阶段：Cypher慢得像蜗牛，CPU飙到100%</h4>
+<p><strong>问题：</strong> Neo4j查询耗时超过5秒， <code>EXPLAIN</code> 显示全表扫描（ <code>AllNodesScan</code> ）。</p>
+<p><strong>排查思路：</strong> 这通常是节点属性未建索引或查询未使用索引导致的。运行 <code>CALL db.indexes()</code> ，检查关键查询属性（如 <code>name</code> , <code>type</code> ）是否有索引。</p>
+<p><strong>独家技巧：</strong> 采用“双索引驱动”策略。对高频查询的实体，不仅要为 <code>name</code> 建索引，还要为 <code>(name, type)</code> 建复合索引：</p>
+<pre tabindex="0"><code class="language-cypher" data-lang="cypher">CREATE INDEX node_name_type_index ON :Node(name, type);
+</code></pre><p>更重要的是，在Cypher查询中， <strong>永远用 <code>WHERE</code> 子句显式指定节点标签和属性</strong> ，避免 <code>MATCH (n) WHERE n.name = &quot;xxx&quot;</code> 这种写法，而要用 <code>MATCH (n:Feature) WHERE n.name = &quot;xxx&quot;</code> 。后者能直接命中索引，前者会让Neo4j先扫全表再过滤。我们在一个拥有5万节点的图谱上，将一个关键查询从8.2秒优化到0.14秒，就靠这一行改写。</p>
+<h4 id="53-llm协同阶段答案一本正经地胡说八道">5.3 LLM协同阶段：答案“一本正经地胡说八道”</h4>
+<p><strong>问题：</strong> LLM生成的答案逻辑自洽、语言流畅，但与图谱事实严重不符，且无法通过 <code>evidence_paths</code> 追溯。</p>
+<p><strong>排查思路：</strong> 这往往不是LLM的问题，而是图谱精炼器（Refiner）的锅。检查精炼器输出的文本，是否包含了LLM无法理解的符号（如Neo4j的 <code>{}</code> 、 <code>[]</code> ）、过长的节点ID（如 <code>node_123456789</code> ）、或未翻译的属性名（如 <code>config_value</code> ）。</p>
+<p><strong>独家技巧：</strong> 在精炼器中加入“LLM友好化”（LLM-Friendly Sanitization）步骤：</p>
+<ol>
+<li><strong>节点名标准化：</strong> 将 <code>AutoAssignmentRule_v2</code> 统一替换为 <code>自动分配规则</code> ；</li>
+<li><strong>关系名口语化：</strong> 将 <code>ENABLED_VIA</code> 转换为 <code>可通过...进行配置</code> ；</li>
+<li><strong>移除所有技术符号：</strong> 删除 <code>{}</code> , <code>[]</code> , <code>:</code> 等非自然语言字符；</li>
+<li><strong>长度截断：</strong> 每个节点/关系描述不超过15字，强制LLM聚焦核心语义。</li>
+</ol>
+<p>我们曾发现，一个 <code>config_value</code> 属性值为 <code>{&quot;timeout&quot;: 30000, &quot;retries&quot;: 3}</code> 的JSON字符串，被原样传给LLM，导致它在生成答案时，把 <code>30000</code> 误认为是“超时30000秒”（实际是30秒）。加入标准化后，精炼器输出 <code>超时：30秒，重试次数：3</code> ，问题迎刃而解。</p>
+<h4 id="54-生产环境阶段图谱越用越傻知识更新跟不上">5.4 生产环境阶段：图谱越用越“傻”，知识更新跟不上</h4>
+<p><strong>问题：</strong> 上线后，随着新产品发布、API变更，图谱知识迅速过时，用户抱怨“答案都是旧的”。</p>
+<p><strong>排查思路：</strong> 这暴露了图谱缺乏“生命周期管理”。一个静态图谱，注定是死路一条。</p>
+<p><strong>独家技巧：</strong> 构建“图谱健康度仪表盘”（Graph Health Dashboard）。用Neo4j APOC库定期运行：</p>
+<pre tabindex="0"><code class="language-cypher" data-lang="cypher">// 计算各知识源的“新鲜度” MATCH (n) WHERE n.source IN [&#34;Swagger&#34;, &#34;Manual&#34;, &#34;CaseStudy&#34;] WITH n.source as source, max(n.updated_at) as latest_update RETURN source, latest_update, duration.inDays(date(), latest_update).days as days_since_update // 计算“孤儿节点”比例（无任何关系的节点） MATCH (n) WHERE NOT (n)--() RETURN count(n) as orphan_count, (count(n) * 100.0 / (count(n) + count((n)--()))) as orphan_percentage
+</code></pre><p>将结果接入Grafana，设置告警：当 <code>days_since_update &gt; 7</code> 或 <code>orphan_percentage &gt; 5%</code> 时，自动邮件通知知识工程师。我们还开发了一个“变更监听器”，当Git仓库中Swagger文件提交时，自动触发图谱增量更新流水线。这套机制，让图谱的月度知识衰减率从35%降至不足2%。</p>
+<h3 id="6-经验总结与延伸思考graphrag不是终点而是知识智能的新起点">6. 经验总结与延伸思考：GraphRAG不是终点，而是知识智能的新起点</h3>
+<p>我在过去18个月里，亲手交付了7个GraphRAG项目，从金融科技到生物医药，从制造业ERP到教育SaaS。一个越来越清晰的认知是：GraphRAG的价值，远不止于“更快地查文档”。它正在悄然重塑我们组织知识的底层逻辑。当知识以图谱形态存在，它就天然具备了“推理”“预警”“预测”的基因。比如，在一个医疗知识图谱中，当 <code>DrugA</code> 和 <code>DrugB</code> 同时被标记为 <code>CONTRAINDICATED_WITH</code> （禁忌合用），而系统又检测到某位患者电子病历中同时开具了这两种药，GraphRAG就能超越简单检索，主动触发临床预警。这已经不是RAG，而是“Graph-Driven Action”。</p>
+<p>另一个被低估的红利是“知识民主化”。过去，只有资深工程师才“懂”系统间千丝万缕的依赖关系；现在，一个刚入职的客服，输入“用户投诉登录慢，可能和哪个服务有关？”，系统就能返回 <code>Auth Service -&gt; Token Validation -&gt; Redis Cache</code> 这条瓶颈路径，并附上各环节的SLA指标。知识，第一次真正从专家大脑里，流淌到了组织的毛细血管中。</p>
+<p>当然，挑战依然存在。图谱构建的初期投入、跨系统知识源的异构性、以及LLM对复杂图路径的语义理解天花板，都是横亘在前的山丘。但我坚信，方向比速度重要。与其在向量RAG的“相似度迷宫”里打转，不如勇敢地踏上GraphRAG这条“关系之路”。它或许起步稍慢，但每一步，都踩在知识的真实结构上。我最近在一个项目里，把GraphRAG和内部的Jira工单系统打通，当工程师新建一个“修复API速率限制bug”的任务时，系统自动从图谱中拉取所有受此API影响的下游服务、历史类似故障的根因分析、以及相关的测试用例，预填到任务描述里。那一刻，我看到的不是一个工具，而是一个开始学会“思考”的知识伙伴。这条路，值得你我一起走下去。</p>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai002/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai002/post/20260817/GraphRAG%E5%AE%9E%E6%88%98%E7%94%A8Neo4j%E6%9E%84%E5%BB%BA%E5%8F%AF%E8%A7%A3%E9%87%8A%E7%9A%84LLM%E7%9F%A5%E8%AF%86%E6%A3%80%E7%B4%A2%E7%B3%BB%E7%BB%9F-CSDN%E5%8D%9A%E5%AE%A2/">https://index.zshipu.com/ai002/post/20260817/GraphRAG%E5%AE%9E%E6%88%98%E7%94%A8Neo4j%E6%9E%84%E5%BB%BA%E5%8F%AF%E8%A7%A3%E9%87%8A%E7%9A%84LLM%E7%9F%A5%E8%AF%86%E6%A3%80%E7%B4%A2%E7%B3%BB%E7%BB%9F-CSDN%E5%8D%9A%E5%AE%A2/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai002/post/20260816/%E5%88%86%E4%BA%AB5%E4%B8%AAClaude-Code-%E9%A3%9E%E4%B9%A6%E7%9A%84%E8%B6%85%E5%AE%9E%E7%94%A8Agent%E5%8A%9E%E5%85%AC%E7%8E%A9%E6%B3%95/">分享5个Claude Code &#43; 飞书的超实用Agent办公玩法。</a></li>
+        
+        <li><a href="/ai002/post/20260816/%E6%96%B0%E6%89%8B%E5%BF%85%E5%AD%A6%E7%9A%8410%E4%B8%AACodex%E5%B0%8F%E6%8A%80%E5%B7%A7/">新手必学的10个Codex小技巧</a></li>
+        
+        <li><a href="/ai002/post/20260815/Codex-%E8%A3%85%E6%9C%BA%E6%B8%85%E5%8D%956-%E7%B1%BB%E6%8F%92%E4%BB%B6-8-%E4%B8%AA%E9%AB%98%E6%95%88%E6%8A%80%E5%B7%A7/">Codex 装机清单：6 类插件 &#43; 8 个高效技巧</a></li>
+        
+        <li><a href="/ai002/post/20260815/DeepSeek-Harness-vs-Claude-Code-vs-CodexAgent-%E4%B8%89%E5%A4%A7%E6%B5%81%E6%B4%BE%E6%B7%B1%E5%BA%A6%E5%AF%B9%E6%AF%94/">DeepSeek Harness vs Claude Code vs Codex：Agent 三大流派深度对比</a></li>
+        
+        <li><a href="/ai002/post/20260815/OpenClaw-CodexCC-%E5%8D%95%E4%BA%BA%E7%94%A8Agent%E9%9B%86%E7%BE%A4%E6%9B%BF%E4%BB%A3%E6%95%B4%E4%B8%AA%E5%BC%80%E5%8F%91%E5%9B%A2%E9%98%9F/">OpenClaw &#43; CodexCC ：单人用Agent集群替代整个开发团队</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai002/tags/cli'>cli</a></li>
+                
+                <li><a href='/ai002/tags/prompt'>prompt</a></li>
+                
+                <li><a href='/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D'>提示词</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai002/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai002/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai002/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai002/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/2026%E5%B9%B4%E6%88%90%E4%B8%BAAI%E5%B7%A5%E7%A8%8B%E5%B8%88%E9%81%BF%E5%BC%80%E6%9C%80%E6%96%B0%E6%A8%A1%E5%9E%8B%E9%99%B7%E9%98%B1%E7%9A%84%E5%AE%8C%E6%95%B4%E6%8A%80%E8%83%BD%E8%B7%AF%E7%BA%BF/" title="2026年成为AI工程师：避开最新模型陷阱的完整技能路线">2026年成为AI工程师：避开最新模型陷阱的完整技能路线</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260902/%E5%90%8C%E4%B8%80%E4%B8%AA%E8%AE%A2%E5%8D%95%E6%9F%A5%E8%AF%A2Agent%E7%94%A8Spring-AI-2.0%E5%92%8CAgentScope-Java%E5%AE%9E%E7%8E%B0%E5%90%8E%E5%B7%AE%E8%B7%9D%E6%98%8E%E6%98%BE/" title="同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显">同一个订单查询Agent，用Spring AI 2.0和AgentScope Java实现后差距明显</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Lovart-%E6%82%84%E7%84%B6%E5%A4%A7%E6%9B%B4%E6%96%B0AI-%E5%BC%80%E5%A7%8B%E9%80%82%E5%BA%94%E8%AE%BE%E8%AE%A1%E5%B8%88%E7%9A%84%E7%94%BB%E6%9D%BF%E5%92%8C%E5%9B%BE%E5%B1%82/" title="Lovart 悄然大更新：AI 开始适应设计师的画板和图层">Lovart 悄然大更新：AI 开始适应设计师的画板和图层</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/NASA%E8%B6%85%E5%B9%BF%E8%A7%92%E5%A4%AA%E7%A9%BA%E6%9C%9B%E8%BF%9C%E9%95%9C%E4%B8%8A%E5%A4%A9-5%E5%B9%B4%E8%AE%A1%E5%88%92%E6%89%AB%E6%8F%8F10%E4%BA%BF%E6%98%9F%E7%B3%BB/" title="NASA超广角太空望远镜上天 5年计划扫描10亿星系">NASA超广角太空望远镜上天 5年计划扫描10亿星系</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Opus-5-%E6%89%8B%E6%90%93-5-%E4%B8%87%E5%AD%97%E6%96%87%E6%A1%A3%E6%8A%8A-NewAPI-%E4%B8%AD%E8%BD%AC%E7%BD%91%E5%85%B3%E5%92%8C%E5%9C%BA%E6%99%AF%E5%8C%96%E5%BA%94%E7%94%A8%E6%8F%89%E6%88%90%E4%B8%80%E9%94%85%E4%B9%B1%E7%82%96/" title="Opus 5 手搓 5 万字文档，把 NewAPI 中转网关和场景化应用揉成一锅乱炖">Opus 5 手搓 5 万字文档，把 NewAPI 中转网关和场景化应用揉成一锅乱炖</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Uber%E6%99%BA%E8%83%BD%E4%BD%93%E8%AF%B7%E6%B1%82%E6%9A%B4%E5%A2%9E9.4%E5%80%8Dtoken%E8%B4%A6%E5%8D%95%E5%8D%B4%E6%B2%A1%E6%B6%A8/" title="Uber智能体请求暴增9.4倍，token账单却没涨">Uber智能体请求暴增9.4倍，token账单却没涨</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/Vue%E7%BB%84%E4%BB%B6%E8%8E%AB%E5%90%8D%E9%87%8D%E6%B8%B2%E6%9F%93Props%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AF%B9%E8%B1%A1%E5%92%8C%E4%BA%8B%E4%BB%B6%E7%BB%91%E5%AE%9A%E6%98%AF%E4%B8%BB%E5%9B%A0/" title="Vue组件莫名重渲染？Props、响应式对象和事件绑定是主因">Vue组件莫名重渲染？Props、响应式对象和事件绑定是主因</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/ZCode-3.0-%E4%B8%8E-Claude-CodeAI-%E4%BB%A3%E7%90%86%E7%BC%96%E7%A0%81%E6%9E%B6%E6%9E%84%E7%9A%84%E4%B8%A4%E7%A7%8D%E8%B7%AF%E5%BE%84/" title="ZCode 3.0 与 Claude Code：AI 代理编码架构的两种路径">ZCode 3.0 与 Claude Code：AI 代理编码架构的两种路径</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/%E4%B8%AD%E5%9B%BD%E7%94%A8%E6%88%B7%E7%94%A8Claude%E5%92%8CCursor%E6%97%B6%E5%8D%A1%E5%9C%A8%E5%93%AA%E5%A4%A7%E5%8E%82%E8%BD%AC%E5%90%91%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B8%82%E5%9C%BA/" title="中国用户用Claude和Cursor时卡在哪，大厂转向生产力市场">中国用户用Claude和Cursor时卡在哪，大厂转向生产力市场</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai002/post/20260901/%E4%BB%8E%E7%94%A8%E4%BA%86%E5%A4%9A%E5%B0%91AI%E5%88%B0Token%E6%95%88%E4%BC%81%E4%B8%9AAI%E6%8A%95%E5%85%A5%E8%AF%84%E4%BC%B0%E5%B0%BA%E5%AD%90%E5%B7%B2%E6%8D%A2/" title="从“用了多少AI”到“Token效”：企业AI投入评估尺子已换">从“用了多少AI”到“Token效”：企业AI投入评估尺子已换</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai002/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai002/tags/A2A/">A2A</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agent-Loop/">Agent Loop</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Agentic-AI/">Agentic AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AgentScope/">AgentScope</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-Gateway/">AI Gateway</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E5%BA%94%E7%94%A8/">AI 应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E6%91%98%E8%A6%81/">AI 摘要</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI-%E8%BE%85%E5%8A%A9%E7%BC%96%E7%A8%8B/">AI 辅助编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BA%A7%E5%93%81/">AI产品</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E4%BB%A3%E7%90%86/">AI代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%8A%9E%E5%85%AC/">AI办公</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%AE%89%E5%85%A8/">AI安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%8C%96/">AI工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B7%A5%E7%A8%8B%E5%B8%88/">AI工程师</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%B9%B3%E5%8F%B0%E5%9B%A2%E9%98%9F/">AI平台团队</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BA%94%E7%94%A8/">AI应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E5%BC%80%E5%8F%91/">AI开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%88%90%E6%9C%AC/">AI成本</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8A%80%E8%83%BD/">AI技能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%8E%A8%E7%90%86/">AI推理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%94%B6%E8%B4%AD/">AI收购</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%99%BA%E8%83%BD%E4%BD%93/">AI智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E6%A8%A1%E5%9E%8B/">AI模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E4%BA%A7%E5%8A%9B/">AI生产力</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%94%9F%E6%88%90UI/">AI生成UI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81/">AI编码</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A0%81%E5%B7%A5%E5%85%B7/">AI编码工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B/">AI编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%90%BD%E5%9C%B0/">AI落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%AE%BE%E8%AE%A1%E5%B7%A5%E5%85%B7/">AI设计工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%B7%AF%E7%BA%BF%E5%9B%BE/">AI路线图</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AI%E8%BD%AF%E4%BB%B6%E5%B7%A5%E5%8E%82/">AI软件工厂</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Apache-Doris/">Apache Doris</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/API-%E8%AE%BE%E8%AE%A1/">API 设计</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ArrayList/">ArrayList</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/AWS/">AWS</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Axios/">Axios</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bifrost/">Bifrost</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Bun/">Bun</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Camel/">Camel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude/">Claude</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/claude-code/">Claude Code</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Claude-Opus/">Claude Opus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cli/">Cli</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cloudflare/">Cloudflare</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/codex/">Codex</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Coding-Agent/">Coding Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Cognition/">Cognition</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Deep-Research/">Deep Research</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/DeepSeek-V4-Pro/">DeepSeek V4 Pro</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Elasticsearch/">Elasticsearch</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Figma-AI/">Figma AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gemini/">Gemini</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub/">GitHub</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitHub%E4%BB%93%E5%BA%93/">GitHub仓库</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GitNexus/">GitNexus</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GlassFish/">GlassFish</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GLM/">GLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/GPU/">GPU</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Gradle/">Gradle</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Grok-4.6/">Grok 4.6</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hackathon/">Hackathon</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Harness/">Harness</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/HBM4/">HBM4</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Horizon-Worlds/">Horizon Worlds</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hot-Chips/">Hot Chips</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Hugging-Face/">Hugging Face</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java/">Java</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-Agent/">Java Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Java-%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">Java 企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JavaScript%E8%BF%90%E8%A1%8C%E6%97%B6/">JavaScript运行时</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JetBrains/">JetBrains</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/jQuery/">JQuery</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/JWT/">JWT</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/KPI%E6%8C%87%E6%A0%87/">KPI指标</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLM-%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">LLM 基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/LLMOps/">LLMOps</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Lovart/">Lovart</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/mcp/">Mcp</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/MCP%E5%8D%8F%E8%AE%AE/">MCP协议</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Midjourney/">Midjourney</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NASA/">NASA</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/NewAPI/">NewAPI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Node.js/">Node.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenAI/">OpenAI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenART/">OpenART</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/OpenCode/">OpenCode</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Origin/">Origin</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Ox-Alpha/">Ox Alpha</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Pi/">Pi</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/PlantUML/">PlantUML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Precursor/">Precursor</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/prompt/">Prompt</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Prompt%E5%B7%A5%E7%A8%8B/">Prompt工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/React/">React</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Rubin-CPX/">Rubin CPX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SDD/">SDD</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Shenandoah-GC/">Shenandoah GC</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/skills/">Skills</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-AI/">Spring AI</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Spring-Boot/">Spring Boot</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TeamCity/">TeamCity</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E4%BC%98%E5%8C%96/">Token优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Token%E6%95%88%E7%8E%87/">Token效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/TRAE-SOLO/">TRAE SOLO</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Uber/">Uber</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/UML/">UML</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/v0-API/">V0 API</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vercel/">Vercel</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vibe-Coding/">Vibe Coding</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/VR/">VR</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Vue.js/">Vue.js</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebGL/">WebGL</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WebMCP/">WebMCP</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Well-Architected-Framework/">Well-Architected Framework</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/WorkSwarm/">WorkSwarm</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Xe3P/">Xe3P</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/ZCode-3.0/">ZCode 3.0</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zig/">Zig</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/Zustand/">Zustand</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AA%97%E5%8F%A3/">上下文窗口</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%B8%AD%E9%97%B4%E4%BB%B6/">中间件</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%91%E6%9E%B6%E6%9E%84/">云架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BA%9A%E9%A9%AC%E9%80%8A%E4%BA%91%E7%A7%91%E6%8A%80/">亚马逊云科技</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1/">代码托管</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%9E%B6%E6%9E%84/">代码架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E6%B3%84%E9%9C%B2/">代码泄露</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">代码生成</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%B8%82%E5%9C%BA/">企业市场</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E5%BA%94%E7%94%A8/">企业应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BC%81%E4%B8%9A%E6%95%B0%E5%AD%97%E5%8C%96/">企业数字化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E5%BB%BA%E7%AB%8B/">信任建立</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E4%BF%A1%E4%BB%BB%E8%BE%B9%E7%95%8C/">信任边界</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%83%E5%AE%87%E5%AE%99/">元宇宙</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%8D%E8%B4%B9%E9%A2%9D%E5%BA%A6/">免费额度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%85%A8%E6%A0%88%E5%BC%80%E5%8F%91/">全栈开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/">内存管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%86%B3%E7%AD%96%E5%AE%89%E5%85%A8/">决策安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91/">前端开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%89%8D%E7%AB%AF%E9%89%B4%E6%9D%83/">前端鉴权</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A0%E9%80%9F%E5%8D%A1/">加速卡</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E6%95%B0%E7%BB%84/">动态数组</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8A%A8%E6%80%81%E7%8E%AF%E5%A2%83/">动态环境</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8D%8F%E4%BD%9C/">协作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E5%9E%8B%E5%BC%80%E5%8F%91/">原型开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8E%9F%E7%94%9F%E5%BA%94%E7%94%A8/">原生应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7/">可观测性</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%88%E8%A7%84/">合规</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%8E%E5%8F%B0%E5%B8%B8%E9%A9%BB/">后台常驻</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2/">向量检索</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%93%8D%E5%BA%94%E5%BC%8F%E7%B3%BB%E7%BB%9F/">响应式系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%95%86%E4%B8%9A%E5%8C%96/">商业化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">基础设施</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E6%9D%82%E9%97%AE%E9%A2%98/">复杂问题</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%8D%E7%8E%B0/">复现</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E6%A8%A1%E5%9E%8B/">多模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%9A%E7%BB%B4%E8%A1%A8%E6%A0%BC/">多维表格</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E5%8E%82%E7%AD%96%E7%95%A5/">大厂策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BA%94%E7%94%A8/">大模型应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%90%BD%E5%9C%B0/">大模型落地</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%A4%AA%E7%A9%BA%E6%9C%9B%E8%BF%9C%E9%95%9C/">太空望远镜</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%87%E5%AE%99%E5%AD%A6/">宇宙学</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%89%E5%85%A8/">安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%AE%9A%E4%BB%B7%E7%AD%96%E7%95%A5/">定价策略</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B5%8C%E5%85%A5%E6%A8%A1%E5%9E%8B/">嵌入模型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E5%A4%8D%E7%94%A8/">工具复用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">工程化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/">工程实践</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85/">开发者</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">开发者工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7%E9%93%BE/">开发者工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90/">开源</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%AE%89%E5%85%A8/">开源安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%80%E6%BA%90%E5%B7%A5%E5%85%B7/">开源工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BC%82%E6%AD%A5%E6%9E%B6%E6%9E%84/">异步架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6/">成本控制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E6%9E%B6%E6%9E%84/">技术架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">技术选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8A%80%E8%83%BD%E5%8D%87%E7%BA%A7/">技能升级</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8E%A5%E5%85%A5%E6%95%99%E7%A8%8B/">接入教程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E5%B7%A5%E7%A8%8B/">提示工程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%8F%90%E7%A4%BA%E8%AF%8D/">提示词</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%85%E9%9A%9C%E5%88%86%E6%9E%90/">故障分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87/">效率</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%88%E7%8E%87%E4%BC%98%E5%8C%96/">效率优化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5/">数据接入</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%95%B0%E6%8D%AE%E9%9A%90%E7%A7%81/">数据隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%96%B0%E8%BD%A6%E5%8F%91%E5%B8%83/">新车发布</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%98%9F%E7%B3%BB%E6%BC%94%E5%8C%96/">星系演化</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%99%BA%E8%B0%B1/">智谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9A%97%E8%83%BD%E9%87%8F/">暗能量</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%8C%96%E9%83%A8%E7%BD%B2/">本地化部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E5%B7%A5%E5%85%B7%E9%93%BE/">本地工具链</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2/">本地部署</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E4%BA%BA%E8%AF%86%E5%88%AB/">机器人识别</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/">机器学习</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%9E%81%E7%AE%80%E4%B8%BB%E4%B9%89/">极简主义</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%88%87%E6%8D%A2/">模型切换</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E5%8E%82%E5%95%86/">模型厂商</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E8%BF%AD%E4%BB%A3/">模型迭代</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%A8%A1%E5%9E%8B%E9%80%89%E5%9E%8B/">模型选型</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B0%B4%E6%B3%A2%E6%95%88%E6%9E%9C/">水波效果</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B1%BD%E8%BD%A6%E4%BA%A4%E4%BB%98/">汽车交付</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6/">注意力机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%B5%B7%E5%A4%96%E6%89%A9%E5%BC%A0/">海外扩张</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E6%BC%94%E8%BF%9B%E5%BC%8F%E6%9E%B6%E6%9E%84/">演进式架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%82%92%E4%BD%9C/">炒作</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%89%88%E6%9C%AC%E7%AE%A1%E7%90%86/">版本管理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%8B%AC%E7%AB%8B%E8%B0%83%E6%9F%A5/">独立调查</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%90%86%E6%83%B3%E6%B1%BD%E8%BD%A6/">理想汽车</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B7%A5%E5%85%B7/">生产力工具</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%94%A8%E6%88%B7%E4%BF%A1%E4%BB%BB/">用户信任</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9B%91%E6%8E%A7/">监控</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%A7%BB%E5%8A%A8%E5%BA%94%E7%94%A8/">移动应用</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%AC%AC%E4%B8%89%E6%96%B9%E6%B5%8B%E8%AF%95/">第三方测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E7%BC%96%E7%A8%8B/">系统编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%B3%BB%E7%BB%9F%E8%BF%81%E7%A7%BB/">系统迁移</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%A2%E9%98%9F%E6%B5%8B%E8%AF%95/">红队测试</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BA%AF%E7%94%B5SUV/">纯电SUV</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BB%88%E7%AB%AF%E5%9B%BE%E5%BD%A2%E7%95%8C%E9%9D%A2/">终端图形界面</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A0%81%E4%BB%A3%E7%90%86/">编码代理</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8/">网络安全</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E7%BD%91%E9%A1%B5%E6%80%A7%E8%83%BD/">网页性能</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E4%BA%91/">腾讯云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%85%BE%E8%AE%AF%E9%9F%B3%E4%B9%90/">腾讯音乐</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%87%AA%E7%A0%94Runtime/">自研Runtime</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E4%BC%9F%E8%BE%BE/">英伟达</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%8B%B1%E7%89%B9%E5%B0%94/">英特尔</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%9A%E7%AB%9E%E4%BA%89/">行业竞争</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A1%8C%E4%B8%BA%E5%88%86%E6%9E%90/">行为分析</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%84%E8%8C%83%E9%A9%B1%E5%8A%A8%E5%BC%80%E5%8F%91/">规范驱动开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%A7%86%E8%A7%89/">视觉</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AD%A6%E6%8A%A5%E7%B3%BB%E7%BB%9F/">警报系统</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AE%BE%E8%AE%A1%E5%B8%88%E5%B7%A5%E4%BD%9C%E6%B5%81/">设计师工作流</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%AF%84%E6%B5%8B%E6%9C%BA%E5%88%B6/">评测机制</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%B7%AF%E7%94%B1%E5%AE%88%E5%8D%AB/">路由守卫</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/">软件架构</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%82%E5%BA%94%E5%BA%A6%E5%87%BD%E6%95%B0/">适应度函数</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/">透明度</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%80%9A%E7%94%A8Agent/">通用Agent</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">阿里云</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81/">隐私</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9A%90%E7%A7%81%E4%BF%9D%E6%8A%A4/">隐私保护</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9B%B6%E6%88%90%E6%9C%AC%E5%BC%80%E5%8F%91/">零成本开发</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%9D%9E%E7%A1%AE%E5%AE%9A%E6%80%A7%E8%AF%84%E4%BC%B0/">非确定性评估</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%8E%E9%99%A9/">风险</a>
+    
+    <a href="https://index.zshipu.com/ai002/tags/%E9%A3%9E%E4%B9%A6/">飞书</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai002/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
