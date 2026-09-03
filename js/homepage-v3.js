@@ -459,8 +459,8 @@
 
       try {
         const featuredData = await this.fetchFeed([
-          '/homepage-featured.json',
           '/gsc-featured.json',
+          '/homepage-featured.json',
         ]);
         this.featuredArticles = featuredData.articles || [];
         if (this.featuredGrid) {
@@ -472,8 +472,8 @@
         }
 
         const recentData = await this.fetchFeed([
-          '/homepage-recent.json',
           '/site-links-recent.json',
+          '/homepage-recent.json',
         ]);
         this.allArticles = recentData.articles || [];
         this.filteredArticles = this.allArticles;
