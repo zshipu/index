@@ -1,60 +1,40 @@
-# 知识铺首页使用说明
+# 知识铺总站首页（zshipu-index 根）
 
-## 🚀 快速开始
+## 硬约束
 
-### 本地测试
-```bash
-# 启动本地服务器
+- **不准删除老页面**：已上线 HTML / 历史 JSON / backup / `index-v*` 可继续遗留在根目录。
+- 首页主数据源改为下方契约文件；遗留文件仅作兼容回退，不做物理清理。
+
+## 当前契约（定时刷新）
+
+| 文件 | 用途 | 刷新 |
+|------|------|------|
+| `homepage-featured.json` | 谷歌高点击精选 | 每日自治 `portal_home` / `scripts/update-portal-homepage.py` |
+| `homepage-recent.json` | 最新文章 | 同上 |
+| `gsc-featured.json` | featured 兼容别名 | 与 featured 同步覆盖写入 |
+
+遗留（保留、不再作为主源）：`site-links-*.json`、`index-v2.html`、`index-v3.html`、各类 `.backup*`。
+
+## 首页区块
+
+1. **谷歌高点击精选** ← `homepage-featured.json`（回退 `gsc-featured.json`）
+2. **最新文章** ← `homepage-recent.json`（回退 `site-links-recent.json`）
+3. 特色项目 / 侧栏等原有模块保留
+
+## 手动刷新
+
+```powershell
+cd webagent
+.venv312\Scripts\python.exe scripts\update-portal-homepage.py
+.venv312\Scripts\python.exe scripts\update-portal-homepage.py --push
+```
+
+配置见 `config/config.yaml` → `portal_homepage`。
+
+## 本地预览
+
+```powershell
+cd ..\..\zshipu-index
 python -m http.server 8000
-
-# 访问首页
-# http://localhost:8000
+# http://127.0.0.1:8000/
 ```
-
-### 文件说明
-- `index.html` - 新首页（已更新）
-- `index.html.backup` - 原首页备份
-- `css/homepage.css` - 首页专用样式
-- `js/homepage.js` - 首页交互脚本
-
-## 📝 内容更新
-
-### 更新最新文章
-编辑 `index.html` 第266-308行：
-```html
-<div class="homepage-recent-item">
-    <span class="homepage-recent-category" data-category="ai">🤖 AI</span>
-    <a href="/ai/post/你的文章路径/" class="homepage-recent-link">
-        你的文章标题
-    </a>
-</div>
-```
-
-### 修改板块信息
-编辑 `index.html` 第140-230行的卡片内容
-
-### 调整样式
-编辑 `css/homepage.css` 文件
-
-## 🎨 特性
-- ✅ 响应式设计
-- ✅ 6个核心板块卡片
-- ✅ 3个特色项目展示
-- ✅ 全站搜索功能
-- ✅ 动画效果
-- ✅ SEO友好
-
-## 📱 浏览器支持
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-- 移动端浏览器
-
-## 🔗 相关文档
-- 详细实施报告: `claudedocs/homepage-implementation-complete.md`
-- 设计方案: `claudedocs/homepage-redesign-proposal.md`
-
----
-
-**问题反馈**: 请提交Issue或联系开发团队
