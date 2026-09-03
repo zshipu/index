@@ -1,0 +1,511 @@
+{
+  "name": "github定时发布公众号",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "draft",
+        "operation": "draft:add",
+        "articles": "={{ JSON.stringify($json.articles) }}"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        1900,
+        15
+      ],
+      "id": "ade13d79-1ed7-494c-b43e-1773f2659383",
+      "name": "保存为草稿",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "SJNzUu9V7nHLuzJT",
+          "name": "王小荐"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "publish",
+        "operation": "publish:submit",
+        "media_id": "={{ $json.media_id }}"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        2780,
+        -40
+      ],
+      "id": "dc983090-9a48-46f9-9df2-23f0dc2d78a1",
+      "name": "发布文章",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "SJNzUu9V7nHLuzJT",
+          "name": "王小荐"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:search",
+        "app_toke": "Cf5TbhNYdawT6gsisG2cnbRznUg",
+        "table_id": "tblUkhgExs3X58PK",
+        "body": "{\n  \"filter\": {\n    \"conditions\": [\n      {\n        \"field_name\": \"publish\",\n        \"operator\": \"is\",\n        \"value\": [\"待处理\"]\n      }\n    ],\n    \"conjunction\": \"and\"\n  }\n}"
+      },
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        700,
+        20
+      ],
+      "id": "a30df4f5-99d1-4330-8f71-9d54c3c4a12a",
+      "name": "Feishu Node",
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "u4HCTocqOkiGBS6e",
+          "name": "Feishu Credentials account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json.data.items[0].fields\nconst media_id =$input.first().json.media_id\nconst title = data.title[0].text;\nconst summary = data[\"概要\"][0].text;\nconst painsRaw = data[\"三个痛点\"][0].text;\nconst benefitsRaw = data[\"三个优点\"][0].text;\nconst conclusion = data[\"总结内容\"][0].text;\n\n// 拆分痛点与优点（按 \\n 或数字编号进行分段）\nfunction splitPoints(text) {\n  const cleaned = text.trim();\n  const parts = cleaned.split(/\\n+/).filter(p => p.trim() !== '');  // 仅以换行拆分，不剔除数字\n  return parts.map(p => `<p data-pm-slice=\"0 0 []\">\n                <span leaf=\"\"><span textstyle=\"\" style=\"font-size: 16px;\">${p.trim()}</span></span>\n              </p>`).join('\\n');\n}\n\nconst pains = splitPoints(painsRaw);\nconst benefits = splitPoints(benefitsRaw);\n\nconst content = `<section mpa-from-tpl=\"t\" data-mpa-action-id=\"mcxd574s1nz9\" data-pm-slice=\"0 0 []\">\n  <span leaf=\"\"><br></span>\n</section>\n<section data-mpa-template=\"t\" mpa-data-temp-power-by=\"yiban.io\" mpa-data-temp-type=\"title\" mpa-from-tpl=\"t\" data-mpa-action-id=\"mcy41o451hxw\" data-pm-slice=\"0 0 []\">\n  <section style=\"width: 100%;display: flex;justify-content: center;align-items: center;padding: 0px 14px 0px 14px;\" mpa-from-tpl=\"t\">\n    <section style=\"display: flex;flex-direction: column;align-items: center;\" mpa-from-tpl=\"t\">\n      <section style=\"background: url(https://mmbiz.qpic.cn/sz_mmbiz_gif/c8mTq8UGcvNF9lG3KibZkjTVBjEjyvZOldQ5D2E8YSKq2Tia7bJOJfe32CE9jichs2bqtxbeyFsWmTCrUHn40CHFQ/640?wx_fmt=gif&amp;from=appmsg);background-repeat: no-repeat;width: 34px;height: 34px;background-size: 34px 34px;text-align: center;margin-bottom: 6px;display: flex;justify-content: center;align-items: center;\" mpa-from-tpl=\"t\">\n        <p mpa-none-content=\"t\" style=\"color: #47A86C;font-size: 14px;line-height: 34px;font-weight: bold;\">\n          <span leaf=\"\">01</span>\n          <span leaf=\"\"><br></span>\n        </p>\n      </section>\n      <section style=\"text-align: center;\" mpa-from-tpl=\"t\">\n        <p yb-mpa-mark=\"mark-style-text\" style=\"color: #464646;font-family: 'Alibaba PuHuiTi 2.0', sans-serif;font-size: 18px;line-height: 25px;font-weight: 800;text-align: center;margin: 0;white-space: nowrap;\">\n          <span leaf=\"\">概要信息</span>\n          <span leaf=\"\"><br></span>\n        </p>\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" mpa-data-temp-power-by=\"yiban.io\" mpa-data-temp-type=\"body\" mpa-from-tpl=\"t\" data-mpa-action-id=\"mcy42egg11s8\">\n  <section style=\"width: 100%;\" data-mid=\"\" mpa-from-tpl=\"t\">\n    <section style=\"width: 100%;padding: 0 6px 0 12px;\" data-mid=\"\" mpa-from-tpl=\"t\">\n      <section style=\"width: 100%;padding: 20px 19px;background: #ffffff;box-shadow: 0px 2px 3px 0px rgba(38, 68, 20, 0.5);border-radius: 20px;border: 2px solid #3d8c23;font-size: 14px;font-weight: 400;color: #333333;line-height: 20px;\" data-mid=\"\" mpa-from-tpl=\"t\">\n        <p data-pm-slice=\"0 0 []\">\n          <span leaf=\"\">${summary}</span>\n        </p>\n      </section>\n    </section>\n    <section style=\"width: 100%;display: flex;justify-content: flex-start;align-items: flex-start;\" data-mid=\"\" mpa-from-tpl=\"t\">\n      <section style=\"width: 27px;margin-top: -40px;z-index: 10;\" data-mid=\"\" mpa-from-tpl=\"t\" nodeleaf=\"\">\n        <img data-src=\"https://mmbiz.qpic.cn/mmbiz_png/flL4xibAWhqOZRbP641JqfDD6Z9ibicBIibXe1Ma9NctSIUfq1k9tGXx3LiblxWghULOV9jvcNu38ONMKtpHlWEIWVQ/640\" class=\"rich_pages wxw-img\" data-ratio=\"1.4814814814814814\" data-w=\"108\" style=\"width: 100%;display: block;\" src=\"https://mmbiz.qpic.cn/mmbiz_png/flL4xibAWhqOZRbP641JqfDD6Z9ibicBIibXe1Ma9NctSIUfq1k9tGXx3LiblxWghULOV9jvcNu38ONMKtpHlWEIWVQ/640\">\n      </section>\n    </section>\n    <section style=\"width: 100%;display: flex;justify-content: flex-end;align-items: flex-start;\" data-mid=\"\" mpa-from-tpl=\"t\">\n      <section style=\"width: 38px;margin-top: -29px;z-index: 20;\" data-mid=\"\" mpa-from-tpl=\"t\" nodeleaf=\"\">\n        <img data-src=\"https://mmbiz.qpic.cn/mmbiz_png/UX8m2aJbVJINsyGDUuw6D9Tm4ticExjNclVeYFK03oCGwYEDun9Gm46icR4FWyocywInDRXvz902JRzhzThiaHLoQ/640\" class=\"rich_pages wxw-img\" data-ratio=\"0.9605263157894737\" data-w=\"152\" style=\"width: 100%;display: block;\" src=\"https://mmbiz.qpic.cn/mmbiz_png/UX8m2aJbVJINsyGDUuw6D9Tm4ticExjNclVeYFK03oCGwYEDun9Gm46icR4FWyocywInDRXvz902JRzhzThiaHLoQ/640\">\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" data-pm-slice=\"0 0 []\" data-mpa-action-id=\"mcy42yg312lk\">\n  <section style=\"width: 100%;display: flex;justify-content: center;align-items: center;padding: 0px 14px 0px 14px;\">\n    <section style=\"display: flex;flex-direction: column;align-items: center;\">\n      <section style=\"background: url(https://mmbiz.qpic.cn/sz_mmbiz_gif/c8mTq8UGcvNF9lG3KibZkjTVBjEjyvZOldQ5D2E8YSKq2Tia7bJOJfe32CE9jichs2bqtxbeyFsWmTCrUHn40CHFQ/640?wx_fmt=gif&amp;from=appmsg&amp;mpa-referer=none);background-repeat: no-repeat;width: 34px;height: 34px;background-size: 34px 34px;text-align: center;margin-bottom: 6px;display: flex;justify-content: center;align-items: center;\">\n        <p mpa-none-content=\"t\" style=\"color: #47A86C;font-size: 14px;line-height: 34px;font-weight: bold;\">\n          <span leaf=\"\">01</span>\n        </p>\n      </section>\n      <section style=\"text-align: center;\">\n        <p yb-mpa-mark=\"mark-style-text\" style=\"color: #464646;font-family: 'Alibaba PuHuiTi 2.0', sans-serif;font-size: 18px;line-height: 25px;font-weight: 800;text-align: center;margin: 0;white-space: nowrap;\">\n          <span leaf=\"\">痛点</span>\n        </p>\n      </section>\n    </section>\n  </section>\n</section>\n<section style=\"box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\" data-pm-slice=\"0 0 []\">\n  <section style=\"margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n    <section style=\"display: inline;max-width: 100%;box-sizing: border-box;\" mpa-from-tpl=\"t\">\n      <section style=\"max-width: 100%;box-sizing: border-box;\" mpa-from-tpl=\"t\">\n        <section style=\"border-width: 1px;border-style: dashed;border-color: rgb(138, 189, 80);padding: 3px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n          <section style=\"border-width: 3px;border-style: solid;border-color: rgb(138, 189, 80);padding: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n            <section style=\"text-align: left;line-height: 2.2;letter-spacing: 2px;padding-right: 10px;padding-left: 10px;font-size: 16px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n              ${pains}\n            </section>\n          </section>\n        </section>\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" data-pm-slice=\"0 0 []\" data-mpa-action-id=\"mcy44r8022m1\">\n  <section style=\"width: 100%;display: flex;justify-content: center;align-items: center;padding: 0px 14px 0px 14px;\">\n    <section style=\"display: flex;flex-direction: column;align-items: center;\">\n      <section style=\"background: url(https://mmbiz.qpic.cn/sz_mmbiz_gif/c8mTq8UGcvNF9lG3KibZkjTVBjEjyvZOldQ5D2E8YSKq2Tia7bJOJfe32CE9jichs2bqtxbeyFsWmTCrUHn40CHFQ/640?wx_fmt=gif&amp;from=appmsg&amp;mpa-referer=none);background-repeat: no-repeat;width: 34px;height: 34px;background-size: 34px 34px;text-align: center;margin-bottom: 6px;display: flex;justify-content: center;align-items: center;\">\n        <p mpa-none-content=\"t\" style=\"color: #47A86C;font-size: 14px;line-height: 34px;font-weight: bold;\">\n          <span leaf=\"\">02</span>\n        </p>\n      </section>\n      <section style=\"text-align: center;\">\n        <p yb-mpa-mark=\"mark-style-text\" style=\"color: #464646;font-family: 'Alibaba PuHuiTi 2.0', sans-serif;font-size: 18px;line-height: 25px;font-weight: 800;text-align: center;margin: 0;white-space: nowrap;\">\n          <span leaf=\"\">优点</span>\n        </p>\n      </section>\n    </section>\n  </section>\n</section>\n<section style=\"box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\" data-pm-slice=\"0 0 []\">\n  <section style=\"margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n    <section style=\"display: inline;max-width: 100%;box-sizing: border-box;\" mpa-from-tpl=\"t\">\n      <section style=\"max-width: 100%;box-sizing: border-box;\" mpa-from-tpl=\"t\">\n        <section style=\"border-width: 1px;border-style: dashed;border-color: rgb(138, 189, 80);padding: 3px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n          <section style=\"border-width: 3px;border-style: solid;border-color: rgb(138, 189, 80);padding: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n            <section style=\"text-align: left;line-height: 2.2;letter-spacing: 2px;padding-right: 10px;padding-left: 10px;font-size: 16px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n             ${benefits}\n          </section>\n        </section>\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" data-pm-slice=\"0 0 []\" data-mpa-action-id=\"mcy44xvhkev\">\n  <section style=\"width: 100%;display: flex;justify-content: center;align-items: center;padding: 0px 14px 0px 14px;\">\n    <section style=\"display: flex;flex-direction: column;align-items: center;\">\n      <section style=\"background: url(https://mmbiz.qpic.cn/sz_mmbiz_gif/c8mTq8UGcvNF9lG3KibZkjTVBjEjyvZOldQ5D2E8YSKq2Tia7bJOJfe32CE9jichs2bqtxbeyFsWmTCrUHn40CHFQ/640?wx_fmt=gif&amp;from=appmsg&amp;mpa-referer=none);background-repeat: no-repeat;width: 34px;height: 34px;background-size: 34px 34px;text-align: center;margin-bottom: 6px;display: flex;justify-content: center;align-items: center;\">\n        <p mpa-none-content=\"t\" style=\"color: #47A86C;font-size: 14px;line-height: 34px;font-weight: bold;\">\n          <span leaf=\"\">03</span>\n        </p>\n      </section>\n      <section style=\"text-align: center;\">\n        <p yb-mpa-mark=\"mark-style-text\" style=\"color: #464646;font-family: 'Alibaba PuHuiTi 2.0', sans-serif;font-size: 18px;line-height: 25px;font-weight: 800;text-align: center;margin: 0;white-space: nowrap;\">\n          <span leaf=\"\">项目总结</span>\n        </p>\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" mpa-data-temp-power-by=\"yiban.io\" mpa-data-temp-type=\"body\" mpa-from-tpl=\"t\" data-mpa-action-id=\"mcy44zrqyx0\">\n  <section style=\"margin-top: 10px;margin-bottom: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n    <section style=\"display: inline;max-width: 100%;box-sizing: border-box;\" mpa-from-tpl=\"t\">\n      <section style=\"border-width: 1px;border-style: dashed;border-color: rgb(138, 189, 80);padding: 3px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n        <section style=\"border-width: 3px;border-style: solid;border-color: rgb(138, 189, 80);padding: 10px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n          <section style=\"text-align: center;line-height: 2.2;letter-spacing: 2px;padding-right: 10px;padding-left: 10px;font-size: 16px;box-sizing: border-box;max-width: 100%;\" mpa-from-tpl=\"t\">\n            <p data-pm-slice=\"0 0 []\">\n              <span leaf=\"\">${conclusion}</span>\n            </p>\n          </section>\n        </section>\n      </section>\n    </section>\n  </section>\n</section>\n<section data-mpa-template=\"t\" data-pm-slice=\"0 0 []\">\n  <section data-mpa-material-zoom=\"0\" style=\"display: flex;flex-direction: column;\" data-mid=\"\">\n    <section style=\"display: flex;flex-direction: column;align-self: center;\" data-mid=\"\">\n      <section style=\"width: 28px;height: 29px;display: flex;justify-content: center;align-items: center;align-self: center;z-index: 1;margin-bottom: -15px;\" data-mid=\"\" nodeleaf=\"\">\n        <img data-src=\"https://mmbiz.qpic.cn/mmbiz_gif/o96W9vib2VS0rEaTXV7K8J1X37nbGc9cEkia3buozJicEtmPjRJtTXt44iaeIcibCWm1riarbRbbniaP8SWskY8jImicPQ/640?mpa-referer=none\" class=\"rich_pages wxw-img\" data-ratio=\"1.032\" data-w=\"125\" src=\"https://mmbiz.qpic.cn/mmbiz_gif/o96W9vib2VS0rEaTXV7K8J1X37nbGc9cEkia3buozJicEtmPjRJtTXt44iaeIcibCWm1riarbRbbniaP8SWskY8jImicPQ/640?mpa-referer=none\">\n      </section>\n      <section data-mid=\"\">\n        <section data-mid=\"\" style=\"width: 100%;height: 6px;background: url(&quot;https://mmbiz.qpic.cn/mmbiz_png/dnGfk9TBb3uddXzSox2zZslf1ibI09zp5l3WD7cQBjgfaZA6K1waNZVn1HLFN3wwYlvjlxwS68AWJdkJozXgnOA/640?mpa-referer=none&quot;);background-repeat: repeat-x;background-size: 10px 6px;\">\n          <span leaf=\"\"><br></span>\n        </section>\n        <section style=\"display: flex;\" data-mid=\"\">\n          <section data-mid=\"\" style=\"width: 3px;background: url(&quot;https://mmbiz.qpic.cn/sz_mmbiz_png/X1AulKoZJATSiaiciaX8KlqVBZMETgGKFRcrJyfQ0dHU0HXGgr6FNH8NjBdNMlgEnLEfEedrXfqJuzZscbhYwSia7g/640?mpa-referer=none&quot;);background-repeat: repeat-y;background-size: 3px 11px;flex-shrink: 0;\">\n            <span leaf=\"\"><br></span>\n          </section>\n          <section style=\"background: #C5F4D0;padding: 11px;display: flex;align-items: flex-start;grid-column-gap: 5px;\" data-mid=\"\">\n            <section style=\"display: flex;justify-content: center;align-items: center;width: 96px;height: 96px;flex-shrink: 0;\" data-mid=\"\" nodeleaf=\"\">\n              <img data-src=\"https://mmbiz.qpic.cn/mmbiz_jpg/q2ADs7XpwjGBES6jYibBN8v6vSBQZtU51VJBAIv6ExftZWYky6fKTLzE3hN0JX8RRjpyml8mXur7tjGxMZ0grmQ/640?wx_fmt=jpeg&amp;from=appmsg\" class=\"rich_pages wxw-img\" data-ratio=\"1\" data-s=\"300,640\" data-type=\"jpeg\" data-w=\"258\" data-croporisrc=\"https://mmbiz.qpic.cn/mmbiz_jpg/q2ADs7XpwjGBES6jYibBN8v6vSBQZtU51VJBAIv6ExftZWYky6fKTLzE3hN0JX8RRjpyml8mXur7tjGxMZ0grmQ/0?wx_fmt=jpeg&amp;from=appmsg\" data-cropselx2=\"96\" data-cropsely2=\"97\" data-imgfileid=\"100000168\" data-imgqrcoded=\"1\" src=\"https://mmbiz.qpic.cn/mmbiz_jpg/q2ADs7XpwjGBES6jYibBN8v6vSBQZtU51VJBAIv6ExftZWYky6fKTLzE3hN0JX8RRjpyml8mXur7tjGxMZ0grmQ/640?wx_fmt=jpeg&amp;from=appmsg\">\n            </section>\n            <section style=\"padding: 14px 0 0 18px;\" data-mid=\"\">\n              <section style=\"text-align: left;\" data-mid=\"\">\n                <p style=\"font-size: 12px;color: #06792A;line-height: 17px;word-break: break-word;\" data-mid=\"\">\n                  <span leaf=\"\">微信号：</span>\n                  <span leaf=\"\">wangxiaojian_ai</span>\n                </p>\n                <p style=\"font-size: 12px;color: #06792A;line-height: 17px;word-break: break-word;\" data-mid=\"\">\n                  <span leaf=\"\"><br></span>\n                </p>\n              </section>\n              <section style=\"text-align: left;padding: 10px 0 0 0;\" data-mid=\"\">\n                <p style=\"font-size: 16px;color: #06792A;font-weight: bold;line-height: 35px;word-break: break-word;\" data-mid=\"\">\n                  <span leaf=\"\">每天分享一个Github开源工具</span>\n                </p>\n              </section>\n            </section>\n          </section>\n          <section data-mid=\"\" style=\"width: 3px;background: url(&quot;https://mmbiz.qpic.cn/sz_mmbiz_png/6uia9QlhKIFzqtNBm0pVRiafwYbZYPuVaObTjdQlQAmW0m4h1K8KiaUaxiaUa8dOWh1R1MxFzdfjVSy89ibJRMyOtEQ/640?mpa-referer=none&quot;);background-repeat: repeat-y;background-size: 3px 11px;transform: rotateY(180deg);flex-shrink: 0;\">\n            <span leaf=\"\"><br></span>\n          </section>\n        </section>\n        <section data-mid=\"\" style=\"width: 100%;height: 6px;background: url(&quot;https://mmbiz.qpic.cn/mmbiz_png/Cfxdju5jV1WibALJiaXhwXjSpD7O1vzYLq6CiaJBILcPXWp8XChicCQaJfnbl8wGHIGpHV9l6C2Itb6iajPPTYYFiaYw/640?mpa-referer=none&quot;);background-repeat: repeat-x;background-size: 10px 6px;transform: rotateX(180deg);\">\n          <span leaf=\"\"><br></span>\n        </section>\n      </section>\n    </section>\n  </section>\n</section>\n<p style=\"display: none;\">\n  <mp-style-type data-value=\"3\">\n  </mp-style-type>\n</p>\n`;\n\nconst articles = [\n  {\n    title: title,\n    author: '王小荐',\n    content: content,\n    thumb_media_id: media_id // 替换成上传返回的 media_id\n  }\n];\n\nreturn [{ json: { articles } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        15
+      ],
+      "id": "87d49005-1d2e-45ad-ada7-55bf24298ef0",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1360,
+        100
+      ],
+      "id": "1c2213db-4c55-417c-992f-e4f41c24e402",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "## 生成封面图",
+        "height": 240,
+        "width": 500
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        940,
+        -220
+      ],
+      "typeVersion": 1,
+      "id": "806c74eb-885d-4083-910a-4d3acf2965dd",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "media:uploadOther"
+      },
+      "type": "n8n-nodes-wechat-offiaccount.wechatOfficialAccountNode",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        -140
+      ],
+      "id": "14d04726-b971-4bd9-880a-de8693596f38",
+      "name": "保存封面图",
+      "credentials": {
+        "wechatOfficialAccountCredentialsApi": {
+          "id": "SJNzUu9V7nHLuzJT",
+          "name": "王小荐"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "7kmaKmbJr2w3CWeI",
+          "mode": "list",
+          "cachedResultName": "公众号封面图"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "title": "={{ $json.data.items[0].fields.title[0].text }}"
+          },
+          "matchingColumns": [
+            "title"
+          ],
+          "schema": [
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1020,
+        -140
+      ],
+      "id": "1e23ee5c-d2e1-489d-b3cd-8a3ec74b75ef",
+      "name": "图片生成工作流"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "fromEmail": "13315629941@163.com",
+        "toEmail": "frankwong0205@gmail.com ",
+        "subject": "=文章审核- {{ $('Code').item.json.articles[0].title }}",
+        "message": "={{ $('Code').item.json.articles[0].content }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "通过",
+            "disapproveLabel": "拒绝"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2340,
+        20
+      ],
+      "id": "e6839feb-c0a0-46fc-8e6d-f36d5cfda68f",
+      "name": "Send Email",
+      "webhookId": "4d7a92d3-7048-4ef6-af13-446f03b3ddec",
+      "credentials": {
+        "smtp": {
+          "id": "O1I8kREhQEa0FYSv",
+          "name": "163邮箱"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "91f7ac07-6ae9-42d6-b2a2-cabb8239d2be",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2540,
+        40
+      ],
+      "id": "76373d30-5c7e-49fa-8372-d8942985f366",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "content": "## 审核通过自动发表",
+        "height": 380,
+        "width": 680
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2280,
+        -120
+      ],
+      "typeVersion": 1,
+      "id": "024e8085-ff2a-4f51-9d7a-e02fb3b17aeb",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        440,
+        -40
+      ],
+      "id": "4a97f6ff-29fb-478c-a2ae-c0d39341fc5d",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        200
+      ],
+      "id": "979f551a-ae88-4a57-ae04-38f1b26c9b23",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "bitable",
+        "operation": "bitable:table:record:update",
+        "app_toke": "Cf5TbhNYdawT6gsisG2cnbRznUg",
+        "table_id": "tblUkhgExs3X58PK",
+        "record_id": "={{ $json.data.items[0].record_id }}",
+        "body": "{\"fields\":{\"publish\":\"草稿\"}}"
+      },
+      "type": "n8n-nodes-feishu-lite.feishuNode",
+      "typeVersion": 1,
+      "position": [
+        1460,
+        460
+      ],
+      "id": "ee1d4587-44a5-4984-9b48-2a91c0bc9d62",
+      "name": "Feishu Node1",
+      "credentials": {
+        "feishuCredentialsApi": {
+          "id": "u4HCTocqOkiGBS6e",
+          "name": "Feishu Credentials account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2120,
+        20
+      ],
+      "id": "70540c6a-44f9-4988-89a6-a8d862d8e6b1",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "content": "## 修改待处理素材状态",
+        "height": 260,
+        "width": 360
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1340,
+        380
+      ],
+      "typeVersion": 1,
+      "id": "17752406-d036-45ef-97cd-3f45d6e43cd7",
+      "name": "Sticky Note2"
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2025-07-16T10:59:27.004-04:00",
+          "Readable date": "July 16th 2025, 10:59:27 am",
+          "Readable time": "10:59:27 am",
+          "Day of week": "Wednesday",
+          "Year": "2025",
+          "Month": "July",
+          "Day of month": "16",
+          "Hour": "10",
+          "Minute": "59",
+          "Second": "27",
+          "Timezone": "America/New_York (UTC-04:00)"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "保存为草稿": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feishu Node": {
+      "main": [
+        [
+          {
+            "node": "图片生成工作流",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Feishu Node1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "保存为草稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存封面图": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "图片生成工作流": {
+      "main": [
+        [
+          {
+            "node": "保存封面图",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "发布文章",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Feishu Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Feishu Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Feishu Node1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "709cef27-4063-47fe-8767-261d9f138539",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7c148d765a331e4e9b5f771999a0e0491253ece56cf5b591357888701f6176b2"
+  },
+  "id": "JkKl2hBi9gCBEqLQ",
+  "tags": []
+}
