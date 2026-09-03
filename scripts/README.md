@@ -1,0 +1,804 @@
+# Scripts 目录 - 内容生成与SEO脚本
+
+本目录包含用于生成网站索引、热门标签、SEO内链等的Python脚本。所有脚本使用Python标准库编写,无需安装外部依赖。
+
+## 📋 脚本概览
+
+| 脚本名称 | 功能 | 优先级 | 输出文件数 |
+|---------|------|--------|-----------|
+| `generate_site_index.py` | 全站文章索引与sitemap生成 | ⭐⭐⭐ 必需 | 13 |
+| `generate_hot_tags.py` | 首页热门标签数据生成 | ⭐⭐⭐ 必需 | 1 |
+| `generate_tags_data.py` | 根目录标签索引生成 | ⭐⭐ 推荐 | 1 |
+| `generate_tags_data_enhanced.py` | 增强版标签系统 | ⭐⭐ 推荐 | 4 |
+| `generate_homepage_seo_links.py` | 首页SEO内链片段生成 | ⭐ 可选 | 5 |
+| `cleanup_obsolete_tags.py` | 清理废弃标签引用 | ⭐ 维护工具 | 0 |
+
+## 📦 环境要求
+
+### 依赖环境
+
+- **Python**: 3.6+ (标准库即可,无需外部依赖)
+- **操作系统**: Windows / macOS / Linux
+- **工作目录**: 脚本需从项目根目录 `D:\app\zsp\zshipu-index\` 运行
+
+### 🚀 快速开始
+
+**场景1: 添加文章/更新内容后**
+```bash
+# 最常用的工作流程
+python scripts/generate_site_index.py     # 重新索引全站 (3782+ 篇文章)
+python scripts/generate_hot_tags.py       # 更新热门标签 (5530+ 标签)
+
+# 可选:更新根目录标签
+python scripts/generate_tags_data.py      # 仅索引根目录tags(如果需要)
+```
+
+**场景2: 完整重建所有索引**
+```bash
+# 全面更新所有数据
+python scripts/generate_site_index.py
+python scripts/generate_hot_tags.py
+python scripts/generate_tags_data_enhanced.py
+python scripts/generate_homepage_seo_links.py
+```
+
+**场景3: 标签清理维护**
+```bash
+# 清理废弃标签
+python scripts/cleanup_obsolete_tags.py
+python scripts/generate_hot_tags.py       # 重新生成热门标签
+```
+
+---
+
+## 📖 脚本详细说明
+
+### 1. generate_site_index.py
+
+**功能**: 全站文章索引生成与SEO sitemap创建(最重要!)
+
+**作用范围**:
+- 扫描所有子站点目录(ai, geek, stock, gpt, go, ecg等)
+- 生成多种JSON索引数据(分类、月份、搜索)
+- 生成标准XML sitemap文件(符合SEO标准)
+- 生成robots.txt搜索引擎配置
+
+**运行命令**:
+```bash
+python scripts/generate_site_index.py
+```
+
+**输出文件** (13个):
+
+**JSON数据文件** (5个):
+- `site-links-full.json` - 完整文章索引(3782+篇文章,约1MB)
+- `site-links-recent.json` - 最新100篇文章(首页侧边栏使用)
+- `site-links-by-category.json` - 按分类组织(约1.1MB)
+- `site-links-by-month.json` - 按月份组织(约1.1MB)
+- `site-links-search.json` - 压缩搜索索引(优化版约658KB)
+
+**XML Sitemap文件** (7个):
+- `sitemap.xml` - 主索引文件(链接到所有子sitemap)
+- `sitemap-pages.xml` - 静态页面(首页、关于、分类页等)
+- `sitemap-posts-ai.xml` - AI分类文章(约252KB)
+- `sitemap-posts-geek.xml` - 技术分类文章(约240KB)
+- `sitemap-posts-stock.xml` - 股票分类文章(约259KB)
+- `sitemap-posts-other.xml` - 其他分类文章(约73KB)
+- `sitemap-categories.xml` - 分类页面
+- `sitemap-tags.xml` - 标签页面
+
+**SEO配置** (1个):
+- `robots.txt` - 搜索引擎爬虫指令
+
+**使用时机**:
+- ✅ 添加新文章后(必须运行)
+- ✅ 修改文章标题/元数据后(必须运行)
+- ✅ 调整网站结构后(必须运行)
+- ✅ 完整重建索引时(必须运行)
+
+**脚本逻辑**:
+- 解析HTML `<title>` 标签获取标题
+- 从文章路径提取日期(支持 YYYYMMDD / YYYYMM 多种格式)
+- 根据目录结构自动分类(ai → sitemap-posts-ai.xml)
+- 每个sitemap限制500条URL(符合SEO最佳实践)
+
+**输出示例日志**:
+```
+📊 统计结果: 3782 篇文章
+
+分类统计:
+  ├─ ai          : 1200 篇
+  ├─ geek        :  150 篇
+  ├─ stock       :  120 篇
+  └─ gpt         :   80 篇
+
+月份统计:
+  ├─ 2025:  200 篇
+  ├─ 2024: 2500 篇
+  └─ 2020: 1082 篇
+```
+
+---
+
+### 2. generate_hot_tags.py
+
+**功能**: 全站热门标签聚合生成JSON数据(用于首页标签云)
+
+**作用范围**:
+- 扫描所有子站点的 `tags/` 目录(ai, geek, stock等)
+- 统计每个标签下的文章数量
+- 按文章数量排序生成热门标签列表(输出前100个)
+- 替换首页废弃的根目录标签云(老旧的 /tags/ 目录)
+
+**运行命令**:
+```bash
+python scripts/generate_hot_tags.py
+```
+
+**输出文件** (1个):
+- `tag-hot.json` - 热门标签数据(5530+个标签,输出前100个,约11KB)
+
+**JSON结构**:
+```json
+{
+  "generated_at": "1760657682.344047",
+  "total_tags": 5530,
+  "tags": [
+    {
+      "name": "人工智能",
+      "count": 200,
+      "url": "/ai/tags/人工智能/"
+    },
+    {
+      "name": "AI技术",
+      "count": 168,
+      "url": "/ai/tags/AI技术/"
+    }
+  ]
+}
+```
+
+**使用时机**:
+- ✅ 添加带标签的新文章后
+- ✅ 更新标签结构后
+- ✅ 首页需要刷新标签云时
+- ✅ 完整重建索引时
+
+**脚本逻辑**:
+- 遍历所有定义的12个子站点目录(扫描所有子站tags)
+- 从每个标签目录的index.html中提取文章数量
+- 优先使用URL指向文章数最多的子站点
+- 使用正则表达式匹配HTML中的文章链接来统计数量
+
+**输出示例日志**:
+```
+前10个热门标签:
+  1. 人工智能: 200篇
+  2. AI技术: 168篇
+  3. AI: 136篇
+  4. ChatGPT: 126篇
+  5. 金融科技: 106篇
+  6. 机器学习: 104篇
+  7. 大模型: 100篇
+  8. 生成式AI: 98篇
+  9. AI应用: 96篇
+  10. AIGC: 90篇
+```
+
+---
+
+### 3. generate_tags_data.py
+
+**功能**: 根目录标签索引生成(仅扫描根目录)
+
+**作用范围**:
+- 仅扫描项目根目录 `tags/` 目录(不扫描子站点tags)
+- 统计每个标签的文章数量
+- 生成根目录标签列表JSON
+
+**运行命令**:
+```bash
+python scripts/generate_tags_data.py
+```
+
+**输出文件** (1个):
+- `site-tags.json` - 根目录标签索引
+
+**JSON结构**:
+```json
+{
+  "generated_at": "2025-10-17T10:18:19.738551",
+  "total": 10,
+  "tags": [
+    {
+      "name": "AI工具",
+      "count": 30,
+      "url": "/tags/AI工具/"
+    }
+  ]
+}
+```
+
+**使用时机**:
+- ⚠️ 仅当根目录 `tags/` 存在且需要维护时使用
+- ⚠️ 通常情况下优先使用 `generate_hot_tags.py` (新版本,功能更强)
+
+**脚本区别**:
+- `generate_tags_data.py` - 仅扫描根 `/tags/` 目录
+- `generate_hot_tags.py` - 扫描所有子站 `/ai/tags/`, `/geek/tags/` 等
+
+**建议**: 优先使用 `generate_hot_tags.py` 替代本脚本,功能更全面
+
+---
+
+### 4. generate_tags_data_enhanced.py
+
+**功能**: 增强版标签系统生成(带标签分类 Tags Categories v2.0)
+
+**作用范围**:
+- 综合所有站点标签数据(root + ai + geek + stock等)
+- 自动分类标签(AI技术、软件开发等9大类别)
+- 分析标签关联关系(共现分析)
+- 生成多种格式标签数据
+
+**运行命令**:
+```bash
+python scripts/generate_tags_data_enhanced.py
+```
+
+**输出文件** (4个):
+- `site-tags-enhanced.json` - 主数据文件(约1.2MB,包含详细分类数据)
+- `tag-categories.json` - 标签分类映射表(标签→类别)
+- `tag-relations.json` - 标签关联关系(共现分析)
+- `tag-hot.json` - 热门标签TOP 100(与 `generate_hot_tags.py` 输出相同)
+
+**标签分类体系** (9大类别):
+| 类别 | 标识 | 示例标签 |
+|------|------|-----------|
+| AI技术 | 🤖 | AI, ChatGPT, GPT, 机器学习, 深度学习 |
+| 软件开发 | 💻 | Python, JavaScript, React, Vue, 微服务 |
+| 金融股票 | 📈 | 股票, 股市, 概念股, A股, 港股 |
+| 数据科学 | 📊 | 数据分析, 数据处理, Pandas, SQL |
+| 工具效率 | 🔧 | 工具, 效率, 自动化, Git, Docker |
+| 云计算 | ☁️ | 云服务, AWS, Kubernetes, 容器 |
+| 健康医疗 | 🏥 | 健康, 医疗, 心电监测, ECG |
+| 科技趋势 | 🚀 | 科技, 趋势, 市场趋势, 创新 |
+| 其他 | 🏷️ | 不属于以上类别 |
+
+**使用时机**:
+- ✅ 需要标签分类统计时
+- ✅ 需要分析标签关联关系时
+- ✅ 需要完整的标签数据时
+- ⚠️ 不建议频繁运行(生成 `tag-hot.json` 请直接用 `generate_hot_tags.py`)
+
+**脚本逻辑**:
+- 自动识别标签类别(基于关键词匹配规则)
+- 关联关系分析(计算标签共现频率)
+- 生成标准化详细分类数据(包含类别、图标等)
+- 同时输出简化的 `tag-hot.json` 用于前端展示
+
+**输出示例日志**:
+```
+📊 标签数据统计:
+总标签数: 5530
+总文章数: 18500
+
+分类统计:
+  - ai            :  542 个标签
+  - geek          :  320 个标签
+  - stock         :  280 个标签
+
+🏷️ TOP 20 热门标签:
+ 1. 🤖 人工智能                                    :   200 篇
+ 2. 🤖 AI技术                                       :   168 篇
+ 3. 🤖 AI                                           :   136 篇
+```
+
+---
+
+### 5. generate_homepage_seo_links.py
+
+**功能**: 首页SEO内链片段生成(预生成HTML片段优化SEO)
+
+**作用范围**:
+- 生成预渲染HTML内链结构片段
+- 片段用于SEO优化(无需JavaScript即可被爬虫索引)
+- 支持纯JavaScript加载或静态HTML包含
+- 包括分类、文章、标签、sitemap多种链接
+
+**运行命令**:
+```bash
+python scripts/generate_homepage_seo_links.py
+```
+
+**输出文件** (5个):
+
+**HTML片段** (4个):
+- `seo-fragments/homepage-seo-links.html` - 完整SEO片段(所有内链集合)
+- `seo-fragments/popular-articles.html` - 前50篇热门文章链接
+- `seo-fragments/category-sections.html` - 分类导航(每个分类前20篇)
+- `seo-fragments/sitemap-links.html` - Sitemap文件链接
+
+**样式表** (1个):
+- `css/seo-links.css` - SEO链接样式(无干扰样式)
+
+**集成方法**:
+1. 📄 直接嵌入: `seo-fragments/homepage-seo-links.html` 片段插入到 `index.html` 底部
+2. 🔗 在 `<head>` 添加样式: `<link rel='stylesheet' href='/css/seo-links.css'>`
+3. 💡 或使用JavaScript动态加载(适合后期优化)
+
+**使用时机**:
+- ✅ 需要优化首页SEO时
+- ✅ 增加内链结构增强页面权重时
+- ⚠️ 无需频繁运行(内容变化不大时)
+
+**脚本逻辑**:
+- 预生成纯HTML片段(无JavaScript,搜索引擎友好)
+- 生成隐藏式内链结构(视觉不可见,200+个内链)
+- 符合SEO最佳实践(结构化数据)
+- 生成独立CSS文件(可选样式隔离)
+
+**输出示例日志**:
+```
+📊 SEO链接统计:
+  - 热门文章: 50个
+  - 分类文章: ~180个
+  - Sitemap文件: 20个
+  - 标签链接: 8个
+  - 总内链数: 258+ 个
+```
+
+---
+
+### 6. cleanup_obsolete_tags.py
+
+**功能**: 清理废弃标签目录引用(维护工具)
+
+**作用范围**:
+- 从JSON索引文件中移除已删除/废弃的标签目录引用
+- 防止404错误的标签链接
+- 清理数据不一致问题
+
+**运行命令**:
+```bash
+python scripts/cleanup_obsolete_tags.py
+```
+
+**处理文件** (3个):
+- `site-tags-enhanced.json`
+- `site-tags.json`
+- `tag-hot.json`
+
+**配置需删除标签列表**:
+```python
+OBSOLETE_TAG_DIRS = [
+    "AI建站", "ChatGPT基础", "OpenAI应用",
+    "Prompt-Engineering", "Prompt工程",
+    "机器学习入门", "大模型应用", "神经网络",
+    "人工智能", "深度学习"
+]
+```
+
+**使用时机**:
+- ✅ 删除标签目录后
+- ✅ 重新组织标签结构后
+- ✅ 修复404标签链接时
+- ✅ 清理数据不一致时
+
+**脚本逻辑**:
+- 自动备份(创建 `.backup-obsolete-cleanup` 后缀文件)
+- 逐一检查所有JSON索引文件
+- 移除配置列表中指定的标签
+- 输出清理统计信息(删除数量)
+
+**执行日志示例**:
+```
+🧹 Cleaning Obsolete Tag Directory References
+
+📁 Processing: site-tags-enhanced.json
+   Original tags: 5530
+    Cleaned tags: 5519
+   ✅ Removed: 11 tags
+   Removed tags: AI建站, ChatGPT基础, OpenAI应用
+
+✅ Cleanup Complete!
+   Total entries removed: 11
+```
+
+---
+
+## 🔧 开发与维护
+
+### 依赖声明
+
+**所有脚本仅使用Python标准库(无外部依赖)**:
+
+- ✅ `json` - JSON数据处理
+- ✅ `os`, `pathlib` - 文件路径操作
+- ✅ `re` - 正则表达式
+- ✅ `datetime` - 时间处理
+- ✅ `html.parser` - HTML解析
+- ✅ `collections` - 数据结构(defaultdict等)
+- ✅ `io` - Windows编码处理(解决中文乱码)
+
+### 典型工作流
+
+**最常用工作流**(添加文章后):
+```bash
+# Step 1: 重新索引全站文章(必须)
+python scripts/generate_site_index.py
+
+# Step 2: 更新首页热门标签(必须)
+python scripts/generate_hot_tags.py
+
+# Step 3: 本地测试验证
+python -m http.server 8000
+# 访问: http://localhost:8000
+
+# Step 4: 提交部署
+git add .
+git commit -m "feat: add new articles and update indexes"
+git push
+```
+
+**完整重建工作流**(全面重建索引):
+```bash
+# 1. 全站索引
+python scripts/generate_site_index.py
+
+# 2. 热门标签
+python scripts/generate_hot_tags.py
+
+# 3. 增强标签系统(可选)
+python scripts/generate_tags_data_enhanced.py
+
+# 4. SEO内链片段(可选)
+python scripts/generate_homepage_seo_links.py
+
+# 5. 本地测试
+python -m http.server 8000
+
+# 6. 提交部署
+git add . && git commit -m "chore: rebuild all indexes" && git push
+```
+
+### 性能指标
+
+| 脚本 | 运行时间 | 处理数据量 | 内存占用 |
+|------|---------|----------|----------|
+| `generate_site_index.py` | ~30秒 | 3782+篇文章 | ~50MB |
+| `generate_hot_tags.py` | ~15秒 | 5530+标签 | ~20MB |
+| `generate_tags_data.py` | <1秒 | ~10标签 | <5MB |
+| `generate_tags_data_enhanced.py` | ~45秒 | 5530+标签 | ~80MB |
+| `generate_homepage_seo_links.py` | ~5秒 | 258+内链 | ~10MB |
+| `cleanup_obsolete_tags.py` | <1秒 | 3个文件 | <5MB |
+
+### 常见问题
+
+**常见错误**:
+
+1. **中文在Windows控制台乱码**
+   ```
+   UnicodeEncodeError: 'gbk' codec can't encode character
+   ```
+   **原因**: 脚本内已处理Windows编码问题
+
+2. **找不到文件或目录**
+   ```
+   FileNotFoundError: [Errno 2] No such file or directory
+   ```
+   **原因**: 需从项目根目录运行脚本,不要从scripts/目录运行
+
+3. **JSON格式错误**
+   ```
+   json.decoder.JSONDecodeError: Expecting value
+   ```
+   **原因**: 先运行 `generate_site_index.py` 生成依赖数据
+
+### Windows编码兼容
+
+所有脚本已内置Windows控制台编码修复逻辑:
+
+```python
+# 脚本内已包含Windows编码修复
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+```
+
+---
+
+## 📂 输出文件详细说明
+
+### JSON数据文件 (10个)
+
+| 文件名 | 大小 | 用途 | 生成脚本 |
+|--------|------|------|----------|
+| `site-links-full.json` | ~1MB | 完整文章索引 | `generate_site_index.py` |
+| `site-links-recent.json` | ~50KB | 首页侧边栏 最新文章 | `generate_site_index.py` |
+| `site-links-by-category.json` | ~1.1MB | 按分类组织 | `generate_site_index.py` |
+| `site-links-by-month.json` | ~1.1MB | 按月份组织 | `generate_site_index.py` |
+| `site-links-search.json` | ~658KB | 搜索索引(压缩版) | `generate_site_index.py` |
+| `tag-hot.json` | ~11KB | 热门标签TOP100 | `generate_hot_tags.py` |
+| `site-tags.json` | <1KB | 根目录标签索引 | `generate_tags_data.py` |
+| `site-tags-enhanced.json` | ~1.2MB | 增强标签分类+关联 | `generate_tags_data_enhanced.py` |
+| `tag-categories.json` | ~50KB | 标签分类数据 | `generate_tags_data_enhanced.py` |
+| `tag-relations.json` | ~200KB | 标签关联关系 | `generate_tags_data_enhanced.py` |
+
+### XML Sitemap文件 (8个)
+
+| 文件名 | 大小 | URL数量 | 说明 |
+|--------|------|---------|------|
+| `sitemap.xml` | <10KB | 索引文件 | 主sitemap索引 |
+| `sitemap-pages.xml` | <5KB | 13个 | 静态页面 |
+| `sitemap-posts-ai.xml` | ~252KB | ~1200 | AI分类文章 |
+| `sitemap-posts-geek.xml` | ~240KB | ~150 | 技术分类文章 |
+| `sitemap-posts-stock.xml` | ~259KB | ~120 | 股票分类文章 |
+| `sitemap-posts-other.xml` | ~73KB | ~80 | 其他分类文章 |
+| `sitemap-categories.xml` | <5KB | 13个 | 分类页面 |
+| `sitemap-tags.xml` | <5KB | 14个 | 标签页面 |
+
+### HTML SEO片段 (4个)
+
+| 文件名 | 内链数 | 说明 |
+|--------|--------|------|
+| `seo-fragments/homepage-seo-links.html` | 258+ | 完整SEO片段 |
+| `seo-fragments/popular-articles.html` | 50 | 热门文章链接 |
+| `seo-fragments/category-sections.html` | ~180 | 分类文章导航 |
+| `seo-fragments/sitemap-links.html` | 20 | Sitemap文件 |
+
+### 配置文件 (2个)
+
+| 文件名 | 说明 |
+|--------|------|
+| `robots.txt` | 搜索引擎爬虫指令 |
+| `css/seo-links.css` | SEO链接样式表 |
+
+---
+
+## 💡 使用场景示例
+
+### 场景1: 添加新文章
+
+```bash
+# 1. 创建文章HTML
+mkdir -p ai/post/20251017/new-article-slug
+# ... 编辑 ai/post/20251017/new-article-slug/index.html ...
+
+# 2. 重新索引全站(必须)
+python scripts/generate_site_index.py
+
+# 3. 更新热门标签(必须)
+python scripts/generate_hot_tags.py
+
+# 4. 本地测试
+python -m http.server 8000
+
+# 5. 提交部署
+git add . && git commit -m "feat: add new article" && git push
+```
+
+### 场景2: 批量优化文章
+
+```bash
+# 1. 运行批量脚本
+cd ai/post/202510
+python batch_fix.py
+
+# 2. 返回项目根目录
+cd ../../..
+
+# 3. 重新生成所有索引
+python scripts/generate_site_index.py
+python scripts/generate_hot_tags.py
+
+# 4. 提交部署
+git add . && git commit -m "fix: batch optimize articles" && git push
+```
+
+### 场景3: 优化首页SEO
+
+```bash
+# 1. 生成SEO内链片段
+python scripts/generate_homepage_seo_links.py
+
+# 2. 本地测试(检查index.html是否正确嵌入SEO片段)
+# (主页底部需包含:
+# <div id="seo-links-container"></div>
+# <script>
+#   fetch('/seo-fragments/homepage-seo-links.html')
+#     .then(res => res.text())
+#     .then(html => document.getElementById('seo-links-container').innerHTML = html);
+# </script>
+
+# 3. 本地验证
+python -m http.server 8000
+
+# 4. 提交部署
+git add . && git commit -m "feat: add SEO internal links" && git push
+```
+
+### 场景4: 标签清理维护
+
+```bash
+# 1. 删除废弃标签目录(物理删除)
+rm -rf tags/AI建站 tags/ChatGPT基础
+
+# 2. 编辑cleanup脚本配置(添加到OBSOLETE_TAG_DIRS列表)
+# 编辑 scripts/cleanup_obsolete_tags.py
+
+# 3. 清理JSON文件中的废弃引用
+python scripts/cleanup_obsolete_tags.py
+
+# 4. 重新生成热门标签
+python scripts/generate_hot_tags.py
+
+# 5. 提交部署
+git add . && git commit -m "chore: cleanup obsolete tags" && git push
+```
+
+---
+
+## 🐛 故障排查指南
+
+### 问题1: 脚本运行报中文乱码
+
+**现象**: 控制台输出显示乱码(类似 ��5���)
+
+**原因**: Windows控制台默认使用GBK编码
+
+**解决**: 脚本已内置编码修复(无需手动操作),JSON输出文件不受影响
+```bash
+# 如需手动设置控制台编码:UTF-8
+chcp 65001
+
+# 然后再运行脚本
+python scripts/generate_site_index.py
+```
+
+### 问题2: 找不到文件或目录
+
+**现象**: `FileNotFoundError: [Errno 2] No such file or directory: 'ai/post'`
+
+**原因**: 未从项目根目录运行脚本
+
+**解决**:
+```bash
+# 确保从正确目录运行
+cd D:\app\zsp\zshipu-index
+
+# 确认当前目录
+pwd  # Linux/macOS
+cd   # Windows
+
+# 然后运行脚本
+python scripts/generate_site_index.py
+```
+
+### 问题3: JSON格式错误
+
+**现象**: `json.decoder.JSONDecodeError: Expecting value`
+
+**原因**: 依赖的JSON文件未生成或损坏
+
+**解决**: 按正确顺序重新生成
+```bash
+python scripts/generate_site_index.py     # 先生成依赖数据
+python scripts/generate_hot_tags.py       # 然后标签数据
+python scripts/generate_tags_data_enhanced.py  # 最后增强数据
+```
+
+### 问题4: 脚本运行缓慢
+
+**现象**: `generate_site_index.py` 运行超过5分钟
+
+**原因**: 文章数量过多(>5000篇文章)
+
+**解决**: 调整脚本限制或 `max_per_category` 参数
+```python
+# 在 generate_site_index.py 中找到这行并修改限制
+articles = generate_site_index(max_per_category=500)
+
+# 或降低分类限制:
+articles = generate_site_index(max_per_category=300)
+```
+
+---
+
+## 🛠️ 开发指南
+
+### 创建新脚本
+
+1. **创建脚本**: `scripts/new_script.py`
+2. **添加脚本头部文档**:
+```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+脚本功能说明
+详细描述
+"""
+```
+
+3. **添加Windows编码兼容**:
+```python
+import sys, io
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+```
+
+4. **更新本README.md**:添加新脚本使用说明
+
+### 修改现有脚本
+
+1. **创建备份**:
+```bash
+cp scripts/generate_site_index.py scripts/generate_site_index.py.backup
+```
+
+2. **本地测试修改**:
+```bash
+# 在小数据集测试
+# 检查输出
+python scripts/generate_site_index.py
+
+# 验证生成文件
+ls -lh site-links-*.json
+```
+
+3. **验证JSON格式**:
+```bash
+# 使用Python验证JSON格式
+python -m json.tool site-links-full.json > /dev/null && echo "✅ Valid JSON" || echo "❌ Invalid JSON"
+```
+
+4. **提交修改**:
+```bash
+git add scripts/generate_site_index.py
+git commit -m "feat: improve site index generation performance"
+git push
+```
+
+---
+
+## 📚 相关文档
+
+- **项目文档**: `../CLAUDE.md` - 完整项目架构
+- **首页文档**: `../README-HOMEPAGE.md` - 首页更新指南
+- **子项目文档**:
+  - `../upecg/CLAUDE.md` - ECG处理项目架构
+  - `../ai1000website/CLAUDE.md` - AI工具目录架构
+  - `../app/README.md` - 应用原型集合
+
+---
+
+## 🤝 贡献指南
+
+欢迎贡献改进建议和代码!
+
+1. Fork本项目
+2. 创建特性分支 (`git checkout -b feature/new-script`)
+3. 提交修改 (`git commit -m 'feat: add new script'`)
+4. 推送到分支 (`git push origin feature/new-script`)
+5. 创建Pull Request
+
+---
+
+## 📄 许可证
+
+本脚本目录脚本遵循项目主仓库许可协议(见主目录LICENSE文件)
+
+---
+
+## 📞 联系方式
+
+- **网站**: https://index.zshipu.com/
+- **GitHub**: https://github.com/zshipu/zshipu-index
+- **反馈**: 请在GitHub Issues中提交
+
+---
+
+**最后更新**: 2025-10-17
+**版本号**: v1.0
+**维护者**: 知识铺团队

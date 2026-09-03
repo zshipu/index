@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="高效背单词应用 - 支持间隔重复、深色模式、数据持久化">
+    <title>背单词神器 Pro - 优化版</title>
+    <style>
+        /* ==================== CSS自定义属性 - 主题系统 ==================== */
+        :root {
+            --color-primary: #667eea;
+            --color-primary-dark: #764ba2;
+            --color-secondary: #4facfe;
+            --color-secondary-light: #00f2fe;
+            --color-success: #4facfe;
+            --color-warning: #fa709a;
+            --color-danger: #f5576c;
+            --color-info: #f093fb;
+
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-bg: #ffffff;
+            --card-bg-secondary: #f8f9fa;
+            --text-primary: #333333;
+            --text-secondary: #888888;
+            --text-hint: #aaaaaa;
+
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.2);
+            --shadow-lg: 0 20px 60px rgba(0,0,0,0.3);
+
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 30px;
+
+            --transition-fast: 0.15s;
+            --transition-normal: 0.3s;
+            --transition-slow: 0.6s;
+
+            --particle-count: 10; /* 优化: 减少粒子数量 */
+        }
+
+        /* 深色模式 */
+        [data-theme="dark"] {
+            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --card-bg: #2d3748;
+            --card-bg-secondary: #1a202c;
+            --text-primary: #f7fafc;
+            --text-secondary: #cbd5e0;
+            --text-hint: #a0aec0;
+            --shadow-md: 0 10px 30px rgba(0,0,0,0.5);
+            --shadow-lg: 0 20px 60px rgba(0,0,0,0.7);
+        }
+
+        /* ==================== 基础样式 ==================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+            color: var(--text-primary);
+            transition: background var(--transition-normal);
+        }
+
+        /* 性能优化: contain属性隔离重排 */
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+            contain: layout style;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            .container {
+                padding: 12px;
+                max-width: 100%;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 500px;
+            }
+        }
+
+        /* ==================== 背景粒子 (性能优化版) ==================== */
+        .particle {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 15s infinite;
+            will-change: transform, opacity; /* 性能优化 */
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate3d(0, 0, 0) rotate(0deg);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% {
+                transform: translate3d(0, -100vh, 0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 头部区域 ==================== */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: slideDown 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translate3d(0, -50px, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .header h1 {
+            color: white;
+            font-size: clamp(1.8em, 5vw, 2.5em);
+            font-weight: 800;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            margin-bottom: 15px;
+        }
+
+        .header-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 10px 18px;
+            border-radius: var(--radius-md);
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            font-weight: 600;
+            white-space: nowrap;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .header-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .header-btn:active {
+            transform: translateY(0);
+        }
+
+        .header-btn:focus-visible {
+            outline: 3px solid rgba(255, 255, 255, 0.5);
+            outline-offset: 2px;
+        }
+
+        /* 主题切换按钮 */
+        .theme-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3em;
+            padding: 0;
+            min-width: 44px; /* 可访问性: 最小触摸目标 */
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* ==================== 进度条 ==================== */
+        .progress-container {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-md);
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 25px;
+            animation: fadeIn 1s ease;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-success) 0%, var(--color-secondary-light) 100%);
+            border-radius: 10px;
+            transition: width 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            position: relative;
+            overflow: hidden;
+            will-change: width; /* 性能优化 */
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translate3d(-100%, 0, 0); }
+            100% { transform: translate3d(100%, 0, 0); }
+        }
+
+        .progress-text {
+            color: white;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ==================== 卡片堆叠区域 ==================== */
+        .card-stack {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            perspective: 1500px;
+            contain: layout style paint; /* 性能优化: containment */
+        }
+
+        @media (max-width: 480px) {
+            .card-stack {
+                height: 450px;
+            }
+        }
+
+        /* 卡片容器 */
+        .card {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
+            transform-style: preserve-3d;
+            will-change: transform; /* 性能优化 */
+        }
+
+        .card.dragging {
+            transition: none; /* 拖拽时禁用过渡 */
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--transition-slow) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: var(--radius-lg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+            box-shadow: var(--shadow-lg);
+            will-change: transform; /* 性能优化 */
+        }
+
+        .card-front {
+            background: var(--card-bg);
+            color: var(--text-primary);
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, var(--color-success) 0%, var(--color-secondary-light) 100%);
+            transform: rotateY(180deg);
+            color: white;
+        }
+
+        .word-main {
+            font-size: clamp(2.5em, 8vw, 3.5em);
+            font-weight: 800;
+            color: var(--color-primary);
+            margin-bottom: 20px;
+            animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            word-break: break-word;
+            text-align: center;
+        }
+
+        [data-theme="dark"] .word-main {
+            color: var(--color-secondary-light);
+        }
+
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .phonetic {
+            font-size: 1.1em;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .sound-btn {
+            background: var(--bg-gradient);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            font-weight: 600;
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .sound-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .sound-btn:active {
+            transform: scale(0.95);
+        }
+
+        .sound-btn:focus-visible {
+            outline: 3px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+
+        .tap-hint {
+            font-size: 0.95em;
+            color: var(--text-hint);
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 0.6;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        .meaning {
+            font-size: 1.6em;
+            font-weight: 600;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .example {
+            font-size: 1.05em;
+            line-height: 1.6;
+            text-align: center;
+            opacity: 0.95;
+        }
+
+        /* ==================== 控制按钮 ==================== */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+            animation: fadeIn 1.2s ease;
+        }
+
+        .btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.8em;
+            transition: all var(--transition-normal) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::before {
+            width: 200px;
+            height: 200px;
+        }
+
+        .btn:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn:focus-visible {
+            outline: 3px solid white;
+            outline-offset: 3px;
+        }
+
+        .btn-skip {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-know {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-unknown {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+
+        @media (max-width: 480px) {
+            .btn {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5em;
+            }
+            .controls {
+                gap: 15px;
+            }
+        }
+
+        /* ==================== 卡片移除动画 ==================== */
+        .card.swipe-left {
+            animation: swipeLeft 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        .card.swipe-right {
+            animation: swipeRight 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        @keyframes swipeLeft {
+            to {
+                transform: translate3d(-150%, 0, 0) rotate(-30deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes swipeRight {
+            to {
+                transform: translate3d(150%, 0, 0) rotate(30deg);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== Toast通知系统 ==================== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            animation: slideInRight 0.3s ease;
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .toast.success { border-left: 4px solid var(--color-success); }
+        .toast.error { border-left: 4px solid var(--color-danger); }
+        .toast.info { border-left: 4px solid var(--color-info); }
+        .toast.warning { border-left: 4px solid var(--color-warning); }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translate3d(100%, 0, 0);
+            }
+            to {
+                opacity: 1;
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        .toast.removing {
+            animation: slideOutRight 0.3s ease forwards;
+        }
+
+        @keyframes slideOutRight {
+            to {
+                opacity: 0;
+                transform: translate3d(100%, 0, 0);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+            }
+            .toast {
+                min-width: unset;
+                width: 100%;
+            }
+        }
+
+        /* ==================== 统计面板 ==================== */
+        .stats {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-around;
+            animation: fadeIn 1.4s ease;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: 800;
+            transition: all var(--transition-normal);
+        }
+
+        .stat-number.bump {
+            animation: bump 0.3s ease;
+        }
+
+        @keyframes bump {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        /* ==================== 庆祝特效 ==================== */
+        .celebration {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 4em;
+            animation: celebrate 1s ease;
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        @keyframes celebrate {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8) translate3d(0, -100px, 0);
+            }
+        }
+
+        /* ==================== 粒子爆炸特效 ==================== */
+        .particle-burst {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+        }
+
+        @keyframes burst {
+            to {
+                transform: translate3d(var(--tx), var(--ty), 0) scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 涟漪特效 ==================== */
+        .ripple {
+            position: fixed;
+            border: 3px solid;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9997;
+            animation: ripple 1s ease-out forwards;
+        }
+
+        @keyframes ripple {
+            from {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            to {
+                width: 300px;
+                height: 300px;
+                opacity: 0;
+            }
+        }
+
+        /* ==================== 闪光特效 ==================== */
+        .flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 9996;
+            animation: flash 0.3s ease;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ==================== 空状态 ==================== */
+        .empty-state {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .empty-state-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.8;
+        }
+
+        .empty-state-text {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .empty-state-hint {
+            font-size: 0.95em;
+            opacity: 0.8;
+        }
+
+        /* ==================== 加载状态 ==================== */
+        .loading {
+            text-align: center;
+            color: white;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==================== 可访问性增强 ==================== */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        /* 高对比度模式支持 */
+        @media (prefers-contrast: high) {
+            .card-face {
+                border: 2px solid currentColor;
+            }
+            .btn {
+                border: 2px solid white;
+            }
+        }
+
+        /* 减弱动画模式 */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>✨ 背单词神器 Pro</h1>
+            <div class="header-controls">
+                <button class="header-btn theme-toggle"
+                        id="themeToggle"
+                        aria-label="切换主题"
+                        title="切换深色/浅色模式">
+                    <span id="themeIcon">🌙</span>
+                </button>
+                <button class="header-btn"
+                        id="downloadTemplate"
+                        aria-label="下载单词模板">
+                    📥 下载模板
+                </button>
+                <button class="header-btn"
+                        id="importWords"
+                        aria-label="导入单词列表">
+                    📂 导入单词
+                </button>
+                <button class="header-btn"
+                        id="manageWordbooks"
+                        aria-label="管理词库">
+                    📚 词库管理
+                </button>
+                <input type="file" id="fileInput" accept=".csv,.txt" aria-label="选择文件">
+            </div>
+        </header>
+
+        <div class="progress-container" role="region" aria-label="学习进度">
+            <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">0 / 0 单词</div>
+        </div>
+
+        <div class="card-stack" id="cardStack" role="region" aria-label="单词卡片" aria-live="polite"></div>
+
+        <div class="controls" role="group" aria-label="学习控制">
+            <button class="btn btn-skip"
+                    id="btnSkip"
+                    title="跳过当前单词 (左箭头)"
+                    aria-label="跳过">
+                ⏭️
+            </button>
+            <button class="btn btn-unknown"
+                    id="btnUnknown"
+                    title="不认识 (下箭头)"
+                    aria-label="不认识">
+                ❓
+            </button>
+            <button class="btn btn-know"
+                    id="btnKnow"
+                    title="认识 (右箭头)"
+                    aria-label="认识">
+                ✅
+            </button>
+        </div>
+
+        <div class="stats" role="region" aria-label="学习统计">
+            <div class="stat-item">
+                <div class="stat-number" id="knownCount" aria-label="已掌握数量">0</div>
+                <div class="stat-label">已掌握</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="unknownCount" aria-label="待学习数量">0</div>
+                <div class="stat-label">待学习</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="streakCount" aria-label="连续学习天数">0</div>
+                <div class="stat-label">连续天数</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast容器 -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <script>
+        'use strict';
+
+        // ==================== 应用主类 ====================
+        class WordLearningApp {
+            constructor() {
+                this.state = {
+                    words: [],
+                    currentIndex: 0,
+                    knownCount: 0,
+                    unknownCount: 0,
+                    cards: [],
+                    theme: 'light',
+                    settings: {
+                        autoPlay: true,
+                        vibration: true,
+                        particleCount: 10
+                    }
+                };
+
+                this.storage = new StorageManager();
+                this.ui = new UIManager(this);
+                this.effects = new EffectsManager();
+                this.tts = new TTSService();
+
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // 加载保存的主题
+                    const savedTheme = this.storage.get('theme') || 'light';
+                    this.setTheme(savedTheme);
+
+                    // 加载默认单词或上次学习的词库
+                    const savedWords = this.storage.get('currentWordbook');
+                    if (savedWords && savedWords.length > 0) {
+                        this.state.words = savedWords;
+                    } else {
+                        this.state.words = this.getDefaultWords();
+                    }
+
+                    // 加载学习进度
+                    const progress = this.storage.get('studyProgress');
+                    if (progress) {
+                        this.state.currentIndex = progress.currentIndex || 0;
+                        this.state.knownCount = progress.knownCount || 0;
+                        this.state.unknownCount = progress.unknownCount || 0;
+                    }
+
+                    // 加载连续学习天数
+                    this.updateStreak();
+
+                    // 初始化UI
+                    this.ui.init();
+                    this.setupEventListeners();
+                    this.effects.createParticles(this.state.settings.particleCount);
+
+                    // 自动播放第一个单词
+                    if (this.state.settings.autoPlay && this.state.words.length > 0 && this.state.currentIndex < this.state.words.length) {
+                        setTimeout(() => {
+                            this.tts.speak(this.state.words[this.state.currentIndex].word);
+                        }, 500);
+                    }
+
+                } catch (error) {
+                    console.error('初始化失败:', error);
+                    this.ui.showToast('初始化失败,请刷新页面重试', 'error');
+                }
+            }
+
+            getDefaultWords() {
+                return [
+                    { word: "Serendipity", phonetic: "/ˌserənˈdɪpəti/", meaning: "意外发现美好事物的能力", example: "Finding this app was pure serendipity!" },
+                    { word: "Ephemeral", phonetic: "/ɪˈfemərəl/", meaning: "短暂的;瞬息的", example: "The beauty of cherry blossoms is ephemeral." },
+                    { word: "Resilience", phonetic: "/rɪˈzɪliəns/", meaning: "恢复力;韧性", example: "Her resilience helped her overcome difficulties." },
+                    { word: "Eloquent", phonetic: "/ˈeləkwənt/", meaning: "雄辩的;有说服力的", example: "He gave an eloquent speech." },
+                    { word: "Euphoria", phonetic: "/juːˈfɔːriə/", meaning: "狂喜;兴高采烈", example: "Winning brought feelings of euphoria." },
+                    { word: "Intricate", phonetic: "/ˈɪntrɪkət/", meaning: "错综复杂的", example: "The puzzle had an intricate design." },
+                    { word: "Luminous", phonetic: "/ˈluːmɪnəs/", meaning: "发光的;明亮的", example: "The moon cast a luminous glow." },
+                    { word: "Pristine", phonetic: "/ˈprɪstiːn/", meaning: "原始的;崭新的", example: "The beach was in pristine condition." },
+                    { word: "Zenith", phonetic: "/ˈziːnɪθ/", meaning: "顶峰;鼎盛时期", example: "She reached the zenith of her career." },
+                    { word: "Ambience", phonetic: "/ˈæmbiəns/", meaning: "氛围;环境", example: "The restaurant has a cozy ambience." }
+                ];
+            }
+
+            setupEventListeners() {
+                // 主题切换
+                document.getElementById('themeToggle').addEventListener('click', () => {
+                    this.toggleTheme();
+                });
+
+                // 下载模板
+                document.getElementById('downloadTemplate').addEventListener('click', () => {
+                    this.downloadTemplate();
+                });
+
+                // 导入单词
+                document.getElementById('importWords').addEventListener('click', () => {
+                    document.getElementById('fileInput').click();
+                });
+
+                // 文件上传
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileUpload(e);
+                });
+
+                // 词库管理
+                document.getElementById('manageWordbooks').addEventListener('click', () => {
+                    this.ui.showToast('词库管理功能开发中...', 'info');
+                });
+
+                // 控制按钮
+                document.getElementById('btnKnow').addEventListener('click', () => this.handleKnow());
+                document.getElementById('btnUnknown').addEventListener('click', () => this.handleUnknown());
+                document.getElementById('btnSkip').addEventListener('click', () => this.handleSkip());
+
+                // 键盘快捷键
+                document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // 保存进度(页面关闭前)
+                window.addEventListener('beforeunload', () => {
+                    this.saveProgress();
+                });
+            }
+
+            handleKeyboard(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                switch(e.key) {
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        this.handleSkip();
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        this.handleKnow();
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.handleUnknown();
+                        break;
+                    case ' ':
+                        e.preventDefault();
+                        this.ui.flipCurrentCard();
+                        break;
+                }
+            }
+
+            toggleTheme() {
+                const newTheme = this.state.theme === 'light' ? 'dark' : 'light';
+                this.setTheme(newTheme);
+                this.storage.set('theme', newTheme);
+                this.ui.showToast(`已切换到${newTheme === 'dark' ? '深色' : '浅色'}模式`, 'success');
+            }
+
+            setTheme(theme) {
+                this.state.theme = theme;
+                document.documentElement.setAttribute('data-theme', theme);
+                const icon = document.getElementById('themeIcon');
+                if (icon) {
+                    icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+                }
+            }
+
+            downloadTemplate() {
+                const template = `word,phonetic,meaning,example
+Serendipity,/ˌserənˈdɪpəti/,意外发现美好事物的能力,Finding this app was pure serendipity!
+Ephemeral,/ɪˈfemərəl/,短暂的;瞬息的,The beauty of cherry blossoms is ephemeral.
+Resilience,/rɪˈzɪliəns/,恢复力;韧性,Her resilience helped her overcome difficulties.`;
+
+                const blob = new Blob(['\ufeff' + template], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+
+                link.setAttribute('href', url);
+                link.setAttribute('download', '单词模板.csv');
+                link.style.display = 'none';
+
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url); // 清理资源
+
+                this.ui.showToast('模板下载成功!', 'success');
+                this.effects.showCelebration('📥');
+            }
+
+            handleFileUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const text = event.target.result;
+                        const newWords = this.parseCSV(text);
+
+                        if (newWords.length === 0) {
+                            this.ui.showToast('文件格式错误或没有有效的单词数据!', 'error');
+                            return;
+                        }
+
+                        // 重置状态
+                        this.state.words = newWords;
+                        this.state.currentIndex = 0;
+                        this.state.knownCount = 0;
+                        this.state.unknownCount = 0;
+
+                        // 保存词库
+                        this.storage.set('currentWordbook', newWords);
+                        this.saveProgress();
+
+                        // 重新初始化
+                        this.ui.initCards();
+                        this.ui.updateProgress();
+
+                        this.ui.showToast(`成功导入 ${newWords.length} 个单词!`, 'success');
+                        this.effects.showCelebration('✅');
+
+                        // 自动播放第一个单词
+                        if (this.state.settings.autoPlay) {
+                            setTimeout(() => {
+                                this.tts.speak(newWords[0].word);
+                            }, 500);
+                        }
+
+                    } catch (error) {
+                        console.error('文件解析失败:', error);
+                        this.ui.showToast('文件解析失败!请检查文件格式', 'error');
+                    }
+                };
+
+                reader.readAsText(file, 'UTF-8');
+                e.target.value = ''; // 清空input
+            }
+
+            parseCSV(text) {
+                const lines = text.trim().split('\n');
+                const result = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const matches = line.match(/(".*?"|[^,]+)/g);
+                    if (matches && matches.length >= 4) {
+                        const word = matches[0].replace(/^"|"$/g, '').trim();
+                        const phonetic = matches[1].replace(/^"|"$/g, '').trim();
+                        const meaning = matches[2].replace(/^"|"$/g, '').trim();
+                        const example = matches[3].replace(/^"|"$/g, '').trim();
+
+                        if (word && meaning) {
+                            result.push({ word, phonetic, meaning, example });
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+            handleKnow() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.state.knownCount++;
+                this.recordStudy(true);
+                this.ui.bumpNumber('knownCount');
+                this.effects.showCelebration('✅');
+                this.effects.createFlash('rgba(79, 172, 254, 0.2)');
+                this.effects.createParticleBurst(window.innerWidth / 2, window.innerHeight / 2, '#4facfe');
+                this.ui.removeCurrentCard('right');
+                this.vibrate([10, 50, 10]);
+            }
+
+            handleUnknown() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.state.unknownCount++;
+                this.recordStudy(false);
+                this.ui.bumpNumber('unknownCount');
+                this.effects.showCelebration('📖');
+                this.effects.createFlash('rgba(250, 112, 154, 0.2)');
+                this.effects.createParticleBurst(window.innerWidth / 2, window.innerHeight / 2, '#fa709a');
+                this.ui.removeCurrentCard('left');
+                this.vibrate([10, 30, 10, 30, 10]);
+            }
+
+            handleSkip() {
+                if (this.state.currentIndex >= this.state.words.length) return;
+
+                this.effects.showCelebration('⏭️');
+                this.effects.createRipple(window.innerWidth / 2, window.innerHeight / 2, '#f093fb');
+                this.ui.removeCurrentCard('left');
+                this.vibrate([10]);
+            }
+
+            recordStudy(known) {
+                const word = this.state.words[this.state.currentIndex];
+                const record = {
+                    word: word.word,
+                    known: known,
+                    timestamp: Date.now()
+                };
+
+                let history = this.storage.get('studyHistory') || [];
+                history.push(record);
+
+                // 只保留最近1000条记录
+                if (history.length > 1000) {
+                    history = history.slice(-1000);
+                }
+
+                this.storage.set('studyHistory', history);
+            }
+
+            saveProgress() {
+                this.storage.set('studyProgress', {
+                    currentIndex: this.state.currentIndex,
+                    knownCount: this.state.knownCount,
+                    unknownCount: this.state.unknownCount,
+                    lastStudyDate: new Date().toDateString()
+                });
+            }
+
+            updateStreak() {
+                const lastDate = this.storage.get('lastStudyDate');
+                const today = new Date().toDateString();
+                let streak = this.storage.get('studyStreak') || 0;
+
+                if (lastDate) {
+                    const last = new Date(lastDate);
+                    const current = new Date(today);
+                    const diffDays = Math.floor((current - last) / (1000 * 60 * 60 * 24));
+
+                    if (diffDays === 0) {
+                        // 今天已学习
+                    } else if (diffDays === 1) {
+                        // 连续学习
+                        streak++;
+                        this.storage.set('studyStreak', streak);
+                    } else {
+                        // 中断了
+                        streak = 1;
+                        this.storage.set('studyStreak', streak);
+                    }
+                } else {
+                    // 第一次学习
+                    streak = 1;
+                    this.storage.set('studyStreak', streak);
+                }
+
+                this.storage.set('lastStudyDate', today);
+                document.getElementById('streakCount').textContent = streak;
+            }
+
+            vibrate(pattern) {
+                if (this.state.settings.vibration && navigator.vibrate) {
+                    navigator.vibrate(pattern);
+                }
+            }
+        }
+
+        // ==================== 存储管理器 ====================
+        class StorageManager {
+            constructor() {
+                this.prefix = 'wordapp_';
+            }
+
+            get(key) {
+                try {
+                    const value = localStorage.getItem(this.prefix + key);
+                    return value ? JSON.parse(value) : null;
+                } catch (error) {
+                    console.error('读取存储失败:', error);
+                    return null;
+                }
+            }
+
+            set(key, value) {
+                try {
+                    localStorage.setItem(this.prefix + key, JSON.stringify(value));
+                } catch (error) {
+                    console.error('保存存储失败:', error);
+                }
+            }
+
+            remove(key) {
+                try {
+                    localStorage.removeItem(this.prefix + key);
+                } catch (error) {
+                    console.error('删除存储失败:', error);
+                }
+            }
+
+            clear() {
+                try {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.startsWith(this.prefix)) {
+                            localStorage.removeItem(key);
+                        }
+                    });
+                } catch (error) {
+                    console.error('清空存储失败:', error);
+                }
+            }
+        }
+
+        // ==================== UI管理器 ====================
+        class UIManager {
+            constructor(app) {
+                this.app = app;
+                this.dragState = {
+                    isDragging: false,
+                    startX: 0,
+                    startY: 0,
+                    currentX: 0,
+                    currentY: 0,
+                    rafId: null
+                };
+            }
+
+            init() {
+                this.initCards();
+                this.updateProgress();
+            }
+
+            initCards() {
+                const cardStack = document.getElementById('cardStack');
+                cardStack.innerHTML = '';
+                this.app.state.cards = [];
+
+                const words = this.app.state.words;
+                const startIndex = this.app.state.currentIndex;
+
+                if (startIndex >= words.length) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                // 只渲染当前和下两张卡片(性能优化)
+                const renderCount = Math.min(3, words.length - startIndex);
+
+                for (let i = 0; i < renderCount; i++) {
+                    const wordIndex = startIndex + i;
+                    const card = this.createCard(words[wordIndex], i);
+                    this.app.state.cards.push(card);
+                    cardStack.appendChild(card);
+                }
+
+                // 自动播放当前单词
+                if (this.app.state.settings.autoPlay && words[startIndex]) {
+                    this.app.tts.speak(words[startIndex].word);
+                }
+            }
+
+            createCard(wordData, index) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.zIndex = 100 - index;
+                card.style.transform = `translate3d(0, ${index * 10}px, 0) scale(${1 - index * 0.05})`; // GPU加速
+                card.setAttribute('data-index', index);
+
+                card.innerHTML = `
+                    <div class="card-inner" role="button" tabindex="0" aria-label="单词卡片,点击翻转">
+                        <div class="card-face card-front">
+                            <div class="word-main">${this.escapeHtml(wordData.word)}</div>
+                            <div class="phonetic">${this.escapeHtml(wordData.phonetic)}</div>
+                            <button class="sound-btn"
+                                    aria-label="播放发音"
+                                    data-word="${this.escapeHtml(wordData.word)}">
+                                🔊 发音
+                            </button>
+                            <div class="tap-hint">👆 点击卡片查看释义</div>
+                        </div>
+                        <div class="card-face card-back">
+                            <div class="meaning">${this.escapeHtml(wordData.meaning)}</div>
+                            <div class="example">${this.escapeHtml(wordData.example)}</div>
+                        </div>
+                    </div>
+                `;
+
+                const cardInner = card.querySelector('.card-inner');
+                const soundBtn = card.querySelector('.sound-btn');
+
+                // 点击翻转
+                cardInner.addEventListener('click', (e) => {
+                    if (e.target.tagName !== 'BUTTON' && !card.classList.contains('dragging')) {
+                        this.flipCard(cardInner);
+                    }
+                });
+
+                // 键盘支持
+                cardInner.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.flipCard(cardInner);
+                    }
+                });
+
+                // 发音按钮
+                soundBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const word = e.target.getAttribute('data-word');
+                    this.app.tts.speak(word);
+                });
+
+                // 拖拽功能(仅第一张卡片)
+                if (index === 0) {
+                    this.setupDragHandlers(card);
+                }
+
+                return card;
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            flipCard(cardInner) {
+                cardInner.classList.toggle('flipped');
+                const isFlipped = cardInner.classList.contains('flipped');
+
+                // 特效
+                const card = cardInner.closest('.card');
+                const rect = card.getBoundingClientRect();
+                const x = rect.left + rect.width / 2;
+                const y = rect.top + rect.height / 2;
+                this.app.effects.createRipple(x, y, isFlipped ? '#4facfe' : '#667eea');
+
+                this.app.vibrate([10]);
+            }
+
+            flipCurrentCard() {
+                if (this.app.state.cards.length > 0) {
+                    const cardInner = this.app.state.cards[0].querySelector('.card-inner');
+                    if (cardInner) {
+                        this.flipCard(cardInner);
+                    }
+                }
+            }
+
+            // 性能优化的拖拽实现
+            setupDragHandlers(card) {
+                const startDrag = (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+
+                    this.dragState.isDragging = true;
+                    card.classList.add('dragging');
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    this.dragState.startX = touch.clientX;
+                    this.dragState.startY = touch.clientY;
+                    this.dragState.currentX = 0;
+                    this.dragState.currentY = 0;
+
+                    // 添加监听器
+                    document.addEventListener('mousemove', onDrag, { passive: true });
+                    document.addEventListener('touchmove', onDrag, { passive: true });
+                    document.addEventListener('mouseup', endDrag);
+                    document.addEventListener('touchend', endDrag);
+                };
+
+                const onDrag = (e) => {
+                    if (!this.dragState.isDragging) return;
+
+                    const touch = e.touches ? e.touches[0] : e;
+                    this.dragState.currentX = touch.clientX - this.dragState.startX;
+                    this.dragState.currentY = touch.clientY - this.dragState.startY;
+
+                    // 使用RAF优化性能
+                    if (this.dragState.rafId) {
+                        cancelAnimationFrame(this.dragState.rafId);
+                    }
+
+                    this.dragState.rafId = requestAnimationFrame(() => {
+                        const rotation = this.dragState.currentX * 0.1;
+                        const opacity = 1 - Math.abs(this.dragState.currentX) / 300;
+                        card.style.transform = `translate3d(${this.dragState.currentX}px, ${this.dragState.currentY}px, 0) rotate(${rotation}deg)`;
+                        card.style.opacity = opacity;
+                    });
+                };
+
+                const endDrag = () => {
+                    if (!this.dragState.isDragging) return;
+
+                    this.dragState.isDragging = false;
+                    card.classList.remove('dragging');
+
+                    // 取消RAF
+                    if (this.dragState.rafId) {
+                        cancelAnimationFrame(this.dragState.rafId);
+                        this.dragState.rafId = null;
+                    }
+
+                    // 移除监听器(防止内存泄漏)
+                    document.removeEventListener('mousemove', onDrag);
+                    document.removeEventListener('touchmove', onDrag);
+                    document.removeEventListener('mouseup', endDrag);
+                    document.removeEventListener('touchend', endDrag);
+
+                    const threshold = 100;
+                    if (Math.abs(this.dragState.currentX) > threshold) {
+                        const rect = card.getBoundingClientRect();
+                        const x = rect.left + rect.width / 2;
+                        const y = rect.top + rect.height / 2;
+
+                        if (this.dragState.currentX > 0) {
+                            this.app.effects.createParticleBurst(x, y, '#4facfe');
+                            this.app.handleKnow();
+                        } else {
+                            this.app.effects.createParticleBurst(x, y, '#fa709a');
+                            this.app.handleUnknown();
+                        }
+                    } else {
+                        // 复位
+                        card.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                        card.style.transform = `translate3d(0, 0, 0) scale(1)`;
+                        card.style.opacity = 1;
+
+                        setTimeout(() => {
+                            card.style.transition = '';
+                        }, 300);
+                    }
+
+                    // 重置拖拽状态
+                    this.dragState.currentX = 0;
+                    this.dragState.currentY = 0;
+                };
+
+                card.addEventListener('mousedown', startDrag);
+                card.addEventListener('touchstart', startDrag, { passive: true });
+            }
+
+            removeCurrentCard(direction) {
+                if (this.app.state.currentIndex >= this.app.state.words.length) return;
+
+                const card = this.app.state.cards[0];
+                if (!card) return;
+
+                card.style.pointerEvents = 'none';
+
+                if (direction === 'left') {
+                    card.classList.add('swipe-left');
+                } else if (direction === 'right') {
+                    card.classList.add('swipe-right');
+                }
+
+                setTimeout(() => {
+                    this.app.state.currentIndex++;
+                    this.app.saveProgress();
+                    this.updateProgress();
+
+                    // 移除卡片
+                    if (card.parentNode) {
+                        card.parentNode.removeChild(card);
+                    }
+                    this.app.state.cards.shift();
+
+                    // 更新剩余卡片位置
+                    this.app.state.cards.forEach((remainingCard, i) => {
+                        remainingCard.style.zIndex = 100 - i;
+                        remainingCard.style.transform = `translate3d(0, ${i * 10}px, 0) scale(${1 - i * 0.05})`;
+                        remainingCard.setAttribute('data-index', i);
+                    });
+
+                    // 添加新卡片(虚拟滚动)
+                    const nextIndex = this.app.state.currentIndex + this.app.state.cards.length;
+                    if (nextIndex < this.app.state.words.length) {
+                        const newCard = this.createCard(
+                            this.app.state.words[nextIndex],
+                            this.app.state.cards.length
+                        );
+                        this.app.state.cards.push(newCard);
+                        document.getElementById('cardStack').appendChild(newCard);
+                    }
+
+                    // 播放下一个单词
+                    if (this.app.state.currentIndex < this.app.state.words.length) {
+                        if (this.app.state.settings.autoPlay) {
+                            setTimeout(() => {
+                                this.app.tts.speak(this.app.state.words[this.app.state.currentIndex].word);
+                            }, 300);
+                        }
+
+                        // 为新的第一张卡片添加拖拽
+                        if (this.app.state.cards[0]) {
+                            this.setupDragHandlers(this.app.state.cards[0]);
+                        }
+                    } else {
+                        // 全部完成
+                        setTimeout(() => {
+                            this.showCompletionScreen();
+                        }, 500);
+                    }
+                }, 500);
+            }
+
+            updateProgress() {
+                const total = this.app.state.words.length;
+                const current = this.app.state.currentIndex;
+                const progress = total > 0 ? (current / total) * 100 : 0;
+
+                const progressFill = document.getElementById('progressFill');
+                const progressText = document.getElementById('progressText');
+                const progressBar = document.querySelector('.progress-bar');
+
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `${current} / ${total} 单词`;
+                progressBar.setAttribute('aria-valuenow', progress.toFixed(0));
+
+                document.getElementById('knownCount').textContent = this.app.state.knownCount;
+                document.getElementById('unknownCount').textContent = this.app.state.unknownCount;
+            }
+
+            bumpNumber(elementId) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.classList.add('bump');
+                    setTimeout(() => element.classList.remove('bump'), 300);
+                }
+            }
+
+            showEmptyState() {
+                const cardStack = document.getElementById('cardStack');
+                cardStack.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <div class="empty-state-text">暂无单词</div>
+                        <div class="empty-state-hint">请导入单词列表开始学习</div>
+                    </div>
+                `;
+            }
+
+            showCompletionScreen() {
+                this.app.effects.showCelebration('🎉');
+                this.app.effects.createFlash('rgba(255, 215, 0, 0.3)');
+
+                const message = `🎉 恭喜完成学习!\n\n✅ 已掌握: ${this.app.state.knownCount}\n📖 待学习: ${this.app.state.unknownCount}\n🔥 连续: ${document.getElementById('streakCount').textContent} 天`;
+
+                this.showToast(message, 'success');
+
+                // 显示空状态
+                setTimeout(() => {
+                    this.showEmptyState();
+                }, 2000);
+            }
+
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toastContainer');
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+
+                const icons = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+
+                toast.innerHTML = `
+                    <span style="font-size: 1.5em;">${icons[type] || icons.info}</span>
+                    <span style="flex: 1;">${this.escapeHtml(message).replace(/\n/g, '<br>')}</span>
+                `;
+
+                container.appendChild(toast);
+
+                // 自动移除
+                setTimeout(() => {
+                    toast.classList.add('removing');
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // ==================== 特效管理器 ====================
+        class EffectsManager {
+            createParticles(count) {
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    const size = Math.random() * 60 + 20;
+                    particle.style.width = size + 'px';
+                    particle.style.height = size + 'px';
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.animationDelay = Math.random() * 15 + 's';
+                    particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                    document.body.appendChild(particle);
+                }
+            }
+
+            createParticleBurst(x, y, color) {
+                const particleCount = 15; // 优化: 减少粒子数
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle-burst';
+                    particle.style.left = x + 'px';
+                    particle.style.top = y + 'px';
+                    particle.style.background = color;
+
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const velocity = 80 + Math.random() * 80;
+                    const tx = Math.cos(angle) * velocity;
+                    const ty = Math.sin(angle) * velocity;
+
+                    particle.style.setProperty('--tx', tx + 'px');
+                    particle.style.setProperty('--ty', ty + 'px');
+                    particle.style.animation = 'burst 0.8s ease-out forwards';
+
+                    document.body.appendChild(particle);
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.parentNode.removeChild(particle);
+                        }
+                    }, 800);
+                }
+            }
+
+            createRipple(x, y, color) {
+                const ripple = document.createElement('div');
+                ripple.className = 'ripple';
+                ripple.style.left = (x - 150) + 'px';
+                ripple.style.top = (y - 150) + 'px';
+                ripple.style.borderColor = color;
+                document.body.appendChild(ripple);
+                setTimeout(() => {
+                    if (ripple.parentNode) {
+                        ripple.parentNode.removeChild(ripple);
+                    }
+                }, 1000);
+            }
+
+            createFlash(color) {
+                const flash = document.createElement('div');
+                flash.className = 'flash';
+                flash.style.background = color;
+                document.body.appendChild(flash);
+                setTimeout(() => {
+                    if (flash.parentNode) {
+                        flash.parentNode.removeChild(flash);
+                    }
+                }, 300);
+            }
+
+            showCelebration(emoji) {
+                const celebration = document.createElement('div');
+                celebration.className = 'celebration';
+                celebration.textContent = emoji;
+                celebration.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(celebration);
+                setTimeout(() => {
+                    if (celebration.parentNode) {
+                        celebration.parentNode.removeChild(celebration);
+                    }
+                }, 1000);
+            }
+        }
+
+        // ==================== 语音服务 ====================
+        class TTSService {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.isSpeaking = false;
+            }
+
+            speak(word) {
+                if (!this.synth) return;
+
+                // 取消当前播放
+                this.synth.cancel();
+
+                try {
+                    const utterance = new SpeechSynthesisUtterance(word);
+                    utterance.lang = 'en-US';
+                    utterance.rate = 0.8;
+                    utterance.pitch = 1.0;
+
+                    utterance.onstart = () => {
+                        this.isSpeaking = true;
+                    };
+
+                    utterance.onend = () => {
+                        this.isSpeaking = false;
+                    };
+
+                    utterance.onerror = (e) => {
+                        console.error('语音播放失败:', e);
+                        this.isSpeaking = false;
+                    };
+
+                    this.synth.speak(utterance);
+                } catch (error) {
+                    console.error('语音播放出错:', error);
+                }
+            }
+
+            cancel() {
+                if (this.synth) {
+                    this.synth.cancel();
+                    this.isSpeaking = false;
+                }
+            }
+        }
+
+        // ==================== 初始化应用 ====================
+        let app;
+
+        // DOM加载完成后初始化
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                app = new WordLearningApp();
+            });
+        } else {
+            app = new WordLearningApp();
+        }
+
+        // 错误边界
+        window.addEventListener('error', (e) => {
+            console.error('全局错误:', e.error);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('未处理的Promise拒绝:', e.reason);
+        });
+    </script>
+</body>
+</html>
