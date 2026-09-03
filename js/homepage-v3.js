@@ -452,9 +452,21 @@
       this.loading = true;
 
       try {
-        // 从site-links-recent.json加载数据
-        const response = await fetch('/site-links-recent.json');
-        const data = await response.json();
+        // 优先：GSC 高点击/高展现精选；回退最近文章
+        let data = null;
+        try {
+          const featured = await fetch('/gsc-featured.json');
+          if (featured.ok) {
+            data = await featured.json();
+            utils.log('Loaded GSC featured articles:', data.total);
+          }
+        } catch (e) {
+          utils.log('gsc-featured.json unavailable, fallback to recent');
+        }
+        if (!data || !(data.articles || []).length) {
+          const response = await fetch('/site-links-recent.json');
+          data = await response.json();
+        }
         this.allArticles = data.articles || [];
         this.filteredArticles = this.allArticles; // 初始显示全部
 
@@ -481,11 +493,11 @@
       } else {
         // 根据 category tab 的 data-category 映射到文章的实际分类
         const categoryMap = {
-          'ai': ['ai', 'ai001', 'ai002'],
+          'ai': ['ai', 'ai001', 'ai002', 'aistart'],
           'tech': ['geek', 'geek001', 'geek002'],
-          'stock': ['stock', 'stock001', 'stock002'],
-          'creative': ['app'],
-          'learn': ['gpt', 'go', 'ecg']
+          'stock': ['stock', 'stock001', 'stock002', 'stock003', 'stocktactics'],
+          'creative': ['app', 'prompt-gallery'],
+          'learn': ['gpt', 'go', 'ecg', 'ecg001', 'edudaily', 'article', 'weekly']
         };
 
         const categories = categoryMap[category] || [category];
@@ -520,24 +532,30 @@
       // 兼容 path 和 url 两种字段名
       const articleUrl = article.url || article.path || '#';
 
-      // 提取分类
-      const category = this.extractCategory(articleUrl);
+      // 优先用数据里的 category；否则从 URL 推断
+      const category = article.category || this.extractCategory(articleUrl);
       const categoryConfig = this.getCategoryConfig(category);
+      const icon = article.icon || categoryConfig.icon;
 
       // 提取日期
-      const date = this.extractDate(articleUrl);
+      const date = article.date || this.extractDate(articleUrl);
+      const clicks = Number(article.clicks || 0);
+      const impressions = Number(article.impressions || 0);
+      const gscMeta = clicks > 0
+        ? `<span class="article-gsc" title="Google Search Console 点击 / 展现">${clicks} 次点击 · ${impressions} 展现</span>`
+        : `<span class="article-date">${date}</span>`;
 
       return `
         <div class="article-card" data-category="${category}">
           <div class="article-card-cover" style="background: ${categoryConfig.color};">
-            <span class="article-card-category-icon">${categoryConfig.icon}</span>
+            <span class="article-card-category-icon">${icon}</span>
           </div>
           <div class="article-card-content">
             <div class="article-card-meta">
               <span class="article-category" style="color: ${categoryConfig.color};">
-                ${categoryConfig.icon} ${categoryConfig.name}
+                ${icon} ${categoryConfig.name}
               </span>
-              <span class="article-date">${date}</span>
+              ${gscMeta}
             </div>
             <h3 class="article-card-title">
               <a href="${articleUrl}" target="_blank" rel="noopener noreferrer">${article.title}</a>
@@ -551,24 +569,28 @@
     },
 
     extractCategory(url) {
-      if (url.includes('/ai/')) return 'ai';
-      if (url.includes('/geek/')) return 'tech';
-      if (url.includes('/stock/')) return 'stock';
-      if (url.includes('/gpt/')) return 'gpt';
-      if (url.includes('/go/')) return 'go';
-      return 'other';
+      const m = String(url || '').match(/^\/?([^\/]+)\//);
+      return m ? m[1] : 'other';
     },
 
     getCategoryConfig(category) {
+      const family = String(category || '').replace(/\d+$/, '');
       const configs = {
         ai: { name: 'AI', icon: '🤖', color: '#3B82F6' },
+        aistart: { name: 'AI', icon: '🤖', color: '#3B82F6' },
+        geek: { name: '技术', icon: '💻', color: '#10B981' },
         tech: { name: '技术', icon: '💻', color: '#10B981' },
         stock: { name: '股票', icon: '📈', color: '#EF4444' },
+        stocktactics: { name: '股票', icon: '📈', color: '#EF4444' },
         gpt: { name: 'GPT', icon: '🧠', color: '#8B5CF6' },
         go: { name: 'Go', icon: '🐹', color: '#06B6D4' },
+        ecg: { name: '健康', icon: '💊', color: '#F59E0B' },
+        article: { name: '文章', icon: '📚', color: '#6B7280' },
+        weekly: { name: '周刊', icon: '📰', color: '#6B7280' },
+        edudaily: { name: '学习', icon: '📚', color: '#6B7280' },
         other: { name: '其他', icon: '📚', color: '#6B7280' }
       };
-      return configs[category] || configs.other;
+      return configs[category] || configs[family] || configs.other;
     },
 
     extractDate(url) {
