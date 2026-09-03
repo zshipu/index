@@ -391,54 +391,44 @@
   };
 
   // ==========================================
-  // 文章加载模块
+  // 文章加载模块（精选 + 最新双列表）
   // ==========================================
   const ArticlesModule = {
     init() {
+      this.featuredGrid = document.getElementById('featuredArticlesGrid');
       this.grid = document.getElementById('articlesGrid');
       this.loadMoreBtn = document.getElementById('loadMoreBtn');
       this.currentPage = 1;
       this.articlesPerPage = 12;
       this.allArticles = [];
       this.filteredArticles = [];
+      this.featuredArticles = [];
       this.currentCategory = 'all';
       this.loading = false;
 
-      if (!this.grid) return;
+      if (!this.grid && !this.featuredGrid) return;
 
-      // 暴露实例到全局
       window.ArticlesModuleInstance = this;
-
-      // 加载首页文章
       this.loadArticles();
 
-      // 隐藏"加载更多"按钮，使用无限滚动
       if (this.loadMoreBtn) {
         this.loadMoreBtn.style.display = 'none';
       }
-
-      // 绑定无限滚动
       this.initInfiniteScroll();
-
       utils.log('ArticlesModule initialized');
     },
 
     initInfiniteScroll() {
-      // 使用节流优化性能
       const handleScroll = utils.throttle(() => {
-        // 检查是否滚动到底部附近 (距离底部300px)
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const windowHeight = window.innerHeight;
         const docHeight = document.documentElement.scrollHeight;
-
         if (scrollTop + windowHeight >= docHeight - 300) {
-          // 如果还有更多内容且未在加载中
           if (!this.loading && this.hasMoreArticles()) {
             this.loadMore();
           }
         }
       }, 200);
-
       window.addEventListener('scroll', handleScroll);
     },
 
@@ -447,34 +437,53 @@
       return totalLoaded < this.filteredArticles.length;
     },
 
+    async fetchFeed(urls) {
+      for (const url of urls) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) continue;
+          const data = await response.json();
+          if (data && (data.articles || []).length) {
+            return data;
+          }
+        } catch (error) {
+          utils.log('feed unavailable:', url, error);
+        }
+      }
+      return { articles: [] };
+    },
+
     async loadArticles() {
       if (this.loading) return;
       this.loading = true;
 
       try {
-        // 优先：GSC 高点击/高展现精选；回退最近文章
-        let data = null;
-        try {
-          const featured = await fetch('/gsc-featured.json');
-          if (featured.ok) {
-            data = await featured.json();
-            utils.log('Loaded GSC featured articles:', data.total);
+        const featuredData = await this.fetchFeed([
+          '/homepage-featured.json',
+          '/gsc-featured.json',
+        ]);
+        this.featuredArticles = featuredData.articles || [];
+        if (this.featuredGrid) {
+          if (this.featuredArticles.length) {
+            this.renderArticlesTo(this.featuredGrid, this.featuredArticles.slice(0, 12));
+          } else {
+            this.featuredGrid.innerHTML = '<p class="empty-state">暂无精选数据，遗留索引仍保留在根目录。</p>';
           }
-        } catch (e) {
-          utils.log('gsc-featured.json unavailable, fallback to recent');
         }
-        if (!data || !(data.articles || []).length) {
-          const response = await fetch('/site-links-recent.json');
-          data = await response.json();
-        }
-        this.allArticles = data.articles || [];
-        this.filteredArticles = this.allArticles; // 初始显示全部
 
-        if (this.filteredArticles && this.filteredArticles.length) {
-          this.renderArticles(this.filteredArticles.slice(0, this.articlesPerPage));
-          this.updateLoadMoreButton();
-        } else {
-          this.showEmptyState();
+        const recentData = await this.fetchFeed([
+          '/homepage-recent.json',
+          '/site-links-recent.json',
+        ]);
+        this.allArticles = recentData.articles || [];
+        this.filteredArticles = this.allArticles;
+        if (this.grid) {
+          if (this.filteredArticles.length) {
+            this.renderArticles(this.filteredArticles.slice(0, this.articlesPerPage));
+            this.updateLoadMoreButton();
+          } else {
+            this.showEmptyState();
+          }
         }
       } catch (error) {
         utils.log('Failed to load articles:', error);
@@ -486,46 +495,67 @@
 
     filterByCategory(category) {
       this.currentCategory = category;
-      this.currentPage = 1; // 重置页码
+      this.currentPage = 1;
 
-      if (category === 'all') {
-        this.filteredArticles = this.allArticles;
-      } else {
-        // 根据 category tab 的 data-category 映射到文章的实际分类
-        const categoryMap = {
-          'ai': ['ai', 'ai001', 'ai002', 'aistart'],
-          'tech': ['geek', 'geek001', 'geek002'],
-          'stock': ['stock', 'stock001', 'stock002', 'stock003', 'stocktactics'],
-          'creative': ['app', 'prompt-gallery'],
-          'learn': ['gpt', 'go', 'ecg', 'ecg001', 'edudaily', 'article', 'weekly']
-        };
+      const categoryMap = {
+        'ai': ['ai', 'ai001', 'ai002', 'aistart', 'aistartstart'],
+        'tech': ['geek', 'geek001', 'geek002'],
+        'stock': ['stock', 'stock001', 'stock002', 'stock003', 'stocktactics'],
+        'creative': ['app', 'prompt-gallery', 'game001'],
+        'learn': ['gpt', 'go', 'ecg', 'ecg001', 'edudaily', 'article', 'weekly', 'climate', 'medtech']
+      };
 
+      const match = (article) => {
+        if (category === 'all') return true;
         const categories = categoryMap[category] || [category];
-        this.filteredArticles = this.allArticles.filter(article =>
-          categories.includes(article.category)
+        const site = article.category || this.extractCategory(article.url || article.path || '');
+        return categories.includes(site);
+      };
+
+      if (this.featuredGrid && this.featuredArticles.length) {
+        const featuredFiltered = this.featuredArticles.filter(match);
+        this.renderArticlesTo(
+          this.featuredGrid,
+          featuredFiltered.slice(0, 12).length
+            ? featuredFiltered.slice(0, 12)
+            : []
         );
+        if (!featuredFiltered.length) {
+          this.featuredGrid.innerHTML = '<p class="empty-state">该分类暂无精选文章</p>';
+        }
       }
 
-      // 重新渲染
+      this.filteredArticles = this.allArticles.filter(match);
       if (this.filteredArticles.length > 0) {
         this.renderArticles(this.filteredArticles.slice(0, this.articlesPerPage));
         this.updateLoadMoreButton();
       } else {
         this.showEmptyState();
       }
-
       utils.log('Filtered by category:', category, 'Count:', this.filteredArticles.length);
     },
 
+    renderArticlesTo(grid, articles) {
+      grid.innerHTML = articles.map(article => this.createArticleCard(article)).join('');
+      this.animateCardsIn(grid);
+    },
+
     renderArticles(articles) {
-      // 移除骨架屏
-      this.grid.innerHTML = '';
+      if (!this.grid) return;
+      this.renderArticlesTo(this.grid, articles);
+    },
 
-      const html = articles.map(article => this.createArticleCard(article)).join('');
-      this.grid.innerHTML = html;
-
-      // 触发进入动画
-      this.animateCards();
+    animateCardsIn(grid) {
+      const cards = grid.querySelectorAll('.article-card');
+      cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+          card.style.transition = 'all 0.5s ease';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        }, index * 50);
+      });
     },
 
     createArticleCard(article) {
@@ -873,7 +903,10 @@
 
     async loadTopics() {
       try {
-        const response = await fetch('/site-links-recent.json');
+        let response = await fetch('/homepage-recent.json');
+        if (!response.ok) {
+          response = await fetch('/site-links-recent.json');
+        }
         if (!response.ok) throw new Error('Failed to fetch recent articles');
 
         const data = await response.json();
