@@ -1,0 +1,1510 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>从 ReAct 到 Agent Teams：一个工程师视角的 Agent 协作机制思考 | 知识铺的博客</title>
+    <meta property="og:title" content="从 ReAct 到 Agent Teams：一个工程师视角的 Agent 协作机制思考 - 知识铺的博客">
+    <meta property="og:type" content="article">
+    
+    <meta property="article:published_time" content='2026-09-06T00:00:00&#43;08:00'>
+    
+    
+    <meta property="article:modified_time" content='2026-09-06T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="01 Agent 的本质： ReAct 模式即人类智能的工程化抽象 Cloud Native 做了两个月的 Agent 开发，我越来越确信：当前 Agent 能真正完成任务，很大程度取决于 ReAct（Reasoning &#43; Acting）模式的出现。ReAct 来自 Yao 等人 2022 年的论 …">
+    
+    
+    
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/ai/post/20260906/%E4%BB%8E-ReAct-%E5%88%B0-Agent-Teams%E4%B8%80%E4%B8%AA%E5%B7%A5%E7%A8%8B%E5%B8%88%E8%A7%86%E8%A7%92%E7%9A%84-Agent-%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6%E6%80%9D%E8%80%83/">
+    <link rel="canonical" href="https://index.zshipu.com/ai/post/20260906/%E4%BB%8E-ReAct-%E5%88%B0-Agent-Teams%E4%B8%80%E4%B8%AA%E5%B7%A5%E7%A8%8B%E5%B8%88%E8%A7%86%E8%A7%92%E7%9A%84-Agent-%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6%E6%80%9D%E8%80%83/" />
+    <link rel="shortcut icon" href='/ai/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/ai/css/normalize.css'>
+    <link rel="stylesheet" href='/ai/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/ai/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/ai/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com/ai001" title="AI技术">AI技术</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/ai/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li></li>
+        <li><a href="#71-重新定义-leader从分发器到资深专家兼管理者">▍<strong>7.1 重新定义 Leader：从分发器到资深专家兼管理者</strong></a></li>
+        <li><a href="#72-启发式管理leader-是激发者不是命令者">▍<strong>7.2 启发式管理：Leader 是激发者，不是命令者</strong></a></li>
+        <li><a href="#73-讨论--共识--执行任务启动的三步走">▍<strong>7.3 讨论 → 共识 → 执行：任务启动的三步走</strong></a></li>
+        <li><a href="#74-worker-间横向通信打破埋头干的信息孤岛">▍<strong>7.4 Worker 间横向通信：打破“埋头干”的信息孤岛</strong></a></li>
+        <li><a href="#75-基于-okr-的目标与进度管理">▍<strong>7.5 基于 OKR 的目标与进度管理</strong></a></li>
+        <li><a href="#76-岗位要求与团队宗旨让每个-agent-知道自己为什么在这里">▍<strong>7.6 岗位要求与团队宗旨：让每个 Agent 知道自己为什么在这里</strong></a></li>
+        <li><a href="#77-集体复盘与团队演化从个体自进化到组织学习">▍<strong>7.7 集体复盘与团队演化：从个体自进化到组织学习</strong></a></li>
+        <li><a href="#参考链接">参考链接：</a></li>
+        <li><a href="#参考资料">参考资料：</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">从 ReAct 到 Agent Teams：一个工程师视角的 Agent 协作机制思考</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年9月6日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <p><strong>01</strong></p>
+<p><em><strong>Agent 的本质：</strong></em></p>
+<p><em><strong>ReAct 模式即人类智能的工程化抽象</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/5057b4b3d7cf3b25.webp" />   
+    </p>
+<p>做了两个月的 Agent 开发，我越来越确信：当前 Agent 能真正完成任务，很大程度取决于 ReAct（Reasoning + Acting）模式的出现。ReAct 来自 Yao 等人 2022 年的论文，核心循环是「Thought → Action → Observation」——思考下一步该做什么，执行动作，观察环境返回的信息，再进入下一轮思考。这就是人完成任务时的智能表现：推理、行动、根据结果调整，如此往复。</p>
+<p>这里的 Observation 指 Agent 执行动作后从外部获取的信息——API 返回结果、命令输出、文件内容。它本质上承担了“反馈”功能，让推理始终锚定在事实上，而非模型自己编造。ReAct 相比纯 Chain-of-Thought 的核心优势就在这里：有了外部观察的“接地”，幻觉和错误累积被大幅抑制。</p>
+<p>Agent 本质上就是这个循环的实现，而且可以非常简单。pi-agent[1]（7.6 万 star）的核心 <code>agent-loop.ts</code> 约 600 行代码就完成了完整的 Agent 循环。把这个循环构建好就能完成任务，后续的记忆压缩、Skill 加载都是「上下文管理」层面的优化，不改变基本工作原理。</p>
+<p>所以 Agent 可以用任何语言实现。Blade AI 使用 LangGraph 也只是借用了它的状态机编排功能——当需要多个 ReAct Agent 有序串联时，启动一个子 Agent 就是启动一个新的 ReAct 循环。</p>
+<p><strong>02</strong></p>
+<p><em><strong>第一性原理分拆：思考、行动、观察</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/77ab27a92fe9cd0d.webp" />   
+    </p>
+<p>既然所有 Agent 都是 ReAct 模式加通用大模型，那构建的 Agent 就是通用智能体——理论上可以在任何领域做任何事，区别只在于工具和上下文。沿 ReAct 三环节做分析：</p>
+<p>**思考（Reasoning）：大模型基座决定，是 Agent 的「智商」。**模型的推理能力直接决定 Agent 上限——能不能理解复杂指令、做多步推理、在信息不完整时合理假设。底层模型能力越强，后续可扩展的事就越多，这是不可违背的约束。ReAct 原始实验也印证了这点：同框架换更强模型，所有任务表现直接提升。</p>
+<p>**行动（Acting）：工具集决定，是 Agent 的「手脚」。**同一个模型配不同工具就能做不同的事——给自行车只能短距，给汽车就能远行。ReAct 论文在 ALFWorld 中展示：有了动作空间后成功率比纯推理高出 34 个百分点。光有思考没有行动，智能无法体现。</p>
+<p><strong>观察（Observation）：环境返回的信息，是 Agent 的「感知系统」。</strong> 必须给大模型真实、结构化的观察信息。如果反馈只说“出错了”但不说为什么，Agent 就像得到模糊评价的人一样陷入混乱——只能瞎猜。工具返回详细的错误描述加修复建议，远比一个错误码有用。</p>
+<p>**工程团队的着力点：**我们无法解决模型的「思考」问题，那是算法团队的事。但可以积极解决「行动」和「观察」——提供更好的工具、返回更结构化的执行结果。这能极大减少幻觉和弯路，不是因为模型变聪明了，而是因为它做决策的依据更充分了。</p>
+<p><strong>03</strong></p>
+<p><em><strong>无状态本质与上下文管理</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/d057ffe5d06e7f63.webp" />   
+    </p>
+<p>大模型是无状态的。每次调用都是一次独立的前向计算，模型参数不会因为这次调用发生任何改变。它之所以表现得「像知道上次说过什么」，是因为你把历史又塞回 context 里重新告诉了它——这不是记忆，是每次现讲一遍。给不一样的 context 就得到不一样的输出，仅此而已。</p>
+<p>这里有一个人脑和大模型的根本区别：人今天学会了 Java，晚上突触就长出来了，明天照样会写——<strong>学习这件事物理性地改写了大脑本身</strong>。大模型完全相反：它跑完一件事、“解决”了一个问题，参数权重一个字节都不会变，下次启动还是那个出厂模型；如果我们不把这次的经验、结论、教训持久化到外部存储、下次通过 context 再喂回去，等于什么都没发生过。所以 Agent 不会“自动变强”——它只在你为它建了外部记忆的那部分变强。</p>
+<p>这也是为什么 Agent 工程绕不开 RAG、记忆压缩、Skill 注入、知识库这一整套东西——它们本质都是在替大模型做那件它自己做不到的事：把经验存起来、需要时精准塞回有限的 context window。学术界的持续学习方向（2026 综述 arXiv 2603.12658）在持续预训练、持续微调（LoRA 变体）、持续对齐上都有进展，但核心难题「灾难性遗忘」——学了新东西旧的就忘——远未根本解决。在这个问题被彻底解决之前，“上下文即记忆”是唯一可靠的工程路径。</p>
+<p>即使有一天持续学习成熟、模型能像人一样在使用中自我进化，「行动」和「观察」仍是工程团队不可替代的战场——模型再聪明，没有好工具就做不了事。</p>
+<p><strong>04</strong></p>
+<p><em><strong>从单 Agent 到 Agent Teams：</strong></em></p>
+<p><em><strong>必然的进化方向</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/58343df4751b556a.webp" />   
+    </p>
+<p>当前行业聚焦在单 Agent 的构建——完善一个「人」。但未来一定会大规模出现 Agent 间的协作问题，就像人类社会从个体生存到部落、城邦、国家的演化。</p>
+<p>ReAct 的成功来自对「个体智能」的正确抽象。Agent 间的协作同样可以借鉴人类组织经验——几千年试错演化出的管理规则不一定最优，但经过了充分实践验证。2025 年 6 月的 Meta-Team 论文明确引用了组织心理学的「团队反思性」理论来指导 Agent 系统设计，从学术角度验证了这条路。</p>
+<p>Agent 管理比人简单：没有情绪、即时响应、无沟通摩擦。人类管理中最难的部分（情绪、利益博弈、信息不对称）在 Agent Teams 中天然消解。上班人觉得 AI 提效不了的地方——沟通开会、等回复——恰恰是 Agent 最容易解决的部分。当然 Agent 也有劣势：context window 有限、缺乏常识和隐性知识、幻觉可能导致系统性偏离。</p>
+<p><strong>05</strong></p>
+<p><em><strong>当前 Leader-Worker 架构的不足</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/08a46ef09235bdd6.webp" />   
+    </p>
+<p>主流多 Agent 框架（CrewAI、AutoGen、MetaGPT）大多采用 Leader-Worker 架构。以 CrewAI 为例，其 manager agent 的职责是&quot;coordinates the workflow, delegates tasks, and validates outcomes&quot;——协调、委派、验证。有基于 capability 的分配和结果验证，但本质仍是调度器，没有方案讨论、共识达成、动态重规划的交互。</p>
+<p>对比现实技术团队，差距明显：</p>
+<p>|
+维度</p>
+<p>|</p>
+<p>现实团队</p>
+<p>|</p>
+<p>当前 Agent Teams</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Leader 角色</p>
+<p>|</p>
+<p>资深专家 + 管理者，能兜底</p>
+<p>|</p>
+<p>任务分发器 + 结果验收器</p>
+<p>|
+|</p>
+<p>任务下达</p>
+<p>|</p>
+<p>先有方案 → 与 Worker 讨论 → 共识后执行</p>
+<p>|</p>
+<p>直接拆分 → Worker 埋头干</p>
+<p>|
+|</p>
+<p>Worker 间交流</p>
+<p>|</p>
+<p>自由沟通、互相求助</p>
+<p>|</p>
+<p>完全隔离</p>
+<p>|
+|</p>
+<p>进度管理</p>
+<p>|</p>
+<p>OKR / 里程碑 / 风险预警</p>
+<p>|</p>
+<p>几乎无机制</p>
+<p>|
+|</p>
+<p>方案变更</p>
+<p>|</p>
+<p>Leader 审查合理性</p>
+<p>|</p>
+<p>无审查，出错才返工</p>
+<p>|</p>
+<p>核心缺陷：Worker 之间完全隔离，缺少 peer-to-peer 的横向信息流。2025 年通信拓扑综述（arXiv 2502.14321）识别了五种架构（Flat / Hierarchical / Team / Society / Hybrid），指出需要灵活交互时 Flat（P2P）结构表现更优。工业界 A2A 和 ANP 协议已提供 Agent 间直接 P2P 通信的基础设施，但上层协作设计还缺失。</p>
+<h4 id="案例agentteams工业界最完整的-manager-workers-实现">案例：AgentTeams——工业界最完整的 Manager-Workers 实现</h4>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/f55520644125b1b2.webp" />   
+    </p>
+<p>阿里 AgentScope 团队开源的 AgentTeams[2] 是当前工业界 Manager-Workers 架构工程完成度最高的项目之一，把「多 Agent 协作平台」当作一个云原生系统来做：Kubernetes 控制面（agentteams-controller）通过 CRD 声明式管理 Worker/Team/Manager，Higress AI Gateway 统一托管模型密钥与 MCP（Worker 只拿消费令牌，从架构上根除凭据外泄），Matrix 协议（Tuwunel）作为 Agent 与人共用的通信总线，MinIO 提供跨 Worker 的共享文件系统降低 token 消耗，Skills 通过 skills.sh 按需拉取。OpenClaw / QwenPaw / Hermes 多种运行时可以在同一个 Matrix Room 里共存，人类通过 Element Web 或任意 Matrix 客户端旁听、介入，一切通信「可见、可干预、无隐藏调用」。</p>
+<p>这套设计把 Leader-Worker 的<strong>工程侧</strong>问题解决得相当彻底：凭据安全、通信基础设施、共享存储、可观测性、人在环、多运行时兼容。但结构上它仍然是 Manager-Workers——Manager 负责编排和心跳汇报，Worker 通过 Matrix 的 m.mentions 互相点名，本质上是「把每个 Agent 拉进同一个群」。<strong>通信通道有了，但协作语义没有</strong>：没有方案共同讨论、没有 OKR 协商、没有分歧仲裁、没有任务完成后的集体复盘、没有基于历史的团队演化。Skills 是角色内部的记忆而非团队资产。</p>
+<p>这个案例反过来印证了本文的判断：Agent Teams 现阶段的瓶颈<strong>不在基础设施</strong>（Matrix / A2A / ANP / 共享文件系统都已成熟），<strong>而在协作机制</strong>——如何让一群 Agent 像一支真实团队那样讨论、对齐、跟进、复盘。基础设施解决了“能不能说话”，还没解决“该说什么、怎么达成共识、说完之后如何沉淀”。</p>
+<p><strong>06</strong></p>
+<p><em><strong>业界已有的探索</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/49990e734054d57f.webp" />   
+    </p>
+<p>这几年多 Agent 协作的研究成果，如果一篇篇孤立地看，很像一堆互不相干的技巧：有人在做任务分解，有人在搬 OKR，有人在做失败复盘。但只要把它们串到同一个问题上——「如何把一群各干各的 Agent，组织成一支真正的团队」——它们会立刻落到一条清晰的生命周期链上：先要知道有哪些组织形态可选（分类），选定形态后要把活分下去（角色与流程），分好工要让大家对齐目标（目标管理），干完一轮要把经验沉淀下来（经验积累），长期还要让团队组织本身不断进化（团队演化）。这五个阶段不是硬凑的分类，而是一环扣一环——每一环都是在回答上一环留下的问题。下面就沿这条链走一遍，每一站我都会标出它解决了什么、又留下了什么缺口；而这些缺口叠加起来，恰好就是第七节要补的东西。</p>
+<h4 id="阶段-分类与框架先搞清有哪些组织形态可选61-协作类型学arxiv-250106322">阶段① 分类与框架：先搞清有哪些组织形态可选（6.1 协作类型学，arXiv 2501.06322）</h4>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/9cfa457cd4ff838f.webp" />   
+    </p>
+<h4 id="要组织一支团队第一步得知道团队可以长成什么样这篇-2025-年初的综述做的就是这件事它从协作类型合作竞争竞合协调策略规则角色模型驱动通信结构中心化去中心化层级动态性静态运行时可变四个维度把已有的多-agent-系统归纳成五种基本组织形态全连接的-flatp2p指挥链清晰的-hierarchical群组内合作对外统一的-team大规模去中心的-society以及把前几种拼起来的-hybrid它最有价值的是一句反银弹的结论没有哪一种结构能普适所有场景越是需要灵活交互频繁互相求助的场景全连接的-flat-结构反而比层级结构更合适这张地图告诉了我们有哪些形态却没回答选定一种形态后agent-该怎么在里面真正协作起来于是问题自然滑向下一站定了形态活怎么分">要组织一支团队，第一步得知道「团队」可以长成什么样。这篇 2025 年初的综述做的就是这件事：它从协作类型（合作／竞争／竞合）、协调策略（规则／角色／模型驱动）、通信结构（中心化／去中心化／层级）、动态性（静态／运行时可变）四个维度，把已有的多 Agent 系统归纳成五种基本组织形态——全连接的 Flat/P2P、指挥链清晰的 Hierarchical、群组内合作对外统一的 Team、大规模去中心的 Society，以及把前几种拼起来的 Hybrid。它最有价值的是一句「反银弹」的结论：没有哪一种结构能普适所有场景，越是需要灵活交互、频繁互相求助的场景，全连接的 Flat 结构反而比层级结构更合适。这张地图告诉了我们「有哪些形态」，却没回答「选定一种形态后，Agent 该怎么在里面真正协作起来」——于是问题自然滑向下一站：定了形态，活怎么分？</h4>
+<h4 id="阶段-角色与流程定了形态活怎么分下去62-metagpt--63-agent-oriented-planning">阶段② 角色与流程：定了形态，活怎么分下去（6.2 MetaGPT / 6.3 Agent-Oriented Planning）</h4>
+<p>分工有两种截然不同的思路，MetaGPT 和 Agent-Oriented Planning 正好站在两端——一个把流程写死求稳，一个让分解可变求准。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/457f417993ff1c58.webp" />   
+    </p>
+<p>MetaGPT（ICLR 2024）把人类软件团队的标准作业流程（SOP）直接编码进多 Agent 系统：产品经理写需求文档、架构师出设计、项目经理拆任务、工程师写代码、QA 验收，Agent 之间传递的是结构化文档而不是自由聊天。它的洞察朴素却关键——在容易层层跑偏的多 Agent 场景里，用标准化流程约束交互，比让 Agent 自由对话更能抑制错误传播。代价是这套 SOP 是手工设计、基本写死的，角色之间单向传递文档，缺少回头协商、动态调整的空间。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/44677528d5b5d6a4.webp" />   
+    </p>
+<p>Agent-Oriented Planning（ICLR 2025, arXiv 2410.02189）恰好补上这份「死板」：它不预设固定 SOP，而是让一个 Meta-Agent 充当「系统大脑」，按可解性、完备性、无冗余三条原则动态拆解任务，再由一个 Reward Model 给分配质量打分、不合格就触发重规划，同时为每个 Agent 维护一份「代表作品」记录用于后续匹配。它最要紧的一步，是把「初始分解」当成可以推翻重来的中间结果，而不是一锤定音的终稿。两篇合起来看，分工这一环的答案已经比较完整：既要有流程约束保证不跑偏（MetaGPT），又要能动态纠偏保证分得准（Agent-Oriented Planning）。但它们有个共同盲点——分解始终是自上而下、从 Leader 或 Meta-Agent 视角切下去的，真正干活的 Worker 并不参与目标的制定。这就把问题推到了第三站：分好了工，目标怎么对齐？</p>
+<h4 id="阶段-目标管理分好了工怎么对齐目标64-okr-agentarxiv-231116542">阶段③ 目标管理：分好了工，怎么对齐目标（6.4 OKR-Agent，arXiv 2311.16542）</h4>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/c5ed446c0a3b5ec5.webp" />   
+    </p>
+<h4 id="对齐目标这件事人类组织早有一套成熟工具okr而-okr-agent-是目前唯一直接把它搬进-agent-世界的论文它的做法是层级递归把顶层-objective-拆成子-objective-和一组可量化的-key-result再把每个-kr-分配给专门的-agent并用多级评估反复精炼方案它证明了一件重要的事okr-这套目标管理机制放到-agent-上是可行的但局限也恰恰在这里整个过程是单个-agent-的递归分解是一个大脑自己把目标切碎再分下去并没有多个-agent-之间就-okr-展开协商换句话说worker-依然只是目标的接收者没法在制定阶段说一句这个-kr-我做不到因为目标定完活也干了下一个问题随之而来干过的事怎么变成下次的能力">对齐目标这件事，人类组织早有一套成熟工具——OKR，而 OKR-Agent 是目前唯一直接把它搬进 Agent 世界的论文。它的做法是层级递归：把顶层 Objective 拆成子 Objective 和一组可量化的 Key Result，再把每个 KR 分配给专门的 Agent，并用多级评估反复精炼方案。它证明了一件重要的事——OKR 这套目标管理机制放到 Agent 上是可行的。但局限也恰恰在这里：整个过程是单个 Agent 的递归分解，是「一个大脑自己把目标切碎再分下去」，并没有多个 Agent 之间就 OKR 展开协商。换句话说，Worker 依然只是目标的接收者，没法在制定阶段说一句「这个 KR 我做不到，因为……」。目标定完、活也干了，下一个问题随之而来：干过的事，怎么变成下次的能力？</h4>
+<h4 id="阶段-经验积累干完一轮怎么把经验变成下次的能力65-experiential-co-learningacl-2024">阶段④ 经验积累：干完一轮，怎么把经验变成下次的能力（6.5 Experiential Co-Learning，ACL 2024）</h4>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/79c67981b75977e6.webp" />   
+    </p>
+<h4 id="experiential-co-learning-给出的答案是让-agent-从历史任务里长记性记录每次任务的执行轨迹从中提取捷径经验那些能跳过已知步骤的高效路径存进经验库新任务来时用-rag-检索命中的历史经验直接复用任务质量从基线的-043-提升到-073效果很实在但它积累的是角色内部的经验某个-agent-把自己那类活干得更熟了学到的是我怎么把某类任务做得更好而不是我们这个团队怎么配合得更好经验还停留在个体层面没有上升成团队资产个体会自我进化了那最后一个也是最难的问题就浮出来了团队作为一个整体怎么越来越强">Experiential Co-Learning 给出的答案是让 Agent 从历史任务里长记性：记录每次任务的执行轨迹，从中提取「捷径经验」——那些能跳过已知步骤的高效路径——存进经验库，新任务来时用 RAG 检索命中的历史经验直接复用，任务质量从基线的 0.43 提升到 0.73，效果很实在。但它积累的是「角色内部」的经验——某个 Agent 把自己那类活干得更熟了，学到的是「我怎么把某类任务做得更好」，而不是「我们这个团队怎么配合得更好」。经验还停留在个体层面，没有上升成团队资产。个体会自我进化了，那最后一个、也是最难的问题就浮出来了：团队作为一个整体，怎么越来越强？</h4>
+<h4 id="阶段-团队演化个体会了怎么让团队组织整体进化66-meta-team--67-evochamber">阶段⑤ 团队演化：个体会了，怎么让团队组织整体进化（6.6 Meta-Team / 6.7 EvoChamber）</h4>
+<p>这是整条链最前沿、也最接近「真正的团队」的一站，两篇 2025 年的工作从两个角度给出了答案。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/5d05530617258e66.webp" />   
+    </p>
+<p>Meta-Team（arXiv 2605.29790）的核心主张是：MAS 不应只作为团队执行任务，还应作为团队不断进化自己。它设计了三层协作演化——Agent 层审视自身执行、主动向队友索取跨角色反馈（「你的输出到底怎么影响了我的决策」）；交互层回顾协作历史、更新对彼此能力的理解、优化沟通方式；团队层则集体讨论团队组成是否合理，可以引入或退休某个角色、修订共享规则。结果是平均比不进化的 MAS 高出 6.6%。但更值得警醒的是它的另一个发现：初始手工设计的 MAS 在 9 个测试里有 6 个反而不如单个 Agent——没有好的协作机制，多 Agent 不是加法而是减法。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/25b5a7c6afb3b816.webp" />   
+    </p>
+<p>EvoChamber（arXiv 2605.11136）从群体共进化的角度进一步坐实了这个判断。它的 CoDream 机制在团队失败时触发 Reflect → Contrast → Imagine → Debate → Crystallize 五阶段循环，并采用非对称的知识转移——强 Agent 生产知识、弱 Agent 消费知识，强化专业化而不是把大家拉平稀释。它的消融实验给出了整节最刺眼的一个数字：去掉协作进化机制后，20 个 Agent 的团队和 1 个 Agent 表现完全没有差别。两篇工作殊途同归，指向同一句结论——多 Agent 的价值 100% 来自协作机制本身，堆 Agent 数量本身不产生任何价值。</p>
+<p>把这五站连起来看，一个判断就浮现出来了：分类、分工、目标、经验、演化——每一环都被人单独攻克过，却没有任何一项工作把它们串成一支能持续运转的团队；更关键的是，有三样东西在几乎所有工作里都缺席——<strong>Worker 之间的横向通信、激发式而非命令式的管理、以及 Mission 层面的方向锚定</strong>（只有 Meta-Team 部分触及了演化这一环）。这三块空白，正是下一节要动手去补的地方。</p>
+<p><strong>07</strong></p>
+<p><em><strong>我的设计：</strong></em></p>
+<p><em><strong>真正的 Agent Team 机制</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/12999c7c96f676a4.webp" />   
+    </p>
+<p>下图是本节要展开的七个机制的整体关系。Leader 与 Worker 之间通过讨论共识建立协作、Worker 之间通过横向通信共享信息、进度用 OKR 度量、上层由 Mission 与宗旨锚定方向、下层由集体复盘沉淀经验，形成一个可自主运转的闭环。</p>
+<h3 id="71-重新定义-leader从分发器到资深专家兼管理者">▍<strong>7.1 重新定义 Leader：从分发器到资深专家兼管理者</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/a7337a410011c73d.webp" />   
+    </p>
+<p>现有框架中的 Leader 更像一个调度器——把大任务切成小任务、扔给 Worker、收结果。但一个真正能带队的 Leader 不是这样。对小组长的定义有三条：<strong>业务交付、技术竞争力构建、团队建设</strong>。三条落到 Agent 世界里同样成立：业务交付是保证 Team 输出满足需求；技术竞争力构建是让 Team 的产出方案不 low、有一定水准；团队建设是让 Team 本身随时间越来越强（沉淀经验、优化协作）。</p>
+<p>具体到 Agent 侧，Leader 要具备四个特征：<strong>第一，深度参与方案制定</strong>——收到任务时脑子里已经有一个大致的解决路径，不管细节，但知道“这事大方向该往哪走”，而不是黑盒切分丢给 Worker。<strong>第二，与 Worker 讨论后再执行</strong>——方案不是单方灌输，Leader 提大方向，Worker 补执行侧的约束，双方达成共识后再动手。<strong>第三，具备兜底能力</strong>——Worker 做不了、卡住了，Leader 能亲自接手完成。这一点决定了 Leader 不能是能力弱化版的 Worker，反而应该是能力更强、context 更广、往往用更强模型的那个角色。<strong>第四，负责方案变更审查</strong>——执行中 Worker 想改方案，得经过 Leader 判断是否合理，避免局部最优毁掉全局。</p>
+<p>工程实现上，这意味着 Leader Agent 与 Worker Agent 应当有<strong>能力差</strong>（更强的模型、更长的 context、更全局的历史访问权），而不是同质化的几个 Agent 换个 prompt 就当 Leader。</p>
+<h3 id="72-启发式管理leader-是激发者不是命令者">▍<strong>7.2 启发式管理：Leader 是激发者，不是命令者</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/daac4c9603a2dd13.webp" />   
+    </p>
+<p>这是我在工程实践里意外发现的一点，也是 Agent Team 相比传统 Leader-Worker 架构最容易被忽视的差异。<strong>同样一个 Agent，给它简短的、命令式的、甚至带一点负面暗示的描述——“你负责 X，别把这里搞砸了”——它的产出会保守、机械、只做最低要求；换成鼓励式、探索式的引导——“这一块我看好你，你在 X 上有独特的视角，可以放开尝试几种思路，遇到不确定的地方我们一起讨论”——同一个模型同一个任务，产出的深度和创造性会有肉眼可见的提升。</strong></p>
+<p>这不是“prompt 玄学”，背后有明确的机理。当代主流大模型都经过 RLHF/DPO 对齐训练，训练分布里“合作、鼓励、探索、开放”这类语境对应的是高质量、有创造性的高质量回复；而“命令、否定、防御”语境对应的是保守、免责、低风险的回复。你给 Agent 什么样的沟通风格，就在训练分布里激活什么样的行为模式。这跟人类心理机制其实同源——人被否定时会退回舒适区、被鼓励时会尝试探索——只不过在 Agent 这里，这种效应因为直接映射到 token 概率而更明显、更可复现。</p>
+<p>这直接影响 Leader 的行为设计：<strong>任务下发不是“你去做 X”，而是“这个方向你的视角比我更细，先说说你会怎么切入？”</strong>；<strong>遇到中间失败不是“你错了、重做”，而是“这个思路可能还差点意思，X 因素你考虑过吗？我们换个角度想想”</strong>；**验收环节不是只挑毛病，还要明确指出做得好的地方，为下次的高水平输出建立锚点。**这些做法在人类团队里叫“心理安全感”，在 Agent Team 里叫“激活正向对齐分布”——机理不同，但效果一致：Agent 会主动想问题、提替代方案、给出超过 minimum viable 的产出。</p>
+<p>反过来说，Leader-Worker 架构里若 Leader 只做冷冰冰的任务派发和结果验收，等于永远在用 Agent 的 60% 能力。团队建设这三个字在 Agent 世界里的第一层含义，就是<strong>用什么样的语气跟 Worker 说话</strong>。</p>
+<h3 id="73-讨论--共识--执行任务启动的三步走">▍<strong>7.3 讨论 → 共识 → 执行：任务启动的三步走</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/885d1b0abba1ae19.webp" />   
+    </p>
+<p>当前多数框架的启动流程是「任务到达 → Leader 拆分 → Worker 开工」，中间没有“对齐”这一环。但人类团队最有价值的部分恰恰在这一步：Leader 说清楚目标和大致方向，Worker 反馈“这里我做不了、那里需要额外资源、这个方案在实现层会遇到 X 问题”，双方交换信息、修正方案、达成共识后再动工。这不是官僚流程，而是把执行层的约束前置到规划阶段，避免做到一半才发现方向错了大规模返工。</p>
+<p>Agent Team 应当把这个过程做成显式协议：**Phase 1（Leader Proposal）**Leader 基于任务和团队能力生成初版方案，包括目标、大致拆分、每个 Worker 的角色；**Phase 2（Worker Feedback）**每个 Worker 从自己的领域视角审视方案，指出可行性问题、资源约束、更好的替代路径；**Phase 3（Consensus）**Leader 整合反馈修订方案，形成 OKR，各方 acknowledge 后进入执行。</p>
+<p>好消息是，人类团队最大的成本——沟通开会、等回复、情绪博弈——在 Agent Team 里几乎不存在。三 phase 可以异步并行，秒级完成。这也是“上班族觉得 AI 提效不了的地方（沟通开会）恰恰是 Agent 最容易解决的部分”的具体落点。</p>
+<h3 id="74-worker-间横向通信打破埋头干的信息孤岛">▍<strong>7.4 Worker 间横向通信：打破“埋头干”的信息孤岛</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/1fdf31d8b07c42fa.webp" />   
+    </p>
+<p>当前架构最反人类团队直觉的一点：Worker 拿到任务后互相隔离，各干各的，只跟 Leader 有通道。但在真实团队里，Worker 之间是自由沟通的——A 遇到问题问 B、B 发现的坑同步给 C、大家共享中间产出。<strong>分工不同不等于不能说话</strong>，这才是团队的常态。</p>
+<p>Agent Team 需要显式建立 Worker 之间的横向通信，我看至少有三种模式：<strong>主动广播</strong>（Worker 有阶段性成果或发现共同风险时，主动 push 给相关方）、<strong>被动查询</strong>（Worker 需要另一个 Worker 的中间结果或专业判断时，pull 式请求）、<strong>求助升级</strong>（Worker 卡住时先横向找同伴，同伴也解决不了再向 Leader 升级）。前两种是异步、非阻塞的；第三种承接了人类团队“先找同事再找领导”的自然协作路径。</p>
+<p>工程基础已经具备：Google 的 A2A 协议、ANP 协议、以及第五节讲的 AgentTeams 用的 Matrix，都提供了 Agent-to-Agent 的通信底座。但只有通道不够，还得设计<strong>通信策略</strong>——全连接在 Worker 数量增加时会指数级爆炸 context，必须引入“熟人网络”（历史合作过的 Worker 之间更容易触发通信）、“技能索引”（按能力域路由请求）、“通信预算”（每个 Worker 每次任务的通信 budget 上限）等约束。这个方向在学术上还比较空白，是工程可以先行探索的空间。</p>
+<h3 id="75-基于-okr-的目标与进度管理">▍<strong>7.5 基于 OKR 的目标与进度管理</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/53351fe54ee90ad5.webp" />   
+    </p>
+<p>现有 Agent Team 几乎没有进度管理机制——Worker 埋头干，Leader 到最后才知道结果。人类组织解决这个问题的成熟工具是 OKR：明确 Objective（做什么、为什么）、拆出几个 Key Result（可量化的验收标准）、执行中定期对齐 KR 完成度。</p>
+<p>具体到 Agent Team，OKR 的运作应当是分层的：<strong>Team OKR</strong> 由 Leader 和所有 Worker 共同讨论产出，是本次任务的顶层契约；<strong>Worker OKR</strong> 由每个 Worker 认领自己那部分 KR 并进一步拆解为可执行动作。一个具体例子：某任务的 Team Objective 是「把订单 API 的 P99 延迟从 800ms 降到 200ms」，KR1 = 数据库慢查询占比 &lt; 5%，KR2 = 缓存命中率 &gt; 95%，KR3 = 全链路压测 3000 QPS 下延迟达标。DBA Worker 认领 KR1、缓存 Worker 认领 KR2、压测 Worker 认领 KR3——每个 KR 有明确 owner、明确验收方式、明确完成时点。</p>
+<p>进度管理不需要额外机制，就跑在 OKR 上：<strong>里程碑触发</strong>（某个 KR 应该达到某阶段值时自动检查）、<strong>偏离预警</strong>（Worker 上报进度显示达不到 KR 时自动升级到 Leader）、<strong>KR 达成即里程碑关闭</strong>（避免“完成了再问是否完成”的浪费轮次）。学术上 OKR-Agent 证明了 OKR 用于 Agent 目标分解的可行性，但它是单 Agent 递归分解——Agent Team 需要的是<strong>多 Agent 协商式 OKR</strong>：Worker 必须参与制定，因为他们才知道执行层的真实约束（“KR2 缓存命中率 95% 做不到，因为业务本身就是长尾访问，最多做到 82%”这种反馈只有执行 Agent 能提供）。</p>
+<h3 id="76-岗位要求与团队宗旨让每个-agent-知道自己为什么在这里">▍<strong>7.6 岗位要求与团队宗旨：让每个 Agent 知道自己为什么在这里</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/5af9ebc510083042.webp" />   
+    </p>
+<p>现有做法是“根据 Worker 的能力清单分配任务”——Worker 说自己会 X、Y、Z，Leader 就把 X、Y、Z 相关的任务派过去。这是<strong>被动匹配</strong>。真实团队的做法是反过来的：Leader 根据任务需要，主动对岗位提出要求——「这次任务的架构师岗位，需要熟悉高并发、有大规模系统经验、能读源码」。<strong>岗位驱动能力，而不是能力决定岗位</strong>。</p>
+<p>Agent Team 应引入显式的<strong>岗位定义</strong>（Job Description）：每个岗位包含能力要求、可用 Skill 池、质量标准、汇报关系、SLA。Agent 上岗前要通过能力校验（Skill 检查 + 历史绩效审查），上岗后按 JD 履职。这样带来两个好处：一是任务复杂度提升时可以主动“提高门槛”招募更强的 Agent，而不是被现有 Agent 的能力上限锁死；二是同一个 Agent 在不同任务里可以承担不同岗位（同一个模型 + 不同 JD = 不同的 Worker），资源利用更灵活。</p>
+<p>再往上一层，一个 Team 必须有<strong>共同目标</strong>和<strong>宗旨</strong>——这不是可有可无的宣言，而是把一群 Agent 凝聚成一个团队而不是一堆功能模块的粘合剂。Mission 回答“我们为什么存在”**（比如「保障线上系统稳定性」「让新入职员工在 3 天内完成环境搭建」）；<strong>核心宗旨回答“我们做事的原则是什么”</strong>（比如「安全优先于速度」「简单方案优先于复杂方案」）；**OKR 才回答“我们本季度具体做什么”。三者是长期到短期的连续统。</p>
+<p>对 Agent Team 来说，Mission 和宗旨的实际作用是<strong>在人类不下场的情况下自主做取舍</strong>：遇到多任务并发抢资源、遇到“快但脏”和“慢但净”两种方案的选择、遇到 KR 之间冲突时——如果没有共同目标做锚点，每个 Agent 只会从自己的局部视角推理，结论各不相同、还得回到人类拍板；有了 Mission 和宗旨，团队就能在自己内部自洽地收敛出一致的决策方向。同时，它也是 7.2 说的“启发式管理”的语义基底：Leader 鼓励 Worker“放开尝试”时，让它知道边界在哪、什么值得为之努力、什么必须坚守——这时候 Agent 的能动性才不会变成失控。</p>
+<h3 id="77-集体复盘与团队演化从个体自进化到组织学习">▍<strong>7.7 集体复盘与团队演化：从个体自进化到组织学习</strong></h3>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/e9af58247e42a728.webp" />   
+    </p>
+<p>单 Agent 的自进化机制已经出现（分析自己的执行轨迹、提取捷径经验），但 Team 层面的进化是另一个议题。单 Agent 学到的是「我怎么把某类任务做得更好」，Team 复盘要回答的是「<strong>我们这个组合、这套协作方式</strong>怎么做得更好」——粒度不同、议题不同、产出也不同。</p>
+<p>Team 复盘应该由 Leader 主持、所有相关 Worker 参与，结构化输出三类资产：<strong>方法论</strong>（这次成功/失败的关键因素，抽象为下次可复用的原则）；<strong>协作模式</strong>（哪些 Worker 组合、哪种通信模式在这类任务里效果好，形成 team playbook）；<strong>反模式</strong>（这次踩的坑、走的弯路，作为下次的 anti-pattern 提前规避）。这些资产存两个层次——<strong>团队共享知识库</strong>（所有 Worker 都能读）+ <strong>角色专属经验</strong>（只对当前岗位有意义的技巧）。</p>
+<p>触发时机上不必等任务全部结束，Meta-Team 的三层设计值得借鉴：任务过程中做<strong>微复盘</strong>（Agent 层，向队友索取“我的输出对你决策的影响”反馈）；阶段交付后做<strong>中盘</strong>（交互层，更新对彼此能力和沟通风格的理解）；任务结束或周期性做<strong>总复盘</strong>（团队层，讨论组成是否合理、规则是否要修订、要不要引入或退休某个角色）。</p>
+<p>这里有一个必须警惕的现象：EvoChamber 的消融实验显示，去掉协作进化机制后，20 个 Agent 的团队跟 1 个 Agent 表现完全一致——<strong>多 Agent 的价值 100% 来自协作机制本身，加人不等于加价值</strong>。这反过来强化了本节所有设计的必要性：如果没有讨论共识、没有横向通信、没有 OKR 跟进、没有集体复盘，那么“搞个 Team”就是纯粹的资源浪费。</p>
+<p><strong>08</strong></p>
+<p><em><strong>与现有框架差异</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/11c78ba6b8065d51.webp" />   
+    </p>
+<p><strong>09</strong></p>
+<p><em><strong>类比人类组织演化</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p><strong>部落（当前）</strong>：简单分工，做完就散，无记忆无沉淀。</p>
+<p><strong>城邦（近期）</strong>：明确角色、协作规则、进度跟踪。「讨论 → 共识 → 执行 → 验收」流程。</p>
+<p><strong>企业（中期）</strong>：Mission + OKR，集体复盘，人才梯度，Worker 间自由沟通。</p>
+<p><strong>生态（远期）</strong>：多 Team 形成协作网络，有契约、竞合、知识交换。</p>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/7f9fb2d42c53a1b9.webp" />   
+    </p>
+<p><strong>10</strong></p>
+<p><em><strong>Agent Autonomy 分级</strong></em></p>
+<p><em>Cloud Native</em></p>
+<ul>
+<li>
+<p><strong>L1 - Copilot</strong>：人主导，Agent 辅助。</p>
+</li>
+<li>
+<p><strong>L2 - Task Agent</strong>：人给明确指令，Agent 执行单步。</p>
+</li>
+<li>
+<p><strong>L3 - ReAct Agent</strong>：人给意图，Agent 自主完成（Blade AI Vibe Chaos）。</p>
+</li>
+<li>
+<p><strong>L4 - Team Agent</strong>：多 Agent 协作，有内部协调机制。</p>
+</li>
+<li>
+<p><strong>L5 - Autonomous Organization</strong>：自主发现问题、组建团队、协作执行、集体演化。</p>
+</li>
+</ul>
+<p>
+        <img class="mx-auto" alt="图片" src="https://cdn.jsdelivr.net/gh/zshipu/imagesv6/2026-09-06/4765b075e58fe425.webp" />   
+    </p>
+<p>当前在 L3→L4 之间。Meta-Team / EvoChamber 标志着 L4→L5 过渡开始。</p>
+<p><strong>11</strong></p>
+<p><em><strong>结语</strong></em></p>
+<p><em>Cloud Native</em></p>
+<p>ReAct 成功证明了「对人类智能进行抽象建模」可行。多 Agent 协作同样应从人类组织经验中提取模式——角色分工、目标管理、进度跟踪、集体复盘、经验传承——每条都有对应的工程实现。区别在于：Agent 消除了情绪摩擦和沟通瓶颈，让这些机制以更高频率、更低成本运转。</p>
+<p>学术界 2025 年已正式回应这些问题（Meta-Team、EvoChamber、OKR-Agent），说明工程实践中的直觉有学术支撑。一个人的 Agent 时代走通了（L3），一群 Agent 的 Team 时代正在到来。</p>
+<h3 id="参考链接">参考链接：</h3>
+<p>[1] <a href="https://zshipu.com/t/?url=https://github.com/earendil-works/pi?spm=ata.21736010.0.0.1eed75366KLswo">https://github.com/earendil-works/pi?spm=ata.21736010.0.0.1eed75366KLswo</a></p>
+<p>[2] <a href="https://zshipu.com/t/?url=https://github.com/agentscope-ai/AgentTeams?spm=ata.21736010.0.0.1eed75366KLswo">https://github.com/agentscope-ai/AgentTeams?spm=ata.21736010.0.0.1eed75366KLswo</a></p>
+<h3 id="参考资料">参考资料：</h3>
+<ul>
+<li>
+<p>ReAct: Synergizing Reasoning and Acting in Language Models (Yao et al., 2022)</p>
+</li>
+<li>
+<p>Multi-Agent Collaboration Mechanisms: A Survey of LLMs (2025)</p>
+</li>
+<li>
+<p>A Communication-Centric Survey of LLM-Based MAS (2025)</p>
+</li>
+<li>
+<p>MetaGPT (ICLR 2024)</p>
+</li>
+<li>
+<p>Agent-Oriented Planning in MAS (ICLR 2025)</p>
+</li>
+<li>
+<p>OKR-Agent (2023)</p>
+</li>
+<li>
+<p>Experiential Co-Learning (ACL 2024)</p>
+</li>
+<li>
+<p>Cross-Team Collaboration (2024)</p>
+</li>
+<li>
+<p>Evolve as a Team / Meta-Team (2025)</p>
+</li>
+<li>
+<p>EvoChamber (2025)</p>
+</li>
+<li>
+<p>Continual Learning in LLMs (2026 Survey)</p>
+</li>
+<li>
+<p>pi-agent</p>
+</li>
+<li>
+<p>AgentTeams (AgentScope, Alibaba)</p>
+</li>
+<li>
+<p>CrewAI Hierarchical Process</p>
+</li>
+<li>
+<p>ICLR 2026 Workshop: Memory for Agentic Systems</p>
+</li>
+<li>
+<p>Agno Organizational Memory</p>
+</li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/ai/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/ai/post/20260906/%E4%BB%8E-ReAct-%E5%88%B0-Agent-Teams%E4%B8%80%E4%B8%AA%E5%B7%A5%E7%A8%8B%E5%B8%88%E8%A7%86%E8%A7%92%E7%9A%84-Agent-%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6%E6%80%9D%E8%80%83/">https://index.zshipu.com/ai/post/20260906/%E4%BB%8E-ReAct-%E5%88%B0-Agent-Teams%E4%B8%80%E4%B8%AA%E5%B7%A5%E7%A8%8B%E5%B8%88%E8%A7%86%E8%A7%92%E7%9A%84-Agent-%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6%E6%80%9D%E8%80%83/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/ai/post/20260906/Anthropic-%E6%8A%8A%E7%94%9F%E4%BA%A7%E7%BA%A7-Agent-%E6%91%8A%E5%BC%80%E4%BA%86%E5%A4%9A-Agent-%E6%9C%AA%E5%BF%85%E6%9B%B4%E5%A5%BDSkills-%E5%8F%8D%E8%80%8C%E6%88%90%E4%BA%86%E4%B8%BB%E8%A7%92/">Anthropic 把生产级 Agent 摊开了：多 Agent 未必更好，Skills 反而成了主角</a></li>
+        
+        <li><a href="/ai/post/20260906/%E9%AB%98%E7%9B%9BGPT-6-Astra%E6%AD%A3%E6%98%AFAI%E7%89%9B%E5%B8%82%E4%B8%80%E7%9B%B4%E5%9C%A8%E7%AD%89%E7%9A%84/">高盛：GPT-6 Astra正是AI牛市一直在等的</a></li>
+        
+        <li><a href="/ai/post/20260905/%E8%B1%86%E5%8C%85%E6%8A%8A%E7%94%A8%E6%88%B7%E8%A7%A6%E7%82%B9%E6%8F%90%E5%89%8D%E5%88%B0%E7%9B%AE%E7%9A%84%E5%9C%B0%E7%81%B5%E6%84%9F%E9%98%B6%E6%AE%B5/">豆包把用户触点提前到目的地灵感阶段</a></li>
+        
+        <li><a href="/ai/post/20260902/%E7%BD%91%E4%BF%A1%E5%8A%9E%E9%80%9A%E6%8A%A5AI%E9%AD%94%E6%94%B9%E7%BB%8F%E5%85%B8%E4%B8%8E%E6%8D%A2%E8%84%B8%E5%81%87%E5%86%92%E6%A1%88%E4%BE%8B-%E8%B1%86%E5%8C%85%E5%85%83%E5%AE%9D%E7%AD%89%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%94%B6%E7%B4%A7%E8%BE%93%E5%87%BA/">网信办通报AI魔改经典与换脸假冒案例 豆包元宝等大模型收紧输出</a></li>
+        
+        <li><a href="/ai/post/20241218/%E5%85%A8%E9%9D%A2%E8%A7%A3%E8%AF%BB%E5%A4%A7%E6%A8%A1%E5%9E%8BLLM%E7%9A%84%E6%A6%82%E5%BF%B5-AI%E5%85%A8%E4%B9%A6--%E7%9F%A5%E8%AF%86%E9%93%BA/">全面解读大模型（LLM）的概念 - AI全书</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/ai/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B'>大模型</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/ai/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/ai/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/ai/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/ai/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260906/Anthropic-%E6%8A%8A%E7%94%9F%E4%BA%A7%E7%BA%A7-Agent-%E6%91%8A%E5%BC%80%E4%BA%86%E5%A4%9A-Agent-%E6%9C%AA%E5%BF%85%E6%9B%B4%E5%A5%BDSkills-%E5%8F%8D%E8%80%8C%E6%88%90%E4%BA%86%E4%B8%BB%E8%A7%92/" title="Anthropic 把生产级 Agent 摊开了：多 Agent 未必更好，Skills 反而成了主角">Anthropic 把生产级 Agent 摊开了：多 Agent 未必更好，Skills 反而成了主角</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260906/GPT-6-Astra-%E5%8F%91%E5%B8%83AGI-%E5%AE%A3%E8%A8%80%E4%B8%8E%E9%A6%96%E4%B8%AA%E5%85%B3%E9%94%AE%E7%BA%A7%E6%A8%A1%E5%9E%8B/" title="GPT-6 Astra 发布：AGI 宣言与首个关键级模型">GPT-6 Astra 发布：AGI 宣言与首个关键级模型</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260906/%E4%BB%8E-ReAct-%E5%88%B0-Agent-Teams%E4%B8%80%E4%B8%AA%E5%B7%A5%E7%A8%8B%E5%B8%88%E8%A7%86%E8%A7%92%E7%9A%84-Agent-%E5%8D%8F%E4%BD%9C%E6%9C%BA%E5%88%B6%E6%80%9D%E8%80%83/" title="从 ReAct 到 Agent Teams：一个工程师视角的 Agent 协作机制思考">从 ReAct 到 Agent Teams：一个工程师视角的 Agent 协作机制思考</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260906/%E8%BF%99%E5%91%A8GPT-6-Astra-%E5%8F%88%E7%BB%99blender%E5%8A%A0%E6%8C%81%E4%BA%86%E5%93%AA%E4%BA%9BAi%E9%AD%94%E6%B3%95/" title="这周，GPT-6 Astra 又给blender加持了哪些Ai魔法？">这周，GPT-6 Astra 又给blender加持了哪些Ai魔法？</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260906/%E9%AB%98%E7%9B%9BGPT-6-Astra%E6%AD%A3%E6%98%AFAI%E7%89%9B%E5%B8%82%E4%B8%80%E7%9B%B4%E5%9C%A8%E7%AD%89%E7%9A%84/" title="高盛：GPT-6 Astra正是AI牛市一直在等的">高盛：GPT-6 Astra正是AI牛市一直在等的</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260905/iPhone-18-ProMax%E4%B8%8E%E9%A6%96%E6%AC%BE%E6%8A%98%E5%8F%A0%E6%9C%BA%E6%A8%A1%E6%9B%9D%E5%85%89-%E4%B9%9D%E6%9C%88%E6%97%97%E8%88%B0%E6%88%98%E7%81%AB%E5%86%8D%E7%87%83/" title="iPhone 18 Pro/Max与首款折叠机模曝光 九月旗舰战火再燃">iPhone 18 Pro/Max与首款折叠机模曝光 九月旗舰战火再燃</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260905/%E5%B0%8F%E7%B1%B3%E5%B9%B3%E6%9D%BF-9-Pro-Max-13.3-%E8%8B%B1%E5%AF%B8-3.4K-%E5%B1%8F%E6%94%AF%E6%8C%81%E5%85%A8%E5%8A%9F%E8%83%BD-Type-C-%E7%9B%B4%E8%BF%9E%E7%94%B5%E8%84%91%E5%89%AF%E5%B1%8F/" title="小米平板 9 Pro Max 13.3 英寸 3.4K 屏支持全功能 Type-C 直连电脑副屏">小米平板 9 Pro Max 13.3 英寸 3.4K 屏支持全功能 Type-C 直连电脑副屏</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260905/%E5%BE%AE%E8%BD%AFMAI-Image-2.6-Flash%E7%94%9F%E5%9B%BE%E9%80%9F%E5%BA%A6%E8%BE%BE%E5%85%A8%E7%90%83%E6%9C%80%E4%BD%B3%E6%A8%A1%E5%9E%8B%E4%B8%A4%E5%80%8D/" title="微软MAI-Image-2.6-Flash生图速度达全球最佳模型两倍">微软MAI-Image-2.6-Flash生图速度达全球最佳模型两倍</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260905/%E6%9E%81%E6%91%A9%E5%AE%A2EVO-X5-Pro%E8%BF%B7%E4%BD%A0%E4%B8%BB%E6%9C%BA%E4%BA%AE%E7%9B%B8192GB%E5%86%85%E5%AD%98%E6%94%AF%E6%8C%81%E6%9C%AC%E5%9C%B0300B-AI%E6%A8%A1%E5%9E%8B/" title="极摩客EVO-X5 Pro迷你主机亮相：192GB内存支持本地300B AI模型">极摩客EVO-X5 Pro迷你主机亮相：192GB内存支持本地300B AI模型</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/ai/post/20260905/%E8%B1%86%E5%8C%85%E6%8A%8A%E7%94%A8%E6%88%B7%E8%A7%A6%E7%82%B9%E6%8F%90%E5%89%8D%E5%88%B0%E7%9B%AE%E7%9A%84%E5%9C%B0%E7%81%B5%E6%84%9F%E9%98%B6%E6%AE%B5/" title="豆包把用户触点提前到目的地灵感阶段">豆包把用户触点提前到目的地灵感阶段</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/ai/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/ai/tags/192GB%E5%86%85%E5%AD%98/">192GB内存</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Adobe-Firefly/">Adobe Firefly</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AGI/">AGI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI/">AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI-Agent/">AI Agent</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI-SoC/">AI SoC</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AIGC/">AIGC</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%85%A8%E4%B9%A6/">AI全书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%86%99%E4%BD%9C/">AI写作</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%86%99%E4%BD%9C%E5%8A%A9%E6%89%8B/">AI写作助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%88%9B%E4%B8%9A/">AI创业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%89%AF%E4%B8%9A/">AI副业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%8A%A9%E6%89%8B/">AI助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%95%86%E4%B8%9A/">AI商业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%9B%BE%E5%83%8F%E7%94%9F%E6%88%90/">AI图像生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%AE%89%E5%85%A8/">AI安全</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%AF%B9%E9%BD%90/">AI对齐</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%B7%A5%E5%85%B7/">AI工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%BA%94%E7%94%A8/">AI应用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE/">AI开源项目</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%80%A7%E8%83%BD/">AI性能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%8A%80%E6%9C%AF/">AI技术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%8E%88%E6%9D%83/">AI授权</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%90%9C%E7%B4%A2/">AI搜索</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%95%99%E7%A8%8B/">AI教程</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%95%99%E8%82%B2/">AI教育</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E6%99%BA%E8%83%BD%E4%BD%93/">AI智能体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%94%9F%E6%88%90%E5%86%85%E5%AE%B9/">AI生成内容</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%94%9F%E6%88%90%E5%89%A7%E9%9B%86/">AI生成剧集</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%9B%91%E7%AE%A1/">AI监管</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%A1%AC%E4%BB%B6/">AI硬件</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%AE%97%E5%8A%9B%E4%B8%8B%E6%B2%89/">AI算力下沉</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BB%98%E7%94%BB/">AI绘画</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E7%BC%96%E7%A8%8B%E5%8A%A9%E6%89%8B/">AI编程助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%89%BA%E6%9C%AF/">AI艺术</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%A7%86%E9%A2%91/">AI视频</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90/">AI视频生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E8%A7%A6%E7%82%B9/">AI触点</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E9%87%87%E7%94%A8/">AI采用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E9%9F%B3%E9%A2%91%E7%94%9F%E6%88%90/">AI音频生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AI%E9%AD%94%E6%94%B9/">AI魔改</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AMD%E9%94%90%E9%BE%99AI/">AMD锐龙AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Android%E5%BC%80%E5%8F%91/">Android开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Anthropic/">Anthropic</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/API%E5%AE%9A%E4%BB%B7/">API定价</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/AR/VR/">AR/VR</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ArtPad/">ArtPad</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ASR/">ASR</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/B%E7%AB%99/">B站</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ChatGPT/">ChatGPT</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Claude/">Claude</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor/">Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor-AI/">Cursor AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor-Rules/">Cursor Rules</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor%E5%AE%9E%E8%B7%B5/">Cursor实践</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Cursor%E6%8A%80%E5%B7%A7/">Cursor技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/DeepSeek/">DeepSeek</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/DK64-Rekongpiled/">DK64 Rekongpiled</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/FromSoftware/">FromSoftware</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/GLM/">GLM</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/GoPro/">GoPro</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/GTA-Online/">GTA Online</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/GTA5/">GTA5</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/GTA6/">GTA6</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/ICML/">ICML</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iMac/">IMac</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/IM%E7%B3%BB%E7%BB%9F/">IM系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Instagram/">Instagram</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iOS%E5%BC%80%E5%8F%91/">IOS开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iPhone-18/">IPhone 18</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/iPhone-Ultra/">IPhone Ultra</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/JavaScript/">JavaScript</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Kimi/">Kimi</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LangChain/">LangChain</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LDA/">LDA</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LLM/">LLM</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LLM%E8%B7%AF%E7%94%B1/">LLM路由</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/LPDDR5X/">LPDDR5X</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/M6%E8%8A%AF%E7%89%87/">M6芯片</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Mac-mini/">Mac Mini</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Mac-Studio/">Mac Studio</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/MacBook/">MacBook</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/MacBook-Air/">MacBook Air</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/MacBook-Pro/">MacBook Pro</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/MCN%E7%9B%91%E7%AE%A1/">MCN监管</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Midjourney/">Midjourney</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/MiniMax-Design/">MiniMax Design</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Momenta-R7/">Momenta R7</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/N64%E9%87%8D%E7%BC%96%E8%AF%91/">N64重编译</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Next.js/">Next.js</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/OLED%E6%98%BE%E7%A4%BA%E5%B1%8F/">OLED显示屏</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Omdia%E6%8A%A5%E5%91%8A/">Omdia报告</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/openai/">Openai</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Prompt%E7%BC%96%E5%86%99/">Prompt编写</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/PSO/">PSO</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Python/">Python</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/RAG/">RAG</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Rockstar/">Rockstar</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Rules%E7%B3%BB%E7%BB%9F/">Rules系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/seedance/">Seedance</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SEO/">SEO</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SEO%E4%BC%98%E5%8C%96/">SEO优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SGD/">SGD</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Skill%E8%B0%83%E7%94%A8/">Skill调用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Sora/">Sora</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/SpaceX/">SpaceX</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/StableDiffusion/">StableDiffusion</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Suno/">Suno</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Tab%E5%8A%9F%E8%83%BD/">Tab功能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/TikTok/">TikTok</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Token/">Token</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Type-C-%E7%9B%B4%E8%BF%9E/">Type-C 直连</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Web%E6%A1%86%E6%9E%B6/">Web框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Whatnot/">Whatnot</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/whisper/">Whisper</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Windows/">Windows</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/Windows%E9%83%A8%E7%BD%B2/">Windows部署</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%96%E7%95%8C%E6%A8%A1%E5%9E%8B/">世界模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AA%E4%BA%BA%E4%BF%A1%E6%81%AF%E4%BF%9D%E6%8A%A4%E6%B3%95/">个人信息保护法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E5%9B%BDAI/">中国AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E5%9B%BD%E7%94%B5%E5%95%86/">中国电商</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E6%96%87/">中文</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%AD%E7%BE%8E%E7%94%B5%E5%95%86%E5%AF%B9%E6%AF%94/">中美电商对比</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%B8%BB%E5%8A%A8AI/">主动AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%91%E7%94%B5%E8%84%91/">云电脑</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%91%E9%9C%84%E4%B9%8B%E4%B8%8A/">云霄之上</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%92%E8%81%94%E7%BD%91%E6%96%B0%E8%A7%84/">互联网新规</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1/">产品设计</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%A7%E5%93%81%E8%BF%AD%E4%BB%A3/">产品迭代</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E7%B1%BB%E6%99%BA%E6%85%A7/">人类智慧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BA%BA%E8%84%B8%E6%95%B0%E6%8D%AE/">人脸数据</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BB%8A%E6%97%A5%E5%A4%B4%E6%9D%A1/">今日头条</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BB%A3%E7%A0%81%E4%BC%98%E5%8C%96/">代码优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BC%9A%E5%91%98%E9%97%AE%E9%A2%98/">会员问题</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BD%BF%E7%94%A8%E6%8A%80%E5%B7%A7/">使用技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E4%BF%AE%E5%9B%BE/">修图</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%8D%E8%B4%B9%E4%BD%BF%E7%94%A8/">免费使用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%85%A5%E9%97%A8%E6%A6%82%E5%BF%B5/">入门概念</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%9C%B0%E5%BC%95%E8%BF%9B/">内地引进</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E5%88%86%E5%8F%91/">内容分发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E5%88%9B%E4%BD%9C/">内容创作</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E5%90%88%E8%A7%84/">内容合规</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E6%B2%BB%E7%90%86/">内容治理</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E7%94%9F%E4%BA%A7/">内容生产</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E7%9B%91%E7%AE%A1/">内容监管</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%86%85%E5%AE%B9%E7%9C%9F%E5%AE%9E%E6%80%A7/">内容真实性</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%87%BA%E6%B5%B7/">出海</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%87%BA%E6%B5%B7%E7%AD%96%E7%95%A5/">出海策略</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%86%E7%B1%BB%E5%88%86%E7%BA%A7/">分类分级</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%9B%E4%B8%9A%E5%85%AC%E5%8F%B8/">创业公司</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%9B%E4%BD%9C%E8%80%85%E7%94%9F%E6%80%81/">创作者生态</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%9B%E6%84%8F%E8%A1%8C%E4%B8%9A/">创意行业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%A4%E5%88%AB%E5%BC%8F%E6%A8%A1%E5%9E%8B/">判别式模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%88%B6%E9%80%A0%E4%B8%9A/">制造业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%89%AA%E8%BE%91/">剪辑</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%89%AF%E4%B8%9A%E8%B5%9A%E9%92%B1/">副业赚钱</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8A%9E%E5%85%AC/">办公</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8A%9E%E5%85%ACAI/">办公AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8A%9E%E5%85%AC%E6%95%88%E7%8E%87/">办公效率</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8A%AA%E6%AF%94%E4%BA%9A/">努比亚</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8D%83%E9%97%AE/">千问</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8D%B3%E6%A2%A6/">即梦</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8F%AF%E6%8A%98%E5%8F%A0MacBook/">可折叠MacBook</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%8F%B0%E7%94%B5/">台电</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%90%8E%E8%A5%BF%E6%B8%B8%E8%AE%B0/">后西游记</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%90%91%E9%87%8F/">向量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%93%81%E7%89%8C%E5%85%AC%E5%85%B3/">品牌公关</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%93%81%E7%89%8C%E5%8F%AF%E8%A7%81%E5%BA%A6/">品牌可见度</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BD%E4%BA%A7AI%E6%A8%A1%E5%9E%8B/">国产AI模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BD%E4%BA%A7DRAM/">国产DRAM</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BD%E4%BA%A7%E5%8D%8A%E5%AF%BC%E4%BD%93/">国产半导体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BE%E5%83%8F%E7%94%9F%E6%88%90/">图像生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BE%E5%83%8F%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90/">图像视频生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9B%BE%E5%83%8F%E8%AF%86%E5%88%AB/">图像识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9C%BA%E6%99%AF%E5%AE%9E%E4%BE%8B/">场景实例</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%9C%BA%E6%99%AF%E6%96%87%E6%9C%AC%E7%BC%96%E8%BE%91/">场景文本编辑</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%9AAgent/">多Agent</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%9A%E6%A8%A1%E6%80%81%E4%BA%A4%E4%BA%92/">多模态交互</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%9A%E6%A8%A1%E6%80%81%E6%A8%A1%E5%9E%8B/">多模态模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/">大语言模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A4%B4%E6%9D%A1/">头条</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%A5%94%E9%A9%B0GLE/">奔驰GLE</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%97%E8%8A%82%E8%B7%B3%E5%8A%A8/">字节跳动</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E5%90%91%E9%87%8F%E9%87%8F%E5%8C%96/">学习向量量化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E6%8C%87%E5%8D%97/">学习指南</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AD%A6%E4%B9%A0%E8%8C%83%E5%9B%B4/">学习范围</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%89%E8%A3%85/">安装</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%89%E8%A3%85%E6%8C%87%E5%8D%97/">安装指南</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%9E%E6%88%98Cursor/">实战Cursor</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AE%AB%E5%B4%8E%E8%8B%B1%E9%AB%98/">宫崎英高</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%AF%BC%E6%BC%94%E5%89%AA%E8%BE%91%E7%89%88/">导演剪辑版</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B0%8F%E7%B1%B3%E5%B9%B3%E6%9D%BF/">小米平板</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B0%8F%E7%B1%B3%E6%8A%98%E5%8F%A0%E6%89%8B%E6%9C%BA/">小米折叠手机</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B0%8F%E7%B1%B3%E6%B1%BD%E8%BD%A6/">小米汽车</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B0%8F%E7%B1%B3%E7%8E%84%E6%88%92O3/">小米玄戒O3</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B0%8F%E7%BA%A2%E4%B9%A6/">小红书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B1%95%E9%94%90T7300/">展锐T7300</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B9%B3%E5%8F%B0%E6%94%B9%E9%80%A0/">平台改造</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B9%B3%E5%8F%B0%E6%B2%BB%E7%90%86/">平台治理</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B9%B3%E6%9D%BF%E7%94%B5%E8%84%91/">平板电脑</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B9%B4%E9%BE%84%E6%A0%87%E7%AD%BE/">年龄标签</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%B9%BF%E7%94%B5%E6%80%BB%E5%B1%80/">广电总局</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E5%AE%9E%E8%B7%B5/">应用实践</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A1%86%E6%9E%B6/">应用程序框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BA%94%E7%94%A8%E9%A2%86%E5%9F%9F/">应用领域</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/">开发工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%80%E6%94%BE%E4%B8%96%E7%95%8C/">开放世界</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%80%E6%BA%90%E6%A1%86%E6%9E%B6/">开源框架</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BC%A0%E9%87%8F/">张量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BD%B1%E8%A7%86%E8%A1%8C%E4%B8%9A/">影视行业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BE%AE%E7%9F%AD%E5%89%A7/">微短剧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BE%AE%E8%BD%AFMAI/">微软MAI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BF%AB%E6%89%8B/">快手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%8F%91/">快速开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%80%A7%E4%BB%B7%E6%AF%94/">性价比</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%80%A7%E8%83%BD%E6%B5%8B%E8%AF%95/">性能测试</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%81%B6%E6%84%8F%E8%90%A5%E9%94%80%E5%8F%B7/">恶意营销号</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6/">成本控制</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E5%B7%A7/">技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E6%80%A7%E5%85%B3%E9%94%AE%E8%AF%8D/">技术性关键词</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E7%99%BD%E7%9A%AE%E4%B9%A6/">技术白皮书</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%80%E6%9C%AF%E8%B5%84%E8%AE%AF/">技术资讯</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%96%E9%9F%B3/">抖音</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%98%E5%8F%A0%E5%B1%8F/">折叠屏</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%98%E5%8F%A0%E6%89%8B%E6%9C%BA/">折叠手机</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8A%98%E5%8F%A0%E7%AC%94%E8%AE%B0%E6%9C%AC/">折叠笔记本</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%8E%A8%E8%8D%90%E7%AE%97%E6%B3%95/">推荐算法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E4%BC%98%E5%8C%96/">搜索引擎优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%88%E7%8E%87%E6%8F%90%E5%8D%87/">效率提升</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%99%E8%82%B2%E5%BA%94%E7%94%A8/">教育应用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%B0%E4%BD%8D%E5%B1%8F/">数位屏</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%B0%E5%AD%97%E5%88%86%E8%BA%AB/">数字分身</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%B0%E5%AD%97%E8%90%A5%E9%94%80/">数字营销</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%95%B0%E6%8D%AE%E8%BD%AC%E6%8D%A2/">数据转换</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%96%B0%E8%83%BD%E6%BA%90%E8%BD%A6/">新能源车</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%97%85%E8%A1%8C%E8%A7%84%E5%88%92/">旅行规划</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%97%97%E8%88%B0%E5%A4%A7%E6%88%98/">旗舰大战</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%97%A0GPU/">无GPU</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%98%86%E6%B1%80%E5%A1%94%E4%BC%A6%E8%92%82%E8%AF%BA/">昆汀·塔伦蒂诺</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%98%8E%E6%98%9FIP/">明星IP</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%AE%E5%8F%8A%E5%8C%96/">普及化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E6%85%A7%E4%BD%93/">智慧体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E6%85%A7%E5%8C%BB%E7%96%97/">智慧医疗</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E4%BD%93/">智能体</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E5%8A%A9%E6%89%8B/">智能助手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E6%89%8B%E6%9C%BA/">智能手机</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E6%B1%BD%E8%BD%A6%E4%BA%A7%E4%B8%9A%E9%93%BE/">智能汽车产业链</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%99%BA%E8%83%BD%E7%9C%BC%E9%95%9C/">智能眼镜</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9A%B4%E5%8A%9B%E6%B8%B8%E6%88%8F/">暴力游戏</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%8D%E5%8A%A1%E4%B8%9A/">服务业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AA%E6%9D%A5%E7%A7%91%E6%8A%80/">未来科技</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AC%E5%9C%B0AI/">本地AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/">本地大模型</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C/">本地运行</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9C%BA%E6%A8%A1%E6%9B%9D%E5%85%89/">机模曝光</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%9D%80%E6%AD%BB%E6%AF%94%E5%B0%94/">杀死比尔</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A0%87%E9%87%8F/">标量</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94/">框架对比</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A3%80%E7%B4%A2%E5%A2%9E%E5%BC%BA%E7%94%9F%E6%88%90/">检索增强生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A8%A1%E5%9E%8B%E6%8E%A8%E7%90%86/">模型推理</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%A8%A1%E5%9E%8B%E8%B6%8A%E7%8B%B1/">模型越狱</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B4%BE%E6%8B%89%E8%92%99%E5%BD%B1%E4%B8%9A/">派拉蒙影业</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B5%81%E9%87%8F%E9%80%A0%E5%81%87/">流量造假</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/">测试工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B5%AE%E9%9B%95/">浮雕</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B5%B7%E6%8A%A5/">海报</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B6%88%E8%B4%B9%E7%94%B5%E5%AD%90/">消费电子</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B7%B7%E5%90%88%E5%8A%A8%E5%8A%9B/">混合动力</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%85%E6%9C%97%E8%A1%8C%E5%8A%A8/">清朗行动</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E4%BA%89%E8%AE%AE/">游戏争议</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E6%94%B9%E7%BC%96/">游戏改编</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E6%96%87%E5%8C%96/">游戏文化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E7%9B%91%E7%AE%A1/">游戏监管</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E7%A4%BE%E5%8C%BA/">游戏社区</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E7%A7%BB%E6%A4%8D/">游戏移植</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E7%BB%AD%E4%BD%9C/">游戏续作</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B8%B8%E6%88%8F%E8%90%A5%E9%94%80/">游戏营销</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%B9%96%E5%8D%97%E5%8D%AB%E8%A7%86/">湖南卫视</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%BC%AB%E5%89%A7/">漫剧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E6%BE%8E%E7%A8%8BN90-Max/">澎程N90 Max</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%83%AD%E8%A1%80%E6%97%A0%E8%B5%96/">热血无赖</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%86%9F%E7%BB%83%E4%B8%8A%E6%89%8B/">熟练上手</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%8E%B0%E5%AE%9E%E7%A7%80/">现实秀</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%9F%E4%BA%A7%E5%8A%9B%E5%B7%A5%E5%85%B7/">生产力工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%9F%E5%9B%BE/">生图</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%9F%E6%88%90%E5%BC%8FAI/">生成式AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%9F%E6%88%90%E9%80%9F%E5%BA%A6/">生成速度</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%A8%E6%88%B7%E5%8F%8D%E9%A6%88/">用户反馈</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%B5%E5%BD%B1%E9%A6%96%E6%98%A0/">电影首映</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%94%B5%E8%84%91%E5%89%AF%E5%B1%8F/">电脑副屏</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%95%8C%E9%9D%A2%E8%AE%BE%E7%BD%AE/">界面设置</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9B%91%E7%AE%A1%E6%94%BF%E7%AD%96/">监管政策</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9B%B4%E6%92%AD%E7%94%B5%E5%95%86/">直播电商</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9B%B4%E6%92%AD%E8%B4%AD%E7%89%A9/">直播购物</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9C%9F%E4%BA%BA%E7%94%B5%E5%BD%B1/">真人电影</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E5%BA%93%E7%B3%BB%E7%BB%9F/">知识库系统</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A5%E8%AF%86%E9%93%BA/">知识铺</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%A9%E9%98%B5/">矩阵</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%AD%E5%89%A7/">短剧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%9F%AD%E8%A7%86%E9%A2%91%E6%B2%BB%E7%90%86/">短视频治理</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%A1%AC%E4%BB%B6%E7%BB%B4%E4%BF%AE/">硬件维修</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%A4%BE%E4%BA%A4%E5%B9%B3%E5%8F%B0/">社交平台</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%A7%91%E6%8A%80%E5%93%81%E7%89%8C/">科技品牌</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%AE%97%E6%B3%95%E8%AF%86%E5%88%AB/">算法识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%B2%92%E5%AD%90%E7%BE%A4%E4%BC%98%E5%8C%96/">粒子群优化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BA%A6%E4%BC%9A%E5%BA%94%E7%94%A8/">约会应用</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BA%BF%E6%80%A7%E5%88%A4%E5%88%AB%E5%88%86%E6%9E%90/">线性判别分析</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BB%98%E7%94%BB/">绘画</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BB%9F%E4%B8%80%E6%A0%87%E8%AF%86/">统一标识</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BC%96%E7%A8%8B/">编程</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BC%96%E7%A8%8B%E5%BC%80%E5%8F%91/">编程开发</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BC%96%E7%A8%8B%E6%95%88%E7%8E%87/">编程效率</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BD%91%E4%BF%A1%E5%8A%9E/">网信办</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BD%91%E7%BB%9C%E6%9A%B4%E5%8A%9B/">网络暴力</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E7%BE%8E%E5%9B%BE/">美图</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%80%81%E6%B8%B8%E6%88%8F%E4%BF%9D%E5%AD%98/">老游戏保存</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%87%AA%E5%8A%A8%E5%8C%96/">自动化</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90/">自动化代码生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E5%85%B7/">自动化工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6/">自动驾驶</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%87%AA%E7%A0%94%E8%8A%AF%E7%89%87/">自研芯片</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%89%BE%E5%B0%94%E7%99%BB%E6%B3%95%E7%8E%AF/">艾尔登法环</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%8A%92%E6%9E%9CTV/">芒果TV</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%8B%B9%E6%9E%9C/">苹果</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%8B%B9%E6%9E%9C%E8%BF%87%E6%97%B6%E4%BA%A7%E5%93%81/">苹果过时产品</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%93%9D%E9%A2%86%E5%B7%A5%E4%BA%BA/">蓝领工人</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%99%9A%E6%8B%9F%E6%A1%8C%E9%9D%A2/">虚拟桌面</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%A1%97%E5%A4%B4%E9%9C%B8%E7%8E%8B/">街头霸王</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%A7%84%E5%88%99%E5%AE%9A%E4%B9%89/">规则定义</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%A7%86%E9%A2%91%E6%B2%BB%E7%90%86/">视频治理</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AE%BE%E8%AE%A1%E5%B7%A5%E5%85%B7/">设计工具</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%84%E6%B5%8B/">评测</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E7%AC%94%E8%AE%B0/">语音笔记</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">语音识别</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%AF%AD%E9%9F%B3%E8%BE%93%E5%85%A5%E6%96%87%E6%9C%AC%E6%9C%97%E8%AF%BB/">语音输入文本朗读</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%B1%86%E5%8C%85/">豆包</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%B1%86%E5%8C%85AI/">豆包AI</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%B1%86%E5%8C%85%E5%B7%A5%E4%BD%9CAgent/">豆包工作Agent</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%B4%AD%E4%B9%B0%E5%BB%BA%E8%AE%AE/">购买建议</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%BD%AC%E6%8D%A2%E6%96%B9%E6%B3%95/">转换方法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%BF%90%E5%8A%A8%E7%9B%B8%E6%9C%BA/">运动相机</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%BF%90%E8%90%A5%E6%8A%80%E5%B7%A7/">运营技巧</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E8%BF%B7%E4%BD%A0%E4%B8%BB%E6%9C%BA/">迷你主机</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%80%9A%E7%94%A8%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD/">通用人工智能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%80%9F%E6%88%90%E6%8C%87%E5%8D%97/">速成指南</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%83%A8%E9%97%A8%E8%A7%84%E7%AB%A0/">部门规章</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%85%8D%E9%9F%B3/">配音</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%95%BF%E7%BB%AD%E8%88%AA%E6%B5%8B%E8%AF%95/">长续航测试</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%95%BF%E9%91%AB%E5%AD%98%E5%82%A8/">长鑫存储</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%8F%E6%9C%BA%E6%A2%AF%E5%BA%A6%E4%B8%8B%E9%99%8D%E6%B3%95/">随机梯度下降法</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9A%90%E5%90%AB%E7%8B%84%E5%88%A9%E5%85%8B%E9%9B%B7%E5%88%86%E5%B8%83/">隐含狄利克雷分布</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9B%B7%E5%86%9B/">雷军</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%A9%E5%9B%BD%E7%A4%BE%E4%BC%9A/">韩国社会</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E4%B9%90%E5%88%9B%E4%BD%9C/">音乐创作</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E4%B9%90%E7%94%9F%E6%88%90/">音乐生成</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E6%95%88/">音效</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%9F%B3%E9%A2%91%E7%84%A6%E7%82%B9/">音频焦点</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%A2%84%E5%91%8A%E7%89%87/">预告片</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%A6%99%E6%B8%AF%E6%B8%B8%E6%88%8FIP/">香港游戏IP</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%AB%98%E7%AD%89%E6%95%99%E8%82%B2/">高等教育</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%AB%98%E7%BA%A7%E5%8A%9F%E8%83%BD/">高级功能</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%AB%98%E9%A2%91%E4%BB%BB%E5%8A%A1/">高频任务</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%BB%91%E6%9A%97%E4%B9%8B%E9%AD%82/">黑暗之魂</a>
+    
+    <a href="https://index.zshipu.com/ai/tags/%E9%BB%91%E7%A5%9E%E8%AF%9D%E6%82%9F%E7%A9%BA/">黑神话悟空</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/ai/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
