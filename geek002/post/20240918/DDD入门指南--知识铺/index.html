@@ -253,13 +253,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>为了更好地理解DDD如何影响编码方式，我们以码如云中的一项业务需求为例：成员(Member)修改手机号码并标记为“手机号已识别”。以下我们将探讨三种不同的实现方式。</p>
 <h4 id="第一种事务脚本">第一种：事务脚本</h4>
 <p>最直接的方法是使用事务脚本来更新数据库中的<code>member</code>表。这涉及到两个字段的更新：<code>mobile_number</code> 和 <code>mobile_identified</code>。事务脚本是一种简单的解决方案，它通过类似于脚本的方式完成业务用例，通常一次事务对应一个业务用例。</p>
-<pre tabindex="0"><code>    @Transactional//事务边界
-    public void updateMyMobile(String mobileNumber, String memberId) {
-        
-        //采用事务脚本的方式，直接通过SQL语句实现业务逻辑
-        String sql = &#34;update member set mobile_number = ? , mobile_identified = 1 where id = ?;&#34;;
-        jdbcTemplate.update(sql, mobileNumber,memberId);
-    }
+<pre tabindex="0"><code> @Transactional//事务边界
+ public void updateMyMobile(String mobileNumber, String memberId) {
+
+ //采用事务脚本的方式，直接通过SQL语句实现业务逻辑
+ String sql = &#34;update member set mobile_number = ? , mobile_identified = 1 where id = ?;&#34;;
+ jdbcTemplate.update(sql, mobileNumber,memberId);
+ }
 </code></pre><p>在软件开发中，直接通过技术手段实现业务功能的方式通常被认为是不包含软件建模的。这种方式将业务性代码和技术性代码混合在一起，不利于代码的重用和系统的长期维护。因此，这种方式通常只适用于小型软件项目。</p>
 <h3 id="第二种贫血对象">第二种：贫血对象</h3>
 <p>随着面向对象编程的普及，人们开始意识到应该利用面向对象技术来提升代码的可维护性和可重用性。贫血对象是一种只包含数据和基本的setter/getter方法的对象，它们没有包含业务逻辑。虽然这种方式相比直接通过技术手段实现业务功能有所进步，但它仍然存在一些问题：</p>
@@ -275,29 +275,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 尽管如此，贫血对象在一些小型项目中仍然有一定的应用价值。</p>
 </li>
 </ol>
-<pre tabindex="0"><code>    @Transactional
-    public void updateMyMobile(String mobileNumber) {
-        String memberId = CurrentUserContext.getCurrentMemberId();
-        Member member = memberRepository.findMemberById(memberId);
+<pre tabindex="0"><code> @Transactional
+ public void updateMyMobile(String mobileNumber) {
+ String memberId = CurrentUserContext.getCurrentMemberId();
+ Member member = memberRepository.findMemberById(memberId);
 
-        //先后调用Member对象中的2个setter方法实现业务逻辑
-        member.setMobileNumber(mobileNumber);
-        member.setMobileIdentified(true);
+ //先后调用Member对象中的2个setter方法实现业务逻辑
+ member.setMobileNumber(mobileNumber);
+ member.setMobileIdentified(true);
 
-        memberRepository.updateMember(member);
-    }
+ memberRepository.updateMember(member);
+ }
 </code></pre><p>在上例中，首先我们将数据库访问相关的逻辑全部封装在<code>memberRepository</code>中，从而解决了“技术性代码和业务性代码揉杂”的问题。其次，创建了<code>Member</code>对象，其中包含两个setter方法，<code>setMobileNumber()</code>用于设置手机号码，<code>setMobileIdentified()</code>用于标记标记手机号已识别，这应该面向对象了吧？！但是，问题恰恰出在了这两个setter方法上：此时的<code>Member</code>对象只是一个数据容器而已，而非真正的对象。这种只有数据没有行为的对象被称为<a href="http://zshipu.com/t/index.html?url=https://martinfowler.com/bliki/AnemicDomainModel.html">贫血对象</a>。</p>
 <p>问题还不止于此，本例中先后调用的两个setter方法事实上违背了软件开发的一个根本性原则 —— 内聚性。简单来讲，“设置手机号”和“标记手机号已识别”这两个步骤在业务上是紧密联系在一起的，应该由Member中的单个方法完成，而不应该由2个独立的方法完成。为了解释这里体现的内聚性，让我们再来看个需求：除了成员自己可以修改手机号外，管理员也可以为任何成员设置手机号，为此我们再实现一个<code>updateMemberMobile()</code>方法。</p>
-<pre tabindex="0"><code>    @Transactional
-    public void updateMemberMobile(String mobileNumber,String memberId) {
-        Member member = memberRepository.findMemberById(memberId);
+<pre tabindex="0"><code> @Transactional
+ public void updateMemberMobile(String mobileNumber,String memberId) {
+ Member member = memberRepository.findMemberById(memberId);
 
-        //与updateMyMobile()相同，需要先后调用Member对象中的2个setter方法实现业务逻辑
-        member.setMobileNumber(mobileNumber);
-        member.setMobileIdentified(true);
+ //与updateMyMobile()相同，需要先后调用Member对象中的2个setter方法实现业务逻辑
+ member.setMobileNumber(mobileNumber);
+ member.setMobileIdentified(true);
 
-        memberRepository.updateMember(member);
-    }
+ memberRepository.updateMember(member);
+ }
 </code></pre><p>在软件设计中，<code>updateMemberMobile()</code>方法要求调用者显式地先后调用<code>setMobileNumber()</code>和<code>setMobileIdentified()</code>两个方法来更新成员的手机号码。这种做法存在几个问题：</p>
 <ol>
 <li>
@@ -313,81 +313,81 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </ol>
 <h3 id="领域对象">领域对象</h3>
 <p>领域对象与贫血对象相对立，它不仅持有数据，还包含业务行为。理想状态下，所有的业务规则都应该由领域对象自身处理，外界只需向领域对象发送指令（即调用方法）。就本例而言，当设置新的手机号码时自动标记该号码已被识别，这样的逻辑应当完全封装在<code>Member</code>类中，确保其作为一个整体对外提供服务，从而增强代码的内聚性和可维护性。</p>
-<pre tabindex="0"><code>    @Transactional
-    public void updateMyMobile(String mobileNumber) {
-        String memberId = CurrentUserContext.getCurrentMemberId();
-        Member member = memberRepository.findMemberById(memberId);
+<pre tabindex="0"><code> @Transactional
+ public void updateMyMobile(String mobileNumber) {
+ String memberId = CurrentUserContext.getCurrentMemberId();
+ Member member = memberRepository.findMemberById(memberId);
 
-        //只需调用Member种的updateMobile()方法即可
-        member.updateMobile(mobileNumber);
+ //只需调用Member种的updateMobile()方法即可
+ member.updateMobile(mobileNumber);
 
-        memberRepository.updateMember(member);
-    }
+ memberRepository.updateMember(member);
+ }
 </code></pre><p>这里，<code>updateMyMobile()</code>方法只需调用Member中的<code>updateMobile()</code>方法即可，然后由Member自行处理具体的业务逻辑：</p>
-<pre tabindex="0"><code>    //由Member对象自身处理同时更新mobileNumber和mobileIdentified字段
-    public void updateMobile(String mobileNumber) {
-        this.mobileNumber = mobileNumber;
-        this.mobileIdentified = true;
-    }
+<pre tabindex="0"><code> //由Member对象自身处理同时更新mobileNumber和mobileIdentified字段
+ public void updateMobile(String mobileNumber) {
+ this.mobileNumber = mobileNumber;
+ this.mobileIdentified = true;
+ }
 </code></pre><p>在本例中，除了将数据和行为同时放到Member对象之外，我们还会考虑如何设计和安排这些行为才最得当，比如将高内聚的<code>mobileNumber</code>和<code>mobileIdentified</code>放到同一个方法中，此时的Member便是一个行为饱满的领域对象，并开始变得有些“领域驱动”的意味了，所谓的&quot;DDD是面向对象进阶&quot;这个说法也正体现于此。事实上，在DDD中Member对象也被称为<a href="http://zshipu.com/t/index.html?url=https://docs.mryqr.com/ddd-aggregate-root-and-repository">聚合根</a>，而“更新<code>mobileNumber</code>的同时需要一并更新<code>mobileIdentified</code>”则被称为聚合根的<strong>不便条件</strong>，我们将在后续文章中对此做详细讲解。
 看到这里，你可能会问：领域对象的实现方式不就是将贫血对象中的业务逻辑实现挪了个位置吗？的确，但是这一挪，便挪出了编程的讲究与思考，挪出了模型的设计与原则，挪出了软件的发展与进步。就像云计算早年被认为不过是将本地的计算资源搬移到网络上一样，我们将很多看似并不具有颠覆性的微小创新合在一起，便可将理想编织成一个个能够为行业为社会带来实际进步的美好现实。
 你可能还会说，领域对象这种实现方式我平时就是这么做的呀！？没错，我们平时编程的很多做法其实已经包含了DDD中的某些思想或实践，因为DDD并不是什么全新的东西要把你所写的代码全部推翻重来，而是很多具有逻辑归因性的东西其实大家都能总结出来，只是那些大牛总结得比我们更早，更系统，更全面而已。
 对于以上三种实现方式，我们在前面提到事务脚本和贫血对象只适合一些小型的软件项目，那么问题来了，到底多小才算小呢？这个问题没有标准答案，就像你问微服务多小算小一样，It depends！然而，但凡是企业中立过项的软件项目，都不会是实现一个<a href="http://zshipu.com/t/index.html?url=http://codekata.com/">Code Kata</a>这么简单，都不能被定义为“小型项目”。因此，对于几乎所有企业级软件系统来说，使用领域对象进而DDD都不会是个错误的选择。</p>
-<pre tabindex="0"><code>    @Transactional
-    public void changeMyMobile(ChangeMyMobileCommand command, User user) {
-        //API限流器，与DDD无关，读者可忽略
-        mryRateLimiter.applyFor(user.getTenantId(), &#34;Member:ChangeMyMobile&#34;, 5);
+<pre tabindex="0"><code> @Transactional
+ public void changeMyMobile(ChangeMyMobileCommand command, User user) {
+ //API限流器，与DDD无关，读者可忽略
+ mryRateLimiter.applyFor(user.getTenantId(), &#34;Member:ChangeMyMobile&#34;, 5);
 
-        //将所有请求相关的数据封装到Command对象中
-        String mobile = command.getMobile();
+ //将所有请求相关的数据封装到Command对象中
+ String mobile = command.getMobile();
 
-        //修改手机号时，需要验证发往新手机号的验证码
-        verificationCodeChecker.check(mobile, command.getVerification(), CHANGE_MOBILE);
+ //修改手机号时，需要验证发往新手机号的验证码
+ verificationCodeChecker.check(mobile, command.getVerification(), CHANGE_MOBILE);
 
-        Member member = memberRepository.byId(user.getMemberId());
+ Member member = memberRepository.byId(user.getMemberId());
 
-        //这里调用了MemberDomainService中的方法，而不是直接调用Member，因为需要检查手机号是否重复，而Member自身无法完成该检查
-        memberDomainService.changeMyMobile(member, mobile, command.getPassword());
+ //这里调用了MemberDomainService中的方法，而不是直接调用Member，因为需要检查手机号是否重复，而Member自身无法完成该检查
+ memberDomainService.changeMyMobile(member, mobile, command.getPassword());
 
-        memberRepository.save(member);
-        log.info(&#34;Mobile changed by member[{}].&#34;, member.getId());
-    }
+ memberRepository.save(member);
+ log.info(&#34;Mobile changed by member[{}].&#34;, member.getId());
+ }
 </code></pre><p>为了让读者能对代码有更加详尽的了解，我们在源代码中加上了注释，建议读者通过阅读这些注释来理解代码的意图。（真实的码如云代码库中是很少有注释的，因为我们坚持“代码即是设计”的原则，让代码本身直接体现业务意图）</p>
 <p>在本例中，首先使用限流器<code>MryRateLimiter</code>对请求进行限流处理，然后使用<code>VerificationCodeChecker</code>对手机号验证码进行检查，最后才调用<code>MemberDomainService</code>完成实际的业务逻辑。你可能有些纳闷儿，为什么不像前文中那样直接调用<code>Member</code>对象中的方法，而是调用<code>MemberDomainService</code>呢？事实上，这里的<code>MemberDomainService</code>在DDD中被称为<a href="http://zshipu.com/t/index.html?url=https://docs.mryqr.com/ddd-application-service-and-domain-service">领域服务</a>，用于处理领域对象自身无法处理的业务逻辑。在本例中，成员在修改手机号时，系统需要检查该手机号是否已经被其他成员所占用，这部分逻辑是无法通过单个<code>Member</code>自身完成的，只能通过一个可以跨多个<code>Member</code>的<code>MemberDomainService</code>完成。</p>
 <p>对于诸如限流器<code>MryRateLimiter</code>这些与DDD无关的代码，我们将在后续文章的代码中予以删除，以使代码集中在对DDD的阐述上。</p>
 <p><code>MemberDomainService.changeMyMobile()</code>方法实现如下：</p>
-<pre tabindex="0"><code>    public void changeMyMobile(Member member, String newMobile, String password) {
-        //修改手机号时，需要验证密码
-        if (!mryPasswordEncoder.matches(password, member.getPassword())) {
-            throw new MryException(PASSWORD_NOT_MATCH, &#34;修改手机号失败，密码不正确。&#34;, &#34;memberId&#34;, member.getId());
-        }
+<pre tabindex="0"><code> public void changeMyMobile(Member member, String newMobile, String password) {
+ //修改手机号时，需要验证密码
+ if (!mryPasswordEncoder.matches(password, member.getPassword())) {
+ throw new MryException(PASSWORD_NOT_MATCH, &#34;修改手机号失败，密码不正确。&#34;, &#34;memberId&#34;, member.getId());
+ }
 
-        if (Objects.equals(member.getMobile(), newMobile)) {
-            return;
-        }
+ if (Objects.equals(member.getMobile(), newMobile)) {
+ return;
+ }
 
-        //检查手机号是否已被占用
-        if (memberRepository.existsByMobile(newMobile)) {
-            throw new MryException(MEMBER_WITH_MOBILE_ALREADY_EXISTS, &#34;修改手机号失败，手机号对应成员已存在。&#34;,
-                    mapOf(&#34;mobile&#34;, newMobile, &#34;memberId&#34;, member.getId()));
-        }
+ //检查手机号是否已被占用
+ if (memberRepository.existsByMobile(newMobile)) {
+ throw new MryException(MEMBER_WITH_MOBILE_ALREADY_EXISTS, &#34;修改手机号失败，手机号对应成员已存在。&#34;,
+ mapOf(&#34;mobile&#34;, newMobile, &#34;memberId&#34;, member.getId()));
+ }
 
-        //调用Member对象中的方法，完成对手机号的修改
-        member.changeMobile(newMobile, member.toUser());
-    }
+ //调用Member对象中的方法，完成对手机号的修改
+ member.changeMobile(newMobile, member.toUser());
+ }
 </code></pre><p>可以看到，<code>MemberDomainService</code>调用了<code>MemberRepository.existsByMobile()</code>用于检查手机号是否已经被占用，如果是，则抛出异常。</p>
 <p>最后，<code>MemberDomainService</code>调用<code>Member.changeMobile()</code>方法完成对手机号的修改：</p>
 <pre tabindex="0"><code>public void changeMobile(String mobile, User user) {
-        if (Objects.equals(this.mobile, mobile)) {
-            return;
-        }
+ if (Objects.equals(this.mobile, mobile)) {
+ return;
+ }
 
-        //同时设置mobile字段和mobileIdentified的值，高度内聚
-        this.mobile = mobile;
-        this.mobileIdentified = true;
-        
-        this.addOpsLog(&#34;修改手机号为[&#34; + mobile + &#34;]&#34;, user);
-    }
+ //同时设置mobile字段和mobileIdentified的值，高度内聚
+ this.mobile = mobile;
+ this.mobileIdentified = true;
+
+ this.addOpsLog(&#34;修改手机号为[&#34; + mobile + &#34;]&#34;, user);
+ }
 </code></pre><p>在码如云，我们对领域驱动设计（DDD）进行了深入研究，并且已经阅读了市场上几乎所有的DDD相关书籍（截至2023年3月）。基于我们的学习和实践经验，以下是我们特别推荐的四本DDD书籍。</p>
 <ol>
 <li>
@@ -405,7 +405,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <li>
 <p><strong>《敏捷软件架构》</strong>
 本书讨论了如何结合敏捷方法论与DDD来优化软件开发流程，非常适合那些已经在进行或计划采用敏捷方式工作的团队。
-通过集中管理和调用<code>Member.changeMobile()</code>这一方法，我们可以确保所有关于更新成员手机号的操作都遵循相同逻辑处理。这样不仅简化了维护工作，也增强了代码的一致性和可读性。无论将来通过何种业务渠道需要修改成员信息时，只需调用此统一接口即可完成任务。aaaaaaa<br>
+通过集中管理和调用<code>Member.changeMobile()</code>这一方法，我们可以确保所有关于更新成员手机号的操作都遵循相同逻辑处理。这样不仅简化了维护工作，也增强了代码的一致性和可读性。无论将来通过何种业务渠道需要修改成员信息时，只需调用此统一接口即可完成任务。
 
         <img class="mx-auto" alt="" src="https://docs.mryqr.com/images/118-it/ddd/ddd-books.png" />   
     </p>
