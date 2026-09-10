@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="baidu-site-verification" content="codeva-odZno92jxn" />
+    <meta name="360-site-verification" content="b46a7087f21ff6cf8dcee8ee59ee9a61" />
+    <meta name="sogou_site_verification" content="F2mmMQ4NdU" />
+
+    <title>d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计 | 知识铺的博客</title>
+    <meta property="og:title" content="d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计 - 知识铺的博客">
+    <meta property="og:type" content="article">
+
+    
+    <meta property="article:modified_time" content='2026-09-10T00:00:00&#43;08:00'>
+    
+    <meta name="Keywords" content="golang,go语言,go语言笔记,知识铺,java,android,博客,项目管理,python,软件架构,公众号,小程序">
+    <meta name="description" content="d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计 d-Matrix 选择采用 Nvidia 的 NVLink Fusion 和 MGX 机架设计。这一 AI 基础设施初创公司由此加入 Qualcomm、Arm、Marvell、Amazon、Fujitsu …">
+    
+    
+    
+    
+    
+    <meta name="author" content="知识铺">
+    <meta property="og:url" content="https://index.zshipu.com/aichip/post/20260910/d-Matrix-%E9%87%87%E7%94%A8-Nvidia-NVLink-Fusion-%E4%B8%8E-MGX-%E6%9C%BA%E6%9E%B6%E8%AE%BE%E8%AE%A1/">
+    <link rel="canonical" href="https://index.zshipu.com/aichip/post/20260910/d-Matrix-%E9%87%87%E7%94%A8-Nvidia-NVLink-Fusion-%E4%B8%8E-MGX-%E6%9C%BA%E6%9E%B6%E8%AE%BE%E8%AE%A1/" />
+    <link rel="shortcut icon" href='/aichip/favicon.ico' type="image/x-icon">
+
+    <link rel="stylesheet" href='/aichip/css/normalize.css'>
+    <link rel="stylesheet" href='/aichip/css/style.css'>
+    <script type="text/javascript" src="//cdn.bootcdn.net/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+    
+
+    
+
+    
+    
+    
+    <script>(function (w, d, s, l, i) {
+            w[l] = w[l] || []; w[l].push({
+                'gtm.start':
+                    new Date().getTime(), event: 'gtm.js'
+            }); var f = d.getElementsByTagName(s)[0],
+                j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+                    'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+        })(window, document, 'script', 'dataLayer', 'GTM-WLWJSST');</script>
+    
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BY5XJ2PJ93"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BY5XJ2PJ93');
+    </script>
+    
+</head>
+
+<body>
+
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WLWJSST"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+    <header id="header" class="clearfix">
+    <div class="container">
+        <div class="col-group">
+            <div class="site-name ">
+                
+                    <a id="logo" href="https://index.zshipu.com/aichip/">
+                        知识铺的博客
+                    </a>
+                
+                <p class="description">专注于Android、Java、Go语言(golang)、移动互联网、项目管理、软件架构</p>
+            </div>
+            <div>
+                <nav id="nav-menu" class="clearfix">
+                    <a class="current" href="https://index.zshipu.com/aichip/">首页</a>
+                    
+                    <a  href="https://index.zshipu.com" title="总站">总站</a>
+                    
+                    <a  href="https://index.zshipu.com/aichip001/" title="技术文章">技术文章</a>
+                    
+                    <a  href="https://index.zshipu.com/aichip/archives/" title="归档">归档</a>
+                    
+                    <a  href="https://index.zshipu.com/aichip/about/" title="关于">关于</a>
+                    
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <div id="body">
+        <div class="container">
+            <div class="col-group">
+
+                <div class="col-8" id="main">
+                    
+<div class="res-cons">
+    <style type="text/css">
+    .post-toc {
+        position: fixed;
+        width: 200px;
+        margin-left: -210px;
+        padding: 5px 10px;
+        font-family: Athelas, STHeiti, Microsoft Yahei, serif;
+        font-size: 12px;
+        border: 1px solid rgba(0, 0, 0, .07);
+        border-radius: 5px;
+        background-color: rgba(255, 255, 255, 0.98);
+        background-clip: padding-box;
+        -webkit-box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        box-shadow: 1px 1px 2px rgba(0, 0, 0, .125);
+        word-wrap: break-word;
+        white-space: nowrap;
+        -webkit-box-sizing: border-box;
+        box-sizing: border-box;
+        z-index: 999;
+        cursor: pointer;
+        max-height: 70%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .post-toc .post-toc-title {
+        width: 100%;
+        margin: 0 auto;
+        font-size: 20px;
+        font-weight: 400;
+        text-transform: uppercase;
+        text-align: center;
+    }
+
+    .post-toc .post-toc-content {
+        font-size: 15px;
+    }
+
+    .post-toc .post-toc-content>nav>ul {
+        margin: 10px 0;
+    }
+
+    .post-toc .post-toc-content ul {
+        padding-left: 20px;
+        list-style: square;
+        margin: 0.5em;
+        line-height: 1.8em;
+    }
+
+    .post-toc .post-toc-content ul ul {
+        padding-left: 15px;
+        display: none;
+    }
+
+    @media print,
+    screen and (max-width:1057px) {
+        .post-toc {
+            display: none;
+        }
+    }
+</style>
+<div class="post-toc" style="position: absolute; top: 188px;">
+    <h2 class="post-toc-title">文章目录</h2>
+    <div class="post-toc-content">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#d-matrix-加入-nvlink-信徒阵营">d-Matrix 加入 NVLink 信徒阵营</a></li>
+    <li><a href="#nvlink-fusion-技术整合">NVLink Fusion 技术整合</a></li>
+    <li><a href="#mgx-机架设计应用">MGX 机架设计应用</a></li>
+    <li><a href="#ai-基础设施初创公司背景">AI 基础设施初创公司背景</a></li>
+    <li><a href="#nvidia-生态系统扩展">Nvidia 生态系统扩展</a></li>
+    <li><a href="#与其他公司的共同路径">与其他公司的共同路径</a></li>
+    <li><a href="#相关阅读">相关阅读</a></li>
+  </ul>
+</nav>
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function () {
+        var postToc = $(".post-toc");
+        if (postToc.length) {
+            var leftPos = $("#main").offset().left;
+            if(leftPos<220){
+                postToc.css({"width":leftPos-10,"margin-left":(0-leftPos)})
+            }
+
+            var t = postToc.offset().top - 20,
+                a = {
+                    start: {
+                        position: "absolute",
+                        top: t
+                    },
+                    process: {
+                        position: "fixed",
+                        top: 20
+                    },
+                };
+            $(window).scroll(function () {
+                var e = $(window).scrollTop();
+                e < t ? postToc.css(a.start) : postToc.css(a.process)
+            })
+        }
+    })
+</script>
+    <article class="post">
+        <header>
+            <h1 class="post-title">d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计</h1>
+        </header>
+        <date class="post-meta meta-date">
+            2026年9月10日
+        </date>
+        
+        
+        <div class="post-meta">
+            <span id="busuanzi_container_page_pv">|<span id="busuanzi_value_page_pv"></span><span>
+                    阅读</span></span>
+        </div>
+        
+        
+        <div class="post-content">
+            <h1 id="d-matrix-采用-nvidia-nvlink-fusion-与-mgx-机架设计">d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计</h1>
+<p>d-Matrix 选择采用 Nvidia 的 NVLink Fusion 和 MGX 机架设计。这一 AI 基础设施初创公司由此加入 Qualcomm、Arm、Marvell、Amazon、Fujitsu 以及 MediaTek 的行列，成为 NVLink 技术的忠实信徒。该决定显示出 d-Matrix 对 Nvidia 生态的深度整合，通过这些设计构建更高效的 AI 基础设施。</p>
+<h2 id="d-matrix-加入-nvlink-信徒阵营">d-Matrix 加入 NVLink 信徒阵营</h2>
+<p>d-Matrix 正式成为 NVLink 的支持者。该公司与 Qualcomm、Arm、Marvell、Amazon、Fujitsu 以及 MediaTek 站在一起，共同认可这一互联技术在 AI 系统中的价值。作为 AI 基础设施领域的参与者，d-Matrix 的这一定位突显出行业内多家企业对 Nvidia 互联方案的接受程度。</p>
+<p>这份名单反映出 NVLink 正在吸引不同背景的公司，从芯片设计商到云服务提供商，再到硬件制造商。d-Matrix 的加入进一步扩大了这一支持群体，表明 NVLink 技术在实际部署中获得认可。</p>
+<h2 id="nvlink-fusion-技术整合">NVLink Fusion 技术整合</h2>
+<p>d-Matrix 直接采用 Nvidia 的 NVLink Fusion。这一技术整合体现在其产品设计中，旨在提升系统间的通信效率。NVLink Fusion 作为 Nvidia 生态的重要组成部分，为 d-Matrix 提供了高速互联能力，适合处理大规模 AI 工作负载。</p>
+<p>通过这一整合，d-Matrix 能够在自己的解决方案中利用 NVLink Fusion 的优势，而无需从零开发类似技术。这一决定简化了开发路径，并确保与 Nvidia 现有工具和软件栈的兼容性。</p>
+<h2 id="mgx-机架设计应用">MGX 机架设计应用</h2>
+<p>d-Matrix 在其系统中应用 MGX 机架设计。该设计为模块化部署提供基础，帮助 d-Matrix 构建可扩展的 AI 基础设施。MGX 机架允许灵活配置不同组件，适应各种计算需求。</p>
+<p>在实际应用中，MGX 机架设计支持 d-Matrix 将 NVLink Fusion 技术嵌入更大规模的系统。这种机架级方法提升了整体部署效率，并为数据中心环境中的 AI 加速器提供标准化框架。</p>
+<h2 id="ai-基础设施初创公司背景">AI 基础设施初创公司背景</h2>
+<p>d-Matrix 作为一家专注于 AI 基础设施的初创公司，选择 Nvidia 的技术路线。这一背景决定了其产品面向高性能计算和机器学习训练与推理场景。初创公司的灵活性让 d-Matrix 能够快速采用新兴标准，如 NVLink Fusion 和 MGX。</p>
+<p>这一技术选择帮助 d-Matrix 在竞争激烈的市场中定位自身。AI 基础设施需要强大的互联和可扩展硬件，d-Matrix 通过这些采用来满足客户对高效系统的期待，而无需独自承担全部研发负担。</p>
+<h2 id="nvidia-生态系统扩展">Nvidia 生态系统扩展</h2>
+<p>d-Matrix 的决定直接强化 Nvidia 的 NVLink 生态。更多公司采用 NVLink Fusion 和 MGX 设计，意味着 Nvidia 的技术影响力在 AI 基础设施领域持续扩大。这一扩展体现在从芯片级互联到机架级部署的完整链条上。</p>
+<p>d-Matrix 的参与表明 NVLink 不再局限于 Nvidia 自有产品，而是成为行业共享的标准。这样的生态增长为整个 AI 供应链带来协同效应，推动更多创新围绕 Nvidia 技术展开。</p>
+<h2 id="与其他公司的共同路径">与其他公司的共同路径</h2>
+<p>d-Matrix 与 Qualcomm、Arm、Marvell、Amazon、Fujitsu 以及 MediaTek 的路径高度相似。这些公司均选择支持 NVLink，显示出对 Nvidia 互联技术的共同认可。无论是在移动芯片、服务器架构还是云基础设施领域，这一采用模式反复出现。</p>
+<p>这种相似性源于 NVLink 在性能和兼容性上的优势。d-Matrix 跟随这些先行者，验证了 NVLink 在不同规模企业中的实用价值。共同路径也暗示行业正朝着统一的高速互联方向发展，减少碎片化带来的复杂性。</p>
+<p>d-Matrix 的这一步标志着 AI 硬件生态的进一步融合。NVLink Fusion 和 MGX 机架设计的采用，为初创公司提供了成熟工具，同时也巩固了 Nvidia 在 AI 基础设施中的核心地位。未来更多参与者可能延续这一趋势，推动整个领域向前迈进。</p>
+<!-- webagent:internal-links -->
+<h2 id="相关阅读">相关阅读</h2>
+<ul>
+<li><a href="https://index.zshipu.com/aichip/post/20260910/%E9%AB%98%E5%B8%A6%E5%AE%BD%E5%86%85%E5%AD%98%E7%9F%AD%E7%BC%BA%E5%86%B2%E5%87%BB%E4%BE%9B%E5%BA%94%E9%93%BE-%E4%B8%AD%E5%9B%BD%E6%9C%AC%E5%9C%9FAI%E8%8A%AF%E7%89%87%E5%8E%82%E5%95%86%E9%9B%86%E4%BD%93%E5%A4%A7%E5%B9%85%E4%B8%8A%E8%B0%83%E5%8A%A0%E9%80%9F%E5%8D%A1%E5%94%AE%E4%BB%B7/">高带宽内存短缺冲击供应链 中国本土AI芯片厂商集体大幅上调加速卡售价</a></li>
+<li><a href="https://index.zshipu.com/aichip/post/20260909/%E9%95%BF%E9%91%ABHBM%E9%87%8F%E4%BA%A7%E9%81%87%E6%8C%AB%E6%8D%AE%E6%8A%A5%E8%89%AF%E7%8E%87%E8%B7%8C%E8%87%B325-HBM3%E6%9C%80%E7%BB%88%E6%B5%8B%E8%AF%95%E8%BF%91%E5%85%AB%E6%88%90%E4%B8%8D%E5%90%88%E6%A0%BC/">长鑫HBM量产遇挫：据报良率跌至25% HBM3最终测试近八成不合格</a></li>
+</ul>
+
+        </div>
+
+        
+<div class="post-archive">
+    <ul class="post-copyright">
+        <li><strong>原文作者：</strong><a rel="author" href="https://index.zshipu.com/aichip/">知识铺</a></li>
+        <li style="word-break:break-all"><strong>原文链接：</strong><a href="https://index.zshipu.com/aichip/post/20260910/d-Matrix-%E9%87%87%E7%94%A8-Nvidia-NVLink-Fusion-%E4%B8%8E-MGX-%E6%9C%BA%E6%9E%B6%E8%AE%BE%E8%AE%A1/">https://index.zshipu.com/aichip/post/20260910/d-Matrix-%E9%87%87%E7%94%A8-Nvidia-NVLink-Fusion-%E4%B8%8E-MGX-%E6%9C%BA%E6%9E%B6%E8%AE%BE%E8%AE%A1/</a></li>
+        <li><strong>版权声明：</strong>本作品采用<a rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">知识共享署名-非商业性使用-禁止演绎 4.0 国际许可协议</a>进行许可，非商业转载请注明出处（作者，原文链接），商业转载请联系作者获得授权。</li>
+        <li><strong>免责声明：</strong>本页面内容均来源于站内编辑发布，部分信息来源互联网，并不意味着本站赞同其观点或者证实其内容的真实性，如涉及版权等问题，请立即联系客服进行更改或删除，保证您的合法权益。转载请注明来源，欢迎对文章中的引用来源进行考证，欢迎指出任何有错误或不够清晰的表达。也可以邮件至 sblig@126.com</li>
+    </ul>
+</div>
+<br/>
+
+
+
+        
+
+<div class="post-archive">
+    <h2>See Also</h2>
+    <ul class="listing">
+        
+        <li><a href="/aichip/post/20260905/Meta%E8%87%AA%E7%A0%94%E7%BD%91%E7%BB%9C%E8%8A%AF%E7%89%87%E7%9B%B4%E6%8C%87AI%E9%9B%86%E7%BE%A4%E5%B8%A6%E5%AE%BD%E7%93%B6%E9%A2%88/">Meta自研网络芯片直指AI集群带宽瓶颈</a></li>
+        
+        <li><a href="/aichip/post/20260910/%E9%AB%98%E5%B8%A6%E5%AE%BD%E5%86%85%E5%AD%98%E7%9F%AD%E7%BC%BA%E5%86%B2%E5%87%BB%E4%BE%9B%E5%BA%94%E9%93%BE-%E4%B8%AD%E5%9B%BD%E6%9C%AC%E5%9C%9FAI%E8%8A%AF%E7%89%87%E5%8E%82%E5%95%86%E9%9B%86%E4%BD%93%E5%A4%A7%E5%B9%85%E4%B8%8A%E8%B0%83%E5%8A%A0%E9%80%9F%E5%8D%A1%E5%94%AE%E4%BB%B7/">高带宽内存短缺冲击供应链 中国本土AI芯片厂商集体大幅上调加速卡售价</a></li>
+        
+        <li><a href="/aichip/post/20260909/%E9%95%BF%E9%91%ABHBM%E9%87%8F%E4%BA%A7%E9%81%87%E6%8C%AB%E6%8D%AE%E6%8A%A5%E8%89%AF%E7%8E%87%E8%B7%8C%E8%87%B325-HBM3%E6%9C%80%E7%BB%88%E6%B5%8B%E8%AF%95%E8%BF%91%E5%85%AB%E6%88%90%E4%B8%8D%E5%90%88%E6%A0%BC/">长鑫HBM量产遇挫：据报良率跌至25% HBM3最终测试近八成不合格</a></li>
+        
+    </ul>
+</div>
+
+
+        <div class="post-meta meta-tags">
+            
+            <ul class="clearfix">
+                
+                <li><a href='/aichip/tags/AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD'>AI基础设施</a></li>
+                
+                <li><a href='/aichip/tags/MGX'>MGX</a></li>
+                
+                <li><a href='/aichip/tags/NVLink'>NVLink</a></li>
+                
+                <li><a href='/aichip/tags/Nvidia'>Nvidia</a></li>
+                
+                <li><a href='/aichip/tags/d-Matrix'>d-Matrix</a></li>
+                
+            </ul>
+            
+        </div>
+    </article>
+    
+    
+
+    
+    
+    <div class="post bg-white">
+      <script src="https://utteranc.es/client.js"
+            repo= "zshipu/zshipu-index"
+            issue-term="pathname"
+            theme="github-light"
+            crossorigin="anonymous"
+            async>
+      </script>
+    </div>
+    
+</div>
+
+                    <footer id="footer">
+    <div>
+        &copy; 2026 <a href="https://index.zshipu.com/aichip/">知识铺的博客 By 知识铺</a>
+        
+        | <a rel="nofollow" target="_blank" href="https://beian.miit.gov.cn/">浙 ICP 备19032823号-3</a>
+        
+        
+        | <a href="https://zshipu.com/privacy/index.html">隐私权政策</a>
+    </div>
+    <br />
+    <div>
+        <div class="github-badge">
+            <a href="https://gohugo.io/" target="_black" rel="nofollow"><span class="badge-subject">Powered by</span><span class="badge-value bg-blue">Hugo</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://www.flysnow.org/" target="_black"><span class="badge-subject">Design by</span><span class="badge-value bg-brightgreen">飞雪无情</span></a>
+        </div>
+        <div class="github-badge">
+            <a href="https://github.com/flysnow-org/maupassant-hugo" target="_black"><span class="badge-subject">Theme</span><span class="badge-value bg-yellowgreen">Maupassant</span></a>
+        </div>
+    </div>
+</footer>
+
+
+    
+    <script type="text/javascript">
+        window.MathJax = {
+            tex2jax: {
+                inlineMath: [['$', '$']],
+                processEscapes: true
+                }
+            };
+    </script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script>
+
+<a id="rocket" href="#top"></a>
+<script type="text/javascript" src='/aichip/js/totop.js?v=0.0.0' async=""></script>
+
+
+
+    <script type="text/javascript" src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" async></script>
+
+
+
+
+                </div>
+
+                <div id="secondary">
+    <section class="widget">
+        <form id="search" action='https://index.zshipu.com/aichip/search/' method="get" accept-charset="utf-8" target="_blank" _lpchecked="1">
+      
+      <input type="text" name="q" maxlength="20" placeholder="Search">
+      <input type="hidden" name="sitesearch" value="https://index.zshipu.com/aichip/">
+      <button type="submit" class="submit icon-search"></button>
+</form>
+    </section>
+    
+    <section class="widget">
+        <h3 class="widget-title">最近文章</h3>
+<ul class="widget-list">
+    
+    <li>
+        <a href="https://index.zshipu.com/aichip/post/20260910/d-Matrix-%E9%87%87%E7%94%A8-Nvidia-NVLink-Fusion-%E4%B8%8E-MGX-%E6%9C%BA%E6%9E%B6%E8%AE%BE%E8%AE%A1/" title="d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计">d-Matrix 采用 Nvidia NVLink Fusion 与 MGX 机架设计</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/aichip/post/20260910/%E9%AB%98%E5%B8%A6%E5%AE%BD%E5%86%85%E5%AD%98%E7%9F%AD%E7%BC%BA%E5%86%B2%E5%87%BB%E4%BE%9B%E5%BA%94%E9%93%BE-%E4%B8%AD%E5%9B%BD%E6%9C%AC%E5%9C%9FAI%E8%8A%AF%E7%89%87%E5%8E%82%E5%95%86%E9%9B%86%E4%BD%93%E5%A4%A7%E5%B9%85%E4%B8%8A%E8%B0%83%E5%8A%A0%E9%80%9F%E5%8D%A1%E5%94%AE%E4%BB%B7/" title="高带宽内存短缺冲击供应链 中国本土AI芯片厂商集体大幅上调加速卡售价">高带宽内存短缺冲击供应链 中国本土AI芯片厂商集体大幅上调加速卡售价</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/aichip/post/20260909/%E9%95%BF%E9%91%ABHBM%E9%87%8F%E4%BA%A7%E9%81%87%E6%8C%AB%E6%8D%AE%E6%8A%A5%E8%89%AF%E7%8E%87%E8%B7%8C%E8%87%B325-HBM3%E6%9C%80%E7%BB%88%E6%B5%8B%E8%AF%95%E8%BF%91%E5%85%AB%E6%88%90%E4%B8%8D%E5%90%88%E6%A0%BC/" title="长鑫HBM量产遇挫：据报良率跌至25% HBM3最终测试近八成不合格">长鑫HBM量产遇挫：据报良率跌至25% HBM3最终测试近八成不合格</a>
+    </li>
+    
+    <li>
+        <a href="https://index.zshipu.com/aichip/post/20260905/Meta%E8%87%AA%E7%A0%94%E7%BD%91%E7%BB%9C%E8%8A%AF%E7%89%87%E7%9B%B4%E6%8C%87AI%E9%9B%86%E7%BE%A4%E5%B8%A6%E5%AE%BD%E7%93%B6%E9%A2%88/" title="Meta自研网络芯片直指AI集群带宽瓶颈">Meta自研网络芯片直指AI集群带宽瓶颈</a>
+    </li>
+    
+</ul>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title" style="color:red">福利派送</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a href="https://nomissapi.com/sign-up?aff=OfSx" title="NomissAPI：一个 Key 调用主流大模型，注册即可开用" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/nomissapi-001.webp">
+                
+            </a>
+        </li>
+        
+        <li>
+            <a href="https://apikey.funai.vip/register?aff=GV3FSDUY5M3R" title="FunAI API Key：同样支持主流大模型，注册直接上手" target="_blank" style="color:red">
+                
+                    <img src="https://index.zshipu.com/promo/funai-001.webp">
+                
+            </a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/aichip/categories/'>分类</a></h3>
+<ul class="widget-list">
+    
+</ul>
+    </section>
+
+    <section class="widget">
+        <h3 class="widget-title"><a href='/aichip/tags/'>标签</a></h3>
+<div class="tagcloud">
+    
+    <a href="https://index.zshipu.com/aichip/tags/AI%E5%9F%BA%E7%A1%80%E8%AE%BE%E6%96%BD/">AI基础设施</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/AI%E7%AE%97%E5%8A%9B/">AI算力</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/AI%E8%8A%AF%E7%89%87/">AI芯片</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/AI%E9%9B%86%E7%BE%A4/">AI集群</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/d-Matrix/">D-Matrix</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/HBM3/">HBM3</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/HBM%E7%9F%AD%E7%BC%BA/">HBM短缺</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/Meta/">Meta</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/MGX/">MGX</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/Nvidia/">Nvidia</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/NVLink/">NVLink</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E5%86%85%E5%AD%98%E8%89%AF%E7%8E%87/">内存良率</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E5%8A%A0%E9%80%9F%E5%8D%A1%E5%94%AE%E4%BB%B7/">加速卡售价</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E5%8D%8A%E5%AF%BC%E4%BD%93%E5%88%B6%E9%80%A0/">半导体制造</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E5%8D%8E%E4%B8%BA/">华为</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E5%AF%92%E6%AD%A6%E7%BA%AA/">寒武纪</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E7%BD%91%E7%BB%9C%E8%8A%AF%E7%89%87/">网络芯片</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E8%87%AA%E7%A0%94%E8%8A%AF%E7%89%87/">自研芯片</a>
+    
+    <a href="https://index.zshipu.com/aichip/tags/%E9%95%BF%E9%91%AB%E5%AD%98%E5%82%A8/">长鑫存储</a>
+    
+</div>
+    </section>
+
+    
+<section class="widget">
+    <h3 class="widget-title">友情链接</h3>
+    <ul class="widget-list">
+        
+        <li>
+            <a target="_blank" href="https://blog.zshipu.com//" title="知识铺的博客">知识铺的博客</a>
+        </li>
+        
+    </ul>
+</section>
+
+
+    <section class="widget">
+        <h3 class="widget-title">其它</h3>
+        <ul class="widget-list">
+            <li><a href="https://index.zshipu.com/aichip/index.xml">文章 RSS</a></li>
+        </ul>
+    </section>
+</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
